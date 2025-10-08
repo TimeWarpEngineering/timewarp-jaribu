@@ -1,0 +1,32 @@
+<Project>
+  <!-- Import parent Directory.Build.props -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  
+  <PropertyGroup>
+    <!-- Disable package generation for scripts -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IsPackable>false</IsPackable>
+
+    <!-- Treat warnings as errors to see them during script compilation -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Suppress CLSCompliant warning for scripts -->
+    <NoWarn>$(NoWarn);CA1014;CA1031;CA1303;CA2007 </NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Global usings for all script projects -->
+    <Using Include="System.Diagnostics" />
+    <Using Include="System.Runtime.CompilerServices" />
+    <Using Include="System.Text.Json" />
+    <Using Include="TimeWarp.Nuru" />
+    <Using Include="TimeWarp.Amuru" />
+    <Using Include="TimeWarp.Amuru.Native.FileSystem" />
+    
+    <Using Include="System.Console" Static="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TimeWarp.Amuru" />
+    <PackageReference Include="TimeWarp.Nuru" />
+  </ItemGroup>
+</Project>

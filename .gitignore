@@ -416,3 +416,14 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+NURU-CONTEXT-DUMP.md
+LocalNuGetCache/
+
+# AOT publish output
+**/aot-output/
+
+# Test logs
+Tests/logs/
+
+# Agent workspace for temporary files
+.agent/workspace/

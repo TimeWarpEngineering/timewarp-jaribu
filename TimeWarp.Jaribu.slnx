@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/Source/">
+    <Project Path="Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+  </Folder>
+</Solution>
