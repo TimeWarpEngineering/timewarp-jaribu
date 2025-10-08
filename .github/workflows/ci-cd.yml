@@ -48,8 +48,8 @@ jobs:
           cd ..
 
           echo "Running integration tests..."
-          chmod +x Tests/run-jaribu-tests.cs
-          cd Tests && ./run-jaribu-tests.cs
+          chmod +x Tests/Scripts/run-all-tests.cs
+          cd Tests/Scripts && ./run-all-tests.cs
 
       - name: Check if version already published (Releases only)
         if: github.event_name == 'release'
