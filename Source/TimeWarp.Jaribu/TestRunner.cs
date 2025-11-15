@@ -10,6 +10,7 @@ using static System.Console;
 public static class TestRunner
 {
   private static int PassCount;
+  private static int SkippedCount;
   private static int TotalTests;
 
   /// <summary>
@@ -78,10 +79,11 @@ public static class TestRunner
     // Summary
     WriteLine();
     WriteLine("========================================");
-    WriteLine($"Results: {PassCount}/{TotalTests} tests passed");
+    string skippedInfo = SkippedCount > 0 ? $" ({SkippedCount} skipped)" : "";
+    WriteLine($"Results: {PassCount}/{TotalTests} tests passed{skippedInfo}");
     WriteLine("========================================");
 
-    return PassCount == TotalTests ? 0 : 1;
+    return (PassCount + SkippedCount) == TotalTests ? 0 : 1;
   }
 
   private static async Task RunTest(MethodInfo method, string? filterTag)
@@ -101,6 +103,7 @@ public static class TestRunner
       TestTagAttribute[] methodTags = method.GetCustomAttributes<TestTagAttribute>().ToArray();
       if (methodTags.Length > 0 && !methodTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
       {
+        SkippedCount++;
         TotalTests++;
         WriteLine($"Test: {TestHelpers.FormatTestName(method.Name)}");
         TestHelpers.TestSkipped($"No matching tag '{filterTag}'");
@@ -113,6 +116,7 @@ public static class TestRunner
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
     {
+      SkippedCount++;
       TotalTests++;
       string testName = method.Name;
       WriteLine($"Test: {TestHelpers.FormatTestName(testName)}");
