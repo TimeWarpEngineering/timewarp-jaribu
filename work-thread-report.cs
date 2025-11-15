@@ -1,5 +1,6 @@
 #!/usr/bin/dotnet --
 #:package TimeWarp.Amuru
+#:package TimeWarp.Nuru
 #:property NoWarn=CA1303;CA1852;CA2007;CA1031;CA1854;CA1307;CA1812;IL2026;IL3050
 #:property GeneratePackageOnBuild=false
 
@@ -7,16 +8,25 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TimeWarp.Amuru;
+using TimeWarp.Nuru;
 
 // ============================================================================
 // GitHub Work Thread Analyzer
 // Generates a stack-based view of your work across repositories
 // ============================================================================
 
-var daysBack = args.Length > 0 ? int.Parse(args[0], CultureInfo.InvariantCulture) : 30;
-var sinceDate = DateTime.Now.AddDays(-daysBack).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+var builder = new NuruAppBuilder();
+builder.AddAutoHelp();
+builder.AddRoute("report {days:int?}", ReportHandler, "Generate work thread report for the last N days (default: 30)");
+var app = builder.Build();
+return await app.RunAsync(args).ConfigureAwait(false);
 
-Console.WriteLine($"📊 Analyzing GitHub activity since {sinceDate}...\n");
+async Task ReportHandler(int? days)
+{
+    var daysBack = days ?? 30;
+    var sinceDate = DateTime.Now.AddDays(-daysBack).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    Console.WriteLine($"📊 Analyzing GitHub activity since {sinceDate}...\n");
 
 // Get username
 var userResult = await Shell.Builder("gh")
@@ -26,7 +36,7 @@ var userResult = await Shell.Builder("gh")
 if (!userResult.Success)
 {
     Console.WriteLine("❌ Failed to get GitHub username. Is gh CLI authenticated?");
-    return 1;
+    return;
 }
 var username = userResult.Stdout.Trim();
 
@@ -55,7 +65,7 @@ var userRepoResult = await Shell.Builder("gh")
 if (!userRepoResult.Success)
 {
     Console.WriteLine("❌ Failed to fetch user repositories");
-    return 1;
+    return;
 }
 
 var userRepoData = JsonDocument.Parse(userRepoResult.Stdout);
@@ -371,14 +381,14 @@ Console.WriteLine($"   • Max Stack Depth: {maxDepth}");
 Console.WriteLine();
 
 // Display threads
-Console.WriteLine("🧵 Work Threads (Chronological):");
+Console.WriteLine("🧵 Work Threads (Most Recent First):");
 Console.WriteLine();
 
 var repoColors = new Dictionary<string, string>();
 var colors = new[] { "🔵", "🟢", "🟡", "🟠", "🔴", "🟣", "🟤", "⚫" };
 var colorIndex = 0;
 
-foreach (var session in repoSessions)
+foreach (var session in Enumerable.Reverse(repoSessions))
 {
     if (!repoColors.ContainsKey(session.Repo))
     {
@@ -442,8 +452,7 @@ foreach (var repoGroup in groupedByRepo)
     Console.WriteLine($"   Last: {repoGroup.Max(a => a.Date):MMM dd}");
     Console.WriteLine();
 }
-
-return 0;
+}
 
 // ============================================================================
 // Data Models
