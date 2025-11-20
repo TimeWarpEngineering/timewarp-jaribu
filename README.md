@@ -62,6 +62,58 @@ using TimeWarp.Jaribu;
 await TestRunner.RunTests<MyTests>();
 ```
 
+### Setup and CleanUp
+
+Define `Setup()` and `CleanUp()` methods to run code before and after each test:
+
+```csharp
+public static class MyTests
+{
+    public static async Task Setup()
+    {
+        // Runs before EACH test
+        // Initialize test data, create temp files, etc.
+        await Task.CompletedTask;
+    }
+
+    public static async Task CleanUp()
+    {
+        // Runs after EACH test
+        // Clean up resources, delete temp files, etc.
+        await Task.CompletedTask;
+    }
+
+    public static async Task Test1()
+    {
+        // Setup runs before this test
+        // Test logic here
+        // CleanUp runs after this test
+    }
+
+    public static async Task Test2()
+    {
+        // Setup runs before this test (fresh state)
+        // Test logic here
+        // CleanUp runs after this test
+    }
+}
+```
+
+**Note**: For one-time initialization, use static constructors or static field initialization:
+
+```csharp
+public static class MyTests
+{
+    private static readonly ExpensiveResource Resource = InitializeResource();
+
+    private static ExpensiveResource InitializeResource()
+    {
+        // One-time initialization
+        return new ExpensiveResource();
+    }
+}
+```
+
 ## Documentation
 
 See the [developer documentation](documentation/) for advanced usage, attributes, and best practices.

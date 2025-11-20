@@ -67,14 +67,10 @@ public static class TestRunner
     MethodInfo[] testMethods = typeof(T).GetMethods(BindingFlags.Public | BindingFlags.Static);
 
     // Run them as tests
-    await InvokeSetup<T>();
-
     foreach (MethodInfo method in testMethods)
     {
-      await RunTest(method, filterTag);
+      await RunTest<T>(method, filterTag);
     }
-
-    await InvokeCleanup<T>();
 
     // Summary
     WriteLine();
@@ -86,7 +82,7 @@ public static class TestRunner
     return (PassCount + SkippedCount) == TotalTests ? 0 : 1;
   }
 
-  private static async Task RunTest(MethodInfo method, string? filterTag)
+  private static async Task RunTest<T>(MethodInfo method, string? filterTag) where T : class
   {
     // Skip non-test methods (not public, not static, not Task, or named CleanUp/Setup)
     if (!method.IsPublic ||
@@ -133,13 +129,17 @@ public static class TestRunner
       // Run test once for each [Input]
       foreach (InputAttribute inputAttr in inputAttrs)
       {
+        await InvokeSetup<T>();
         await RunSingleTest(method, inputAttr.Parameters);
+        await InvokeCleanup<T>();
       }
     }
     else
     {
       // No [Input] attributes - run once with no parameters
+      await InvokeSetup<T>();
       await RunSingleTest(method, []);
+      await InvokeCleanup<T>();
     }
   }
 

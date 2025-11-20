@@ -6,6 +6,9 @@ return await RunTests<DiscoveryTests>(clearCache: true);
 [ClearRunfileCache]
 public class DiscoveryTests
 {
+  private static int SetupCount;
+  private static int CleanUpCount;
+
   /// <summary>
   /// Basic test method execution - Simple passing test.
   /// </summary>
@@ -31,16 +34,17 @@ public class DiscoveryTests
 
   public static async Task Setup()
   {
-    // Named Setup: invoked before tests
-    WriteLine("Setup invoked - preparing test environment");
+    // Named Setup: invoked before each test
+    SetupCount++;
+    WriteLine($"Setup invoked (count: {SetupCount}) - preparing test environment");
     await Task.CompletedTask;
   }
 
   public static async Task CleanUp()
   {
-    // Named CleanUp: invoked after tests (async)
-    // Log or assert something here for REPORT-03 validation
-    WriteLine("CleanUp invoked");
+    // Named CleanUp: invoked after each test (async)
+    CleanUpCount++;
+    WriteLine($"CleanUp invoked (count: {CleanUpCount})");
     await Task.CompletedTask;
   }
 
