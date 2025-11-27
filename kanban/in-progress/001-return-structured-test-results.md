@@ -6,14 +6,14 @@ Enhance `TestRunner.RunTests<T>` to return a structured `TestRunSummary` contain
 
 ## Todo List
 
-- [ ] Create `TestOutcome` enum (Passed, Failed, Skipped)
-- [ ] Create `TestResult` record with: TestName, Outcome, Duration, FailureMessage, StackTrace, Parameters
-- [ ] Create `TestRunSummary` record with: ClassName, StartTime, TotalDuration, counts, and Results collection
-- [ ] Add `Stopwatch` timing to `RunSingleTest` to capture per-test duration
-- [ ] Implement `RunTestsWithResults<T>()` returning `Task<TestRunSummary>`
-- [ ] Refactor existing `RunTests<T>()` to call `RunTestsWithResults<T>()` internally and derive exit code
-- [ ] Update tests to verify new structured results
-- [ ] Document usage in README
+- [x] Create `TestOutcome` enum (Passed, Failed, Skipped)
+- [x] Create `TestResult` record with: TestName, Outcome, Duration, FailureMessage, StackTrace, Parameters
+- [x] Create `TestRunSummary` record with: ClassName, StartTime, TotalDuration, counts, and Results collection
+- [x] Add `Stopwatch` timing to `RunSingleTest` to capture per-test duration
+- [x] Implement `RunTestsWithResults<T>()` returning `Task<TestRunSummary>`
+- [x] Refactor existing `RunTests<T>()` to call `RunTestsWithResults<T>()` internally and derive exit code
+- [x] Update tests to verify new structured results
+- [x] Document usage in README
 
 ## Notes
 
@@ -23,7 +23,7 @@ Current implementation:
 - No timing information captured
 - Console output only, no programmatic access to results
 
-Proposed records:
+Implemented records:
 ```csharp
 public enum TestOutcome { Passed, Failed, Skipped }
 
@@ -33,7 +33,7 @@ public record TestResult(
     TimeSpan Duration,
     string? FailureMessage,
     string? StackTrace,
-    object?[]? Parameters
+    IReadOnlyList<object?>? Parameters  // Changed from array to IReadOnlyList per CA1819
 );
 
 public record TestRunSummary(
@@ -44,7 +44,11 @@ public record TestRunSummary(
     int FailedCount,
     int SkippedCount,
     IReadOnlyList<TestResult> Results
-);
+)
+{
+    public int TotalTests => PassedCount + FailedCount + SkippedCount;
+    public bool Success => FailedCount == 0;
+}
 ```
 
 Benefits:

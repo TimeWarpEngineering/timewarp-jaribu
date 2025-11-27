@@ -1,7 +1,67 @@
 namespace TimeWarp.Jaribu;
 
+using System.Diagnostics;
 using System.Reflection;
 using static System.Console;
+
+/// <summary>
+/// Represents the outcome of a single test execution.
+/// </summary>
+public enum TestOutcome
+{
+  Passed,
+  Failed,
+  Skipped
+}
+
+/// <summary>
+/// Contains detailed information about a single test execution.
+/// </summary>
+/// <param name="TestName">The name of the test method.</param>
+/// <param name="Outcome">Whether the test passed, failed, or was skipped.</param>
+/// <param name="Duration">How long the test took to execute.</param>
+/// <param name="FailureMessage">The failure or skip reason, if applicable.</param>
+/// <param name="StackTrace">The stack trace if the test failed with an exception.</param>
+/// <param name="Parameters">The parameters passed to the test, if parameterized.</param>
+public record TestResult(
+  string TestName,
+  TestOutcome Outcome,
+  TimeSpan Duration,
+  string? FailureMessage,
+  string? StackTrace,
+  IReadOnlyList<object?>? Parameters
+);
+
+/// <summary>
+/// Contains aggregated results from running all tests in a test class.
+/// </summary>
+/// <param name="ClassName">The name of the test class.</param>
+/// <param name="StartTime">When the test run started.</param>
+/// <param name="TotalDuration">Total time for all tests.</param>
+/// <param name="PassedCount">Number of tests that passed.</param>
+/// <param name="FailedCount">Number of tests that failed.</param>
+/// <param name="SkippedCount">Number of tests that were skipped.</param>
+/// <param name="Results">Detailed results for each test.</param>
+public record TestRunSummary(
+  string ClassName,
+  DateTimeOffset StartTime,
+  TimeSpan TotalDuration,
+  int PassedCount,
+  int FailedCount,
+  int SkippedCount,
+  IReadOnlyList<TestResult> Results
+)
+{
+  /// <summary>
+  /// Total number of tests executed.
+  /// </summary>
+  public int TotalTests => PassedCount + FailedCount + SkippedCount;
+
+  /// <summary>
+  /// Whether all tests passed (or were skipped).
+  /// </summary>
+  public bool Success => FailedCount == 0;
+}
 
 /// <summary>
 /// Simple test runner for single-file C# programs.
@@ -22,8 +82,32 @@ public static class TestRunner
   /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
   public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
   {
+    TestRunSummary summary = await RunTestsWithResults<T>(clearCache, filterTag);
+    return summary.Success ? 0 : 1;
+  }
+
+  /// <summary>
+  /// Runs all public static async Task methods in the specified test class and returns structured results.
+  /// </summary>
+  /// <typeparam name="T">The test class containing test methods.</typeparam>
+  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests. Defaults to false for performance. Set true to ensure latest source changes are picked up.</param>
+  /// <param name="filterTag">Optional tag to filter tests. Only runs tests with this tag. Checks both class-level and method-level TestTag attributes. If not specified, checks JARIBU_FILTER_TAG environment variable.</param>
+  /// <returns>A TestRunSummary containing detailed results for all tests.</returns>
+  public static async Task<TestRunSummary> RunTestsWithResults<T>(bool? clearCache = null, string? filterTag = null) where T : class
+  {
+    // Reset static counters for this run
+    PassCount = 0;
+    SkippedCount = 0;
+    TotalTests = 0;
+
+    DateTimeOffset startTime = DateTimeOffset.Now;
+    var overallStopwatch = Stopwatch.StartNew();
+    var allResults = new List<TestResult>();
+
     // Check environment variable if filterTag not explicitly provided
     filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
+
+    string testClassName = typeof(T).Name.Replace("Tests", "", StringComparison.Ordinal);
 
     // Check if test class matches filter tag (if specified)
     if (filterTag is not null)
@@ -32,7 +116,16 @@ public static class TestRunner
       if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
       {
         // Class has tags but none match the filter - skip entire class
-        return 0;
+        overallStopwatch.Stop();
+        return new TestRunSummary(
+          testClassName,
+          startTime,
+          overallStopwatch.Elapsed,
+          PassedCount: 0,
+          FailedCount: 0,
+          SkippedCount: 0,
+          Results: allResults
+        );
       }
     }
 
@@ -53,7 +146,6 @@ public static class TestRunner
       ClearRunfileCache();
     }
 
-    string testClassName = typeof(T).Name.Replace("Tests", "", StringComparison.Ordinal);
     WriteLine($"🧪 Testing {testClassName}...");
 
     if (filterTag is not null)
@@ -69,28 +161,46 @@ public static class TestRunner
     // Run them as tests
     foreach (MethodInfo method in testMethods)
     {
-      await RunTest<T>(method, filterTag);
+      List<TestResult> methodResults = await RunTest<T>(method, filterTag);
+      allResults.AddRange(methodResults);
     }
+
+    overallStopwatch.Stop();
+
+    // Calculate counts from results
+    int passedCount = allResults.Count(r => r.Outcome == TestOutcome.Passed);
+    int failedCount = allResults.Count(r => r.Outcome == TestOutcome.Failed);
+    int skippedCount = allResults.Count(r => r.Outcome == TestOutcome.Skipped);
 
     // Summary
     WriteLine();
     WriteLine("========================================");
-    string skippedInfo = SkippedCount > 0 ? $" ({SkippedCount} skipped)" : "";
-    WriteLine($"Results: {PassCount}/{TotalTests} tests passed{skippedInfo}");
+    string skippedInfo = skippedCount > 0 ? $" ({skippedCount} skipped)" : "";
+    WriteLine($"Results: {passedCount}/{allResults.Count} tests passed{skippedInfo}");
     WriteLine("========================================");
 
-    return (PassCount + SkippedCount) == TotalTests ? 0 : 1;
+    return new TestRunSummary(
+      testClassName,
+      startTime,
+      overallStopwatch.Elapsed,
+      passedCount,
+      failedCount,
+      skippedCount,
+      allResults
+    );
   }
 
-  private static async Task RunTest<T>(MethodInfo method, string? filterTag) where T : class
+  private static async Task<List<TestResult>> RunTest<T>(MethodInfo method, string? filterTag) where T : class
   {
+    var results = new List<TestResult>();
+
     // Skip non-test methods (not public, not static, not Task, or named CleanUp/Setup)
     if (!method.IsPublic ||
         !method.IsStatic ||
         method.ReturnType != typeof(Task) ||
         method.Name is "CleanUp" or "Setup")
     {
-      return;
+      return results;
     }
 
     // Check for method tag filter if specified
@@ -104,7 +214,15 @@ public static class TestRunner
         WriteLine($"Test: {TestHelpers.FormatTestName(method.Name)}");
         TestHelpers.TestSkipped($"No matching tag '{filterTag}'");
         WriteLine();
-        return;
+        results.Add(new TestResult(
+          method.Name,
+          TestOutcome.Skipped,
+          TimeSpan.Zero,
+          $"No matching tag '{filterTag}'",
+          StackTrace: null,
+          Parameters: null
+        ));
+        return results;
       }
     }
 
@@ -118,7 +236,15 @@ public static class TestRunner
       WriteLine($"Test: {TestHelpers.FormatTestName(testName)}");
       TestHelpers.TestSkipped(skipAttr.Reason);
       WriteLine();
-      return;
+      results.Add(new TestResult(
+        testName,
+        TestOutcome.Skipped,
+        TimeSpan.Zero,
+        skipAttr.Reason,
+        StackTrace: null,
+        Parameters: null
+      ));
+      return results;
     }
 
     // Check for [Input] attributes for parameterized tests
@@ -130,7 +256,8 @@ public static class TestRunner
       foreach (InputAttribute inputAttr in inputAttrs)
       {
         await InvokeSetup<T>();
-        await RunSingleTest(method, inputAttr.Parameters);
+        TestResult result = await RunSingleTest(method, inputAttr.Parameters);
+        results.Add(result);
         await InvokeCleanup<T>();
       }
     }
@@ -138,12 +265,15 @@ public static class TestRunner
     {
       // No [Input] attributes - run once with no parameters
       await InvokeSetup<T>();
-      await RunSingleTest(method, []);
+      TestResult result = await RunSingleTest(method, []);
+      results.Add(result);
       await InvokeCleanup<T>();
     }
+
+    return results;
   }
 
-  private static async Task RunSingleTest(MethodInfo method, object?[] parameters)
+  private static async Task<TestResult> RunSingleTest(MethodInfo method, object?[] parameters)
   {
     TotalTests++;
     string testName = method.Name;
@@ -154,6 +284,8 @@ public static class TestRunner
       : TestHelpers.FormatTestName(testName);
 
     WriteLine($"Test: {displayName}");
+
+    var stopwatch = Stopwatch.StartNew();
 
     try
     {
@@ -167,13 +299,21 @@ public static class TestRunner
           Task completedTask = await Task.WhenAny(testTask, timeoutTask);
           if (completedTask == timeoutTask)
           {
-            TestHelpers.TestFailed($"Timeout after {timeoutAttr.Milliseconds}ms");
+            stopwatch.Stop();
+            string timeoutMessage = $"Timeout after {timeoutAttr.Milliseconds}ms";
+            TestHelpers.TestFailed(timeoutMessage);
             WriteLine();
-            return;
+            return new TestResult(
+              testName,
+              TestOutcome.Failed,
+              stopwatch.Elapsed,
+              timeoutMessage,
+              StackTrace: null,
+              parameters.Length > 0 ? parameters.ToList() : null
+            );
           }
 
           await testTask; // Propagate any exceptions from the test task
-
         }
         else
         {
@@ -181,20 +321,50 @@ public static class TestRunner
         }
       }
 
+      stopwatch.Stop();
       PassCount++;
       TestHelpers.TestPassed();
+      WriteLine();
+      return new TestResult(
+        testName,
+        TestOutcome.Passed,
+        stopwatch.Elapsed,
+        FailureMessage: null,
+        StackTrace: null,
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
+      stopwatch.Stop();
       // Unwrap the TargetInvocationException to get the actual exception
-      TestHelpers.TestFailed($"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+      string failureMessage = $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
+      TestHelpers.TestFailed(failureMessage);
+      WriteLine();
+      return new TestResult(
+        testName,
+        TestOutcome.Failed,
+        stopwatch.Elapsed,
+        failureMessage,
+        ex.InnerException.StackTrace,
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
     }
     catch (Exception ex)
     {
-      TestHelpers.TestFailed($"{ex.GetType().Name}: {ex.Message}");
+      stopwatch.Stop();
+      string failureMessage = $"{ex.GetType().Name}: {ex.Message}";
+      TestHelpers.TestFailed(failureMessage);
+      WriteLine();
+      return new TestResult(
+        testName,
+        TestOutcome.Failed,
+        stopwatch.Elapsed,
+        failureMessage,
+        ex.StackTrace,
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
     }
-
-    WriteLine();
   }
 
   private static async Task InvokeSetup<T>() where T : class

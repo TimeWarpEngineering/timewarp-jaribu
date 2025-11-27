@@ -59,7 +59,59 @@ For programmatic use:
 ```csharp
 using TimeWarp.Jaribu;
 
-await TestRunner.RunTests<MyTests>();
+// Simple usage - returns exit code (0 = success, 1 = failure)
+int exitCode = await TestRunner.RunTests<MyTests>();
+
+// With structured results - get detailed test information
+TestRunSummary summary = await TestRunner.RunTestsWithResults<MyTests>();
+
+// Access detailed results
+Console.WriteLine($"Passed: {summary.PassedCount}");
+Console.WriteLine($"Failed: {summary.FailedCount}");
+Console.WriteLine($"Skipped: {summary.SkippedCount}");
+Console.WriteLine($"Duration: {summary.TotalDuration}");
+
+// Iterate over individual test results
+foreach (TestResult result in summary.Results)
+{
+    Console.WriteLine($"{result.TestName}: {result.Outcome} ({result.Duration.TotalMilliseconds}ms)");
+    if (result.FailureMessage is not null)
+    {
+        Console.WriteLine($"  Error: {result.FailureMessage}");
+    }
+}
+```
+
+### Structured Results Types
+
+```csharp
+// Test outcome for each test
+public enum TestOutcome { Passed, Failed, Skipped }
+
+// Individual test result
+public record TestResult(
+    string TestName,
+    TestOutcome Outcome,
+    TimeSpan Duration,
+    string? FailureMessage,
+    string? StackTrace,
+    IReadOnlyList<object?>? Parameters  // For parameterized tests
+);
+
+// Summary of entire test run
+public record TestRunSummary(
+    string ClassName,
+    DateTimeOffset StartTime,
+    TimeSpan TotalDuration,
+    int PassedCount,
+    int FailedCount,
+    int SkippedCount,
+    IReadOnlyList<TestResult> Results
+)
+{
+    public int TotalTests => PassedCount + FailedCount + SkippedCount;
+    public bool Success => FailedCount == 0;
+}
 ```
 
 ### Setup and CleanUp
