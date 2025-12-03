@@ -6,10 +6,16 @@ Add TimeWarp.Nuru package reference to TimeWarp.Jaribu to enable use of `Table` 
 
 ## Todo List
 
-- [ ] Update TimeWarp.Nuru version in `Directory.Packages.props` to latest
-- [ ] Add `<PackageReference Include="TimeWarp.Nuru" />` to `TimeWarp.Jaribu.csproj`
-- [ ] Verify build succeeds
+- [x] Update TimeWarp.Nuru version in `Directory.Packages.props` to latest
+- [x] Add `<PackageReference Include="TimeWarp.Nuru" />` to `TimeWarp.Jaribu.csproj`
+- [x] Verify build succeeds
 - [ ] Run tests to confirm no regressions
+
+## Results
+
+- Updated TimeWarp.Nuru from 2.1.0-beta.12 to 3.0.0-beta.12
+- Also updated Microsoft.CodeAnalysis.NetAnalyzers (9.0.0 → 10.0.100) and Microsoft.CodeAnalysis.CSharp.CodeStyle (4.14.0 → 5.0.0)
+- Build succeeds with no warnings or errors
 
 ## Notes
 
