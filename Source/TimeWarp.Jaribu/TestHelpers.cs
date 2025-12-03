@@ -3,6 +3,7 @@ namespace TimeWarp.Jaribu;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using TimeWarp.Nuru;
 
 /// <summary>
 /// Helper utilities for test formatting and common patterns.
@@ -126,6 +127,70 @@ public static partial class TestHelpers
     if (anyDeleted)
     {
         Console.WriteLine();
+    }
+  }
+
+  /// <summary>
+  /// Prints test results in a formatted table with colored status indicators.
+  /// </summary>
+  /// <param name="summary">The test run summary containing all results.</param>
+  /// <param name="terminal">Optional terminal for output. Uses NuruTerminal if not specified.</param>
+  /// <param name="maxMessageWidth">Maximum width for message column before truncation. Default 50.</param>
+  public static void PrintResultsTable(TestRunSummary summary, ITerminal? terminal = null, int maxMessageWidth = 50)
+  {
+    ArgumentNullException.ThrowIfNull(summary);
+    terminal ??= new NuruTerminal();
+
+    Table table = new Table()
+      .AddColumn("Test")
+      .AddColumn("Status")
+      .AddColumn("Duration", Alignment.Right)
+      .AddColumn("Message");
+
+    table.Border = BorderStyle.Rounded;
+
+    foreach (TestResult result in summary.Results)
+    {
+      string status = result.Outcome switch
+      {
+        TestOutcome.Passed => "✓ Pass".Green(),
+        TestOutcome.Failed => "X Fail".Red(),
+        TestOutcome.Skipped => "⚠ Skip".Yellow(),
+        _ => result.Outcome.ToString()
+      };
+
+      string duration = $"{result.Duration.TotalSeconds:F2}s";
+
+      string message = result.Outcome switch
+      {
+        TestOutcome.Passed => "Completed successfully",
+        TestOutcome.Skipped => result.FailureMessage ?? "Skipped",
+        TestOutcome.Failed => result.FailureMessage ?? "Failed",
+        _ => string.Empty
+      };
+
+      // Truncate long messages
+      if (message.Length > maxMessageWidth)
+      {
+        message = string.Concat(message.AsSpan(0, maxMessageWidth - 3), "...");
+      }
+
+      table.AddRow(FormatTestName(result.TestName), status, duration, message);
+    }
+
+    terminal.WriteTable(table);
+    terminal.WriteLine();
+
+    // Summary line with colors
+    terminal.WriteLine($"{"Total:".Bold()} {summary.TotalTests}");
+    terminal.WriteLine($"{"Passed:".Green()} {summary.PassedCount}");
+    if (summary.FailedCount > 0)
+    {
+      terminal.WriteLine($"{"Failed:".Red()} {summary.FailedCount}");
+    }
+    if (summary.SkippedCount > 0)
+    {
+      terminal.WriteLine($"{"Skipped:".Yellow()} {summary.SkippedCount}");
     }
   }
 

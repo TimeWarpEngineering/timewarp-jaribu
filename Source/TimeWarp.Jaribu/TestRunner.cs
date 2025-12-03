@@ -172,14 +172,7 @@ public static class TestRunner
     int failedCount = allResults.Count(r => r.Outcome == TestOutcome.Failed);
     int skippedCount = allResults.Count(r => r.Outcome == TestOutcome.Skipped);
 
-    // Summary
-    WriteLine();
-    WriteLine("========================================");
-    string skippedInfo = skippedCount > 0 ? $" ({skippedCount} skipped)" : "";
-    WriteLine($"Results: {passedCount}/{allResults.Count} tests passed{skippedInfo}");
-    WriteLine("========================================");
-
-    return new TestRunSummary(
+    var summary = new TestRunSummary(
       testClassName,
       startTime,
       overallStopwatch.Elapsed,
@@ -188,6 +181,12 @@ public static class TestRunner
       skippedCount,
       allResults
     );
+
+    // Print formatted results table
+    WriteLine();
+    TestHelpers.PrintResultsTable(summary);
+
+    return summary;
   }
 
   private static async Task<List<TestResult>> RunTest<T>(MethodInfo method, string? filterTag) where T : class

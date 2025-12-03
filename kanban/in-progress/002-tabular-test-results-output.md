@@ -6,13 +6,13 @@ Add formatted tabular output for test results after a test run completes. Displa
 
 ## Todo List
 
-- [ ] Add `PrintResultsTable(TestRunSummary summary)` method to `TestHelpers`
-- [ ] Calculate column widths dynamically based on content
-- [ ] Implement ANSI color codes for status (green=Pass, red=Fail, yellow=Skip)
+- [ ] Add `PrintResultsTable(TestRunSummary summary, ITerminal terminal)` method to `TestHelpers`
+- [ ] Use Nuru's `Table` widget (handles column widths automatically)
+- [ ] Use Nuru color extensions (`.Green()`, `.Red()`, `.Yellow()`) for status
 - [ ] Truncate long messages with "..." to fit reasonable width
 - [ ] Add summary line: `Total: X  Passed: Y  Failed: Z  Skipped: W`
-- [ ] Call `PrintResultsTable` at end of `RunTestsWithResults<T>()`
-- [ ] Add test for tabular output formatting
+- [ ] Update `RunTestsWithResults<T>()` to accept optional `ITerminal` and call `PrintResultsTable`
+- [ ] Add test for tabular output formatting using `TestTerminal`
 
 ## Notes
 
@@ -42,3 +42,7 @@ Existing infrastructure to leverage:
 - `TestRunSummary` record already contains all needed data
 - `TestResult` has TestName, Outcome, Duration, FailureMessage
 - `TestOutcome` enum: Passed, Failed, Skipped
+- TimeWarp.Nuru 3.0.0-beta.12 added as dependency (task 003)
+  - `Table` widget with `.AddColumn()`, `.AddRow()`, border styles
+  - `ITerminal`/`TestTerminal` for testable output
+  - Color extensions: `.Green()`, `.Red()`, `.Yellow()`, `.Bold()`
