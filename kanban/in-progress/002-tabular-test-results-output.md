@@ -6,12 +6,12 @@ Add formatted tabular output for test results after a test run completes. Displa
 
 ## Todo List
 
-- [ ] Add `PrintResultsTable(TestRunSummary summary, ITerminal terminal)` method to `TestHelpers`
-- [ ] Use Nuru's `Table` widget (handles column widths automatically)
-- [ ] Use Nuru color extensions (`.Green()`, `.Red()`, `.Yellow()`) for status
-- [ ] Truncate long messages with "..." to fit reasonable width
-- [ ] Add summary line: `Total: X  Passed: Y  Failed: Z  Skipped: W`
-- [ ] Update `RunTestsWithResults<T>()` to accept optional `ITerminal` and call `PrintResultsTable`
+- [x] Add `PrintResultsTable(TestRunSummary summary, ITerminal terminal)` method to `TestHelpers`
+- [x] Use Nuru's `Table` widget (handles column widths automatically)
+- [x] Use Nuru color extensions (`.Green()`, `.Red()`, `.Yellow()`) for status
+- [x] Truncate long messages with "..." to fit reasonable width
+- [x] Add summary line: `Total: X  Passed: Y  Failed: Z  Skipped: W`
+- [x] Call `PrintResultsTable` at end of `RunTestsWithResults<T>()`
 - [ ] Add test for tabular output formatting using `TestTerminal`
 
 ## Notes
