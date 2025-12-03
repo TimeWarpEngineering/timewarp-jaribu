@@ -12,7 +12,21 @@ Add formatted tabular output for test results after a test run completes. Displa
 - [x] Truncate long messages with "..." to fit reasonable width
 - [x] Add summary line: `Total: X  Passed: Y  Failed: Z  Skipped: W`
 - [x] Call `PrintResultsTable` at end of `RunTestsWithResults<T>()`
-- [ ] Add test for tabular output formatting using `TestTerminal`
+- [x] Add test for tabular output formatting using `TestTerminal`
+
+## Results
+
+Implemented `PrintResultsTable` in `TestHelpers.cs` using Nuru's Table widget:
+- Rounded border table with columns: Test, Status, Duration, Message
+- Color-coded status: green (✓ Pass), red (X Fail), yellow (⚠ Skip)
+- Message truncation with configurable max width (default 50 chars)
+- Summary totals with colored labels
+- Test file: `jaribu-09-tabular-output.cs` with 5 tests covering:
+  - Table structure and headers
+  - Message truncation
+  - ANSI color codes
+  - Duration formatting
+  - Empty results handling
 
 ## Notes
 
