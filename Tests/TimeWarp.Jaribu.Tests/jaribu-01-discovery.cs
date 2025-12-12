@@ -1,9 +1,8 @@
 #!/usr/bin/dotnet --
 
-return await RunTests<DiscoveryTests>(clearCache: true);
+return await RunTests<DiscoveryTests>();
 
 [TestTag("Jaribu")]
-[ClearRunfileCache]
 public class DiscoveryTests
 {
   private static int SetupCount;

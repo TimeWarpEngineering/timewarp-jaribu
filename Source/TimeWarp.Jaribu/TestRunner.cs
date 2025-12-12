@@ -2,6 +2,7 @@ namespace TimeWarp.Jaribu;
 
 using System.Diagnostics;
 using System.Reflection;
+using TimeWarp.Amuru;
 using static System.Console;
 
 /// <summary>
@@ -129,21 +130,28 @@ public static class TestRunner
       }
     }
 
-    // Determine whether to clear cache: attribute wins, then parameter, then default (false)
-    bool shouldClearCache = false;
+    // Determine whether to clean: attribute wins, then parameter, then default (false)
+    // Check both [Clean] and [ClearRunfileCache] attributes (Clean takes precedence)
+    bool shouldClean = false;
+    CleanAttribute? cleanAttr = typeof(T).GetCustomAttribute<CleanAttribute>();
     ClearRunfileCacheAttribute? cacheAttr = typeof(T).GetCustomAttribute<ClearRunfileCacheAttribute>();
-    if (cacheAttr is not null)
+
+    if (cleanAttr is not null)
     {
-      shouldClearCache = cacheAttr.Enabled;
+      shouldClean = cleanAttr.Enabled;
+    }
+    else if (cacheAttr is not null)
+    {
+      shouldClean = cacheAttr.Enabled;
     }
     else if (clearCache.HasValue)
     {
-      shouldClearCache = clearCache.Value;
+      shouldClean = clearCache.Value;
     }
 
-    if (shouldClearCache)
+    if (shouldClean)
     {
-      ClearRunfileCache();
+      await RunClean();
     }
 
     WriteLine($"🧪 Testing {testClassName}...");
@@ -391,46 +399,51 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Clears the .NET runfile cache to ensure tests pick up latest source changes.
-  /// Skips the currently executing test to avoid deleting itself.
+  /// Runs `dotnet clean` on the specified runfile to ensure tests pick up latest source changes.
+  /// Uses the official .NET SDK command introduced in .NET 10.
   /// </summary>
-  private static void ClearRunfileCache()
+  /// <param name="runfilePath">Path to the runfile to clean. If null, attempts to clean the current runfile.</param>
+  /// <remarks>
+  /// Note: Cleaning the currently executing runfile is not possible as it would corrupt the running process.
+  /// In that case, a warning is displayed and the clean operation is skipped.
+  /// For self-cleaning scenarios, run `dotnet clean yourfile.cs` before executing the runfile.
+  /// </remarks>
+  public static async Task RunClean(string? runfilePath = null)
   {
-    string runfileCacheRoot = Path.Combine(
-      Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-      ".local", "share", "dotnet", "runfile"
-    );
+    // If no path provided, get the current runfile path
+    runfilePath ??= AppContext.GetData("EntryPointFilePath") as string;
 
-    if (!Directory.Exists(runfileCacheRoot))
+    if (string.IsNullOrEmpty(runfilePath))
     {
+      // Not running as a runfile, nothing to clean
       return;
     }
 
-    string? currentExeDir = AppContext.BaseDirectory;
-    bool anyDeleted = false;
-
-    foreach (string cacheDir in Directory.GetDirectories(runfileCacheRoot))
+    // Check if we're trying to clean the currently executing file
+    string? currentRunfile = AppContext.GetData("EntryPointFilePath") as string;
+    if (!string.IsNullOrEmpty(currentRunfile) &&
+        string.Equals(Path.GetFullPath(runfilePath), Path.GetFullPath(currentRunfile), StringComparison.OrdinalIgnoreCase))
     {
-      // Don't delete if currentExeDir STARTS WITH cacheDir (parent-child relationship)
-      if (currentExeDir?.StartsWith(cacheDir, StringComparison.OrdinalIgnoreCase) == true)
-      {
-        continue;
-      }
-
-      if (!anyDeleted)
-      {
-        WriteLine("✓ Clearing runfile cache:");
-        anyDeleted = true;
-      }
-
-      string cacheDirName = Path.GetFileName(cacheDir);
-      Directory.Delete(cacheDir, recursive: true);
-      WriteLine($"  - {cacheDirName}");
-    }
-
-    if (anyDeleted)
-    {
+      // Cannot clean ourselves while running - this would corrupt the build
+      WriteLine($"⚠ Skipping dotnet clean on {Path.GetFileName(runfilePath)} (cannot clean currently executing runfile)");
+      WriteLine("  Tip: Run 'dotnet clean <file>' before execution to ensure fresh compilation.");
       WriteLine();
+      return;
     }
+
+    WriteLine($"✓ Running dotnet clean on: {Path.GetFileName(runfilePath)}");
+
+    CommandOutput result = await Shell.Builder("dotnet")
+      .WithArguments("clean", runfilePath)
+      .WithNoValidation()
+      .CaptureAsync();
+
+    if (!result.Success)
+    {
+      // Log error but don't fail the test run - cleaning is best-effort
+      WriteLine($"  ⚠ Clean failed: {result.Stderr}");
+    }
+
+    WriteLine();
   }
 }

@@ -11,23 +11,28 @@ string scriptDir = AppContext.GetData("EntryPointFileDirectoryPath") as string
 
 string testsDir = Path.GetDirectoryName(scriptDir)!;
 
-// Configure Nuru app with routing
-NuruAppBuilder builder = new();
+// Simple argument parsing for --clean flag
+bool cleanBeforeRun = args.Contains("--clean");
+string? filterTag = null;
 
-// TODO: Bug in Nuru - optional flag with required param doesn't work without args
-// Should be: builder.AddRoute("--tag? {tag}", (string? tag) => RunTests(tag), ...);
-// Workaround: Use two routes until optional flag bug is fixed
+// Parse --tag argument
+int tagIndex = Array.IndexOf(args, "--tag");
+if (tagIndex >= 0 && tagIndex + 1 < args.Length)
+{
+  filterTag = args[tagIndex + 1];
+}
 
-// builder.AddDefaultRoute(() => RunTests(null), "Run all Jaribu tests");
-builder.AddRoute("--tag? {tag?}", (string? tag) => RunTests(tag), "Run tests filtered by tag (Lexer, Parser)");
+return await RunTests(filterTag, cleanBeforeRun);
 
-NuruApp app = builder.Build();
-return await app.RunAsync(args);
-
-async Task<int> RunTests(string? filterTag)
+async Task<int> RunTests(string? filterTag, bool clean)
 {
   // Run all Jaribu-based tests
   WriteLine("🧪 Running Jaribu-based Tests");
+
+  if (clean)
+  {
+    WriteLine("   Clean mode: will run 'dotnet clean' before each test");
+  }
 
   if (filterTag is not null)
   {
@@ -63,6 +68,21 @@ foreach (string testFile in testFiles)
 
   totalTests++;
   WriteLine($"Running: {Path.GetFileName(testFile)}");
+
+  // Clean the test file's cache if requested
+  if (clean)
+  {
+    WriteLine($"  Cleaning: {Path.GetFileName(testFile)}");
+    CommandOutput cleanResult = await Shell.Builder("dotnet")
+      .WithArguments("clean", fullPath)
+      .WithNoValidation()
+      .CaptureAsync();
+
+    if (!cleanResult.Success)
+    {
+      WriteLine($"  ⚠ Clean warning: {cleanResult.Stderr}");
+    }
+  }
 
   // Make test file executable if needed
   if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())

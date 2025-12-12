@@ -6,12 +6,12 @@ Replace the existing `[ClearRunfileCache]` attribute's manual folder deletion ap
 
 ## Todo List
 
-- [ ] Create new `[Clean]` attribute that executes `dotnet clean <runfile>`
-- [ ] Implement shared clean method that both attributes will use
-- [ ] Refactor existing `[ClearRunfileCache]` attribute to use the new shared clean method
-- [ ] Remove manual folder deletion logic in favor of `dotnet clean`
-- [ ] Update tests to verify both attributes work correctly
-- [ ] Verify backward compatibility for existing `[ClearRunfileCache]` usage
+- [x] Create new `[Clean]` attribute that executes `dotnet clean <runfile>`
+- [x] Implement shared clean method that both attributes will use
+- [x] Refactor existing `[ClearRunfileCache]` attribute to use the new shared clean method
+- [x] Remove manual folder deletion logic in favor of `dotnet clean`
+- [x] Update tests to verify both attributes work correctly
+- [x] Verify backward compatibility for existing `[ClearRunfileCache]` usage
 
 ## Notes
 
@@ -19,20 +19,30 @@ The `dotnet clean <runfile>` command is the official .NET 10 way to clear the co
 
 Both `[Clean]` and `[ClearRunfileCache]` should share a common underlying implementation to avoid code duplication. The `[Clean]` attribute is the new preferred name aligned with the `dotnet clean` command, while `[ClearRunfileCache]` maintains backward compatibility with existing code.
 
-### Implementation Details (discovered during analysis)
+### Implementation Details
 
-**Current implementation location:**
-- `ClearRunfileCacheAttribute.cs` - Simple marker attribute with `Enabled` property (lines 1-12)
-- `TestRunner.cs` - Contains `ClearRunfileCache()` method (lines 393-435) that:
-  - Manually deletes folders in `~/.local/share/dotnet/runfile/`
-  - Skips the currently executing test's directory
-  - Uses `Directory.Delete(cacheDir, recursive: true)`
+**Key insight:** A runfile cannot clean itself while executing - that would corrupt the running process. The `[Clean]` and `[ClearRunfileCache]` attributes are **markers for orchestrators** that spawn test runfiles as subprocesses.
 
-**Key changes needed:**
-1. Create `CleanAttribute.cs` - New attribute aligned with `dotnet clean` naming
-2. Add shared `RunClean()` method in `TestRunner.cs` that uses `TimeWarp.Amuru.Shell.Builder` to execute `dotnet clean <runfile>`
-3. Update `ClearRunfileCacheAttribute` to be a simple alias/wrapper for the new `Clean` functionality
-4. Remove the manual `Directory.Delete` logic from `ClearRunfileCache()` method
+**What was implemented:**
+
+1. **`CleanAttribute.cs`** - New marker attribute with documentation explaining it's for orchestrators
+2. **`ClearRunfileCacheAttribute.cs`** - Updated documentation for backward compatibility, same semantics as `[Clean]`
+3. **`TestRunner.RunClean(string? path)`** - Public method that:
+   - Executes `dotnet clean <runfile>` using `TimeWarp.Amuru.Shell.Builder`
+   - Gracefully skips self-cleaning with helpful warning message
+   - Handles non-existent paths gracefully
+4. **`run-all-tests.cs`** - Added `--clean` flag that runs `dotnet clean` on each test file before executing it
+5. **`jaribu-05-cache-clearing.cs`** - Updated tests to verify attribute existence and `RunClean` behavior
+
+**Usage patterns:**
+
+```bash
+# Manual clean before running a test
+dotnet clean mytest.cs && dotnet mytest.cs
+
+# Use orchestrator with --clean flag
+dotnet Tests/Scripts/run-all-tests.cs --clean
+```
 
 **Per AGENTS.md requirements:**
-- Must use `TimeWarp.Amuru.Shell.Builder()` for process execution, NOT `System.Diagnostics.Process.Start`
+- Uses `TimeWarp.Amuru.Shell.Builder()` for process execution, NOT `System.Diagnostics.Process.Start`
