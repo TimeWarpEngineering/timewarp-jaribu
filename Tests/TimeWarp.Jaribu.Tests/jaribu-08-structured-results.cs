@@ -6,7 +6,6 @@
 // In multi-mode, it registers StructuredResultsMetaTests which wraps the validation.
 
 #if !JARIBU_MULTI
-RegisterTests<StructuredResultsMetaTests>();
 return await RunAllTests();
 #endif
 

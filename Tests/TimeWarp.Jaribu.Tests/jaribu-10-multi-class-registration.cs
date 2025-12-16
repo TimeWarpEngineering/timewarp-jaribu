@@ -4,22 +4,26 @@
 // This is a meta-test file that tests the RegisterTests/RunAllTests API.
 // It manipulates registration state directly, so it should NOT be included in multi-mode.
 // These tests verify the multi-class registration feature works correctly.
+//
+// WHY THIS FILE DOESN'T FOLLOW THE STANDARD PATTERN:
+// - Standard pattern: [ModuleInitializer] for registration + RunAllTests() in conditional
+// - This file tests the registration API itself, calling ClearRegisteredTests() and RegisterTests<T>()
+// - Using [ModuleInitializer] + RunAllTests() would cause "Collection was modified during enumeration"
+//   because the tests modify the same RegisteredTestClasses collection that RunAllTests() iterates
+// - Solution: Use RunTests<T>() directly, which doesn't use the registration collection
 
 #if !JARIBU_MULTI
-RegisterTests<MultiClassRegistrationTests>();
-return await RunAllTests();
+return await RunTests<MultiClassRegistrationTests>();
 #endif
 
 /// <summary>
 /// Meta-tests that validate the RegisterTests and RunAllTests API.
-/// Note: This class manipulates the static registration state, so tests must clean up.
+/// Note: This class manipulates the static registration state, so it cannot use [ModuleInitializer].
+/// It must NOT be included in multi-mode orchestration.
 /// </summary>
 [TestTag("Jaribu")]
 public class MultiClassRegistrationTests
 {
-  [ModuleInitializer]
-  internal static void Register() => RegisterTests<MultiClassRegistrationTests>();
-
   public static async Task SingleClassRegistration()
   {
     TestRunner.ClearRegisteredTests();

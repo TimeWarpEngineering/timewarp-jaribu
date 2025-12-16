@@ -7,8 +7,6 @@
 // Use: dotnet clean <file> BEFORE running, or use run-all-tests.cs --clean
 
 #if !JARIBU_MULTI
-RegisterTests<CacheAttributeDocTest>();
-RegisterTests<CleanMethodTest>();
 return await RunAllTests();
 #endif
 

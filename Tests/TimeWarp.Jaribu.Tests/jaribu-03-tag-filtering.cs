@@ -2,7 +2,6 @@
 #:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 #if !JARIBU_MULTI
-RegisterTests<TagFilteringTests>();
 return await RunAllTests();
 #endif
 
