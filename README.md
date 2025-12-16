@@ -113,6 +113,83 @@ foreach (TestRunSummary classResult in summary.ClassResults)
 
 **Note**: Use `TestRunner.ClearRegisteredTests()` to clear all registrations if needed.
 
+### Multi-File Test Orchestration
+
+Organize tests across multiple files that work both standalone and aggregated:
+
+- **Standalone mode**: Run individual test files directly with `dotnet file.cs`
+- **Multi mode**: An orchestrator compiles multiple test files together with aggregated results
+
+This pattern uses `[ModuleInitializer]` for auto-registration and conditional compilation to prevent double-execution.
+
+#### Test file pattern
+
+```csharp
+#!/usr/bin/dotnet --
+#:project ../../Source/MyProject/MyProject.csproj
+
+#if !JARIBU_MULTI
+RegisterTests<MyTests>();
+return await RunAllTests();
+#endif
+
+[TestTag("Unit")]
+public class MyTests
+{
+    [ModuleInitializer]
+    internal static void Register() => RegisterTests<MyTests>();
+
+    public static async Task SomeTest()
+    {
+        // Test logic
+    }
+}
+```
+
+**Key elements:**
+
+- `#!/usr/bin/dotnet --` enables direct execution as a script
+- `#:project` references dependencies (Jaribu, your project, etc.)
+- `#if !JARIBU_MULTI` only self-executes when run standalone
+- `[ModuleInitializer]` auto-registers when compiled in multi mode
+
+#### Create an orchestrator
+
+Create a simple entry point that runs all auto-registered tests:
+
+```csharp
+#!/usr/bin/dotnet --
+#:project ../Source/MyProject/MyProject.csproj
+
+// Tests auto-registered via [ModuleInitializer]
+return await RunAllTests();
+```
+
+#### Configure Directory.Build.props
+
+Configure which test files to include and define the `JARIBU_MULTI` constant:
+
+```xml
+<Project>
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);JARIBU_MULTI</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../my-tests-1.cs" />
+    <Compile Include="../my-tests-2.cs" />
+  </ItemGroup>
+</Project>
+```
+
+This allows CI pipelines to run different subsets of tests by configuring separate orchestrators with different file includes.
+
+#### Real-world example
+
+Jaribu uses this pattern for its own test suite:
+
+- `Tests/TimeWarp.Jaribu.Tests/jaribu-*.cs` - Test files following the dual-mode pattern
+- `Tests/TimeWarp.Jaribu.Tests/ci-tests/` - CI orchestrator with curated test selection
+
 ### Structured Results Types
 
 ```csharp
