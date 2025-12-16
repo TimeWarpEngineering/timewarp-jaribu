@@ -6,14 +6,14 @@ Add simple API for registering multiple test classes and running them with aggre
 
 ## Todo List
 
-- [ ] Add `RegisteredTestClasses` static collection to `TestRunner`
-- [ ] Implement `RegisterTests<T>()` method to register test classes
-- [ ] Implement `RunAllTests()` that executes all registered classes and returns exit code
-- [ ] Implement `RunAllTestsWithResults()` that returns aggregated `TestSuiteSummary`
-- [ ] Create `TestSuiteSummary` record to hold multiple class results
-- [ ] Print combined summary table after all classes complete
-- [ ] Add tests for the new registration and execution pattern
-- [ ] Update documentation/examples
+- [x] Add `RegisteredTestClasses` static collection to `TestRunner`
+- [x] Implement `RegisterTests<T>()` method to register test classes
+- [x] Implement `RunAllTests()` that executes all registered classes and returns exit code
+- [x] Implement `RunAllTestsWithResults()` that returns aggregated `TestSuiteSummary`
+- [x] Create `TestSuiteSummary` record to hold multiple class results
+- [x] Print combined summary table after all classes complete
+- [x] Add tests for the new registration and execution pattern
+- [x] Update documentation/examples
 
 ## Notes
 

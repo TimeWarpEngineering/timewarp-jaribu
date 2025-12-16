@@ -1,6 +1,7 @@
 namespace TimeWarp.Jaribu;
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using TimeWarp.Nuru;
@@ -192,6 +193,72 @@ public static partial class TestHelpers
     {
       terminal.WriteLine($"{"Skipped:".Yellow()} {summary.SkippedCount}");
     }
+  }
+
+  /// <summary>
+  /// Prints a summary table for multiple test class results.
+  /// </summary>
+  /// <param name="summary">The test suite summary containing all class results.</param>
+  /// <param name="terminal">Optional terminal for output. Uses NuruTerminal if not specified.</param>
+  public static void PrintSuiteSummaryTable(TestSuiteSummary summary, ITerminal? terminal = null)
+  {
+    ArgumentNullException.ThrowIfNull(summary);
+    terminal ??= new NuruTerminal();
+
+    terminal.WriteLine("Test Suite Summary".Bold());
+    terminal.WriteLine(new string('=', 60));
+
+    Table table = new Table()
+      .AddColumn("Class")
+      .AddColumn("Passed", Alignment.Right)
+      .AddColumn("Failed", Alignment.Right)
+      .AddColumn("Skipped", Alignment.Right)
+      .AddColumn("Total", Alignment.Right)
+      .AddColumn("Duration", Alignment.Right);
+
+    table.Border = BorderStyle.Rounded;
+
+    foreach (TestRunSummary classResult in summary.ClassResults)
+    {
+      string passedText = classResult.PassedCount.ToString(CultureInfo.InvariantCulture);
+      string failedText = classResult.FailedCount > 0
+        ? classResult.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
+        : classResult.FailedCount.ToString(CultureInfo.InvariantCulture);
+      string skippedText = classResult.SkippedCount > 0
+        ? classResult.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
+        : classResult.SkippedCount.ToString(CultureInfo.InvariantCulture);
+      string duration = $"{classResult.TotalDuration.TotalSeconds:F2}s";
+
+      table.AddRow(
+        classResult.ClassName,
+        passedText.Green(),
+        failedText,
+        skippedText,
+        classResult.TotalTests.ToString(CultureInfo.InvariantCulture),
+        duration
+      );
+    }
+
+    terminal.WriteTable(table);
+    terminal.WriteLine();
+
+    // Overall summary
+    string overallStatus = summary.Success
+      ? "ALL TESTS PASSED".Green().Bold()
+      : "TESTS FAILED".Red().Bold();
+
+    terminal.WriteLine($"{"Overall:".Bold()} {overallStatus}");
+    terminal.WriteLine($"{"Total Tests:".Bold()} {summary.TotalTests}");
+    terminal.WriteLine($"{"Passed:".Green()} {summary.PassedCount}");
+    if (summary.FailedCount > 0)
+    {
+      terminal.WriteLine($"{"Failed:".Red()} {summary.FailedCount}");
+    }
+    if (summary.SkippedCount > 0)
+    {
+      terminal.WriteLine($"{"Skipped:".Yellow()} {summary.SkippedCount}");
+    }
+    terminal.WriteLine($"{"Duration:".Bold()} {summary.TotalDuration.TotalSeconds:F2}s");
   }
 
   [GeneratedRegex("([A-Z])")]

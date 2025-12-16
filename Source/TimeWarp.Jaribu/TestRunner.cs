@@ -65,6 +65,32 @@ public record TestRunSummary(
 }
 
 /// <summary>
+/// Contains aggregated results from running multiple test classes.
+/// </summary>
+/// <param name="StartTime">When the test suite run started.</param>
+/// <param name="TotalDuration">Total time for all test classes.</param>
+/// <param name="TotalTests">Total number of tests across all classes.</param>
+/// <param name="PassedCount">Number of tests that passed across all classes.</param>
+/// <param name="FailedCount">Number of tests that failed across all classes.</param>
+/// <param name="SkippedCount">Number of tests that were skipped across all classes.</param>
+/// <param name="ClassResults">Results for each test class.</param>
+public record TestSuiteSummary(
+  DateTimeOffset StartTime,
+  TimeSpan TotalDuration,
+  int TotalTests,
+  int PassedCount,
+  int FailedCount,
+  int SkippedCount,
+  IReadOnlyList<TestRunSummary> ClassResults
+)
+{
+  /// <summary>
+  /// Whether all tests passed (or were skipped) across all classes.
+  /// </summary>
+  public bool Success => FailedCount == 0;
+}
+
+/// <summary>
 /// Simple test runner for single-file C# programs.
 /// Discovers and executes public static async Task methods as tests.
 /// </summary>
@@ -73,6 +99,32 @@ public static class TestRunner
   private static int PassCount;
   private static int SkippedCount;
   private static int TotalTests;
+
+  /// <summary>
+  /// Collection of registered test class types for batch execution.
+  /// </summary>
+  private static readonly List<Type> RegisteredTestClasses = [];
+
+  /// <summary>
+  /// Registers a test class for batch execution with RunAllTests().
+  /// </summary>
+  /// <typeparam name="T">The test class to register.</typeparam>
+  public static void RegisterTests<T>()
+  {
+    Type testType = typeof(T);
+    if (!RegisteredTestClasses.Contains(testType))
+    {
+      RegisteredTestClasses.Add(testType);
+    }
+  }
+
+  /// <summary>
+  /// Clears all registered test classes.
+  /// </summary>
+  public static void ClearRegisteredTests()
+  {
+    RegisteredTestClasses.Clear();
+  }
 
   /// <summary>
   /// Runs all public static async Task methods in the specified test class.
@@ -195,6 +247,97 @@ public static class TestRunner
     TestHelpers.PrintResultsTable(summary);
 
     return summary;
+  }
+
+  /// <summary>
+  /// Runs all registered test classes and returns an exit code.
+  /// </summary>
+  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
+  public static async Task<int> RunAllTests(bool? clearCache = null, string? filterTag = null)
+  {
+    TestSuiteSummary summary = await RunAllTestsWithResults(clearCache, filterTag);
+    return summary.Success ? 0 : 1;
+  }
+
+  /// <summary>
+  /// Runs all registered test classes and returns aggregated results.
+  /// </summary>
+  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>A TestSuiteSummary containing results for all registered test classes.</returns>
+  public static async Task<TestSuiteSummary> RunAllTestsWithResults(bool? clearCache = null, string? filterTag = null)
+  {
+    if (RegisteredTestClasses.Count == 0)
+    {
+      WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+      return new TestSuiteSummary(
+        DateTimeOffset.Now,
+        TimeSpan.Zero,
+        TotalTests: 0,
+        PassedCount: 0,
+        FailedCount: 0,
+        SkippedCount: 0,
+        ClassResults: []
+      );
+    }
+
+    DateTimeOffset suiteStartTime = DateTimeOffset.Now;
+    var suiteStopwatch = Stopwatch.StartNew();
+    var classResults = new List<TestRunSummary>();
+
+    // Get the generic method definition for RunTestsWithResults<T>
+    MethodInfo? runTestsMethod = typeof(TestRunner).GetMethod(
+      nameof(RunTestsWithResults),
+      BindingFlags.Public | BindingFlags.Static
+    );
+
+    if (runTestsMethod is null)
+    {
+      throw new InvalidOperationException("Could not find RunTestsWithResults method");
+    }
+
+    foreach (Type testClass in RegisteredTestClasses)
+    {
+      // Make the generic method for this specific type
+      MethodInfo genericMethod = runTestsMethod.MakeGenericMethod(testClass);
+
+      // Invoke and await the result
+      object? result = genericMethod.Invoke(null, [clearCache, filterTag]);
+      if (result is Task<TestRunSummary> task)
+      {
+        TestRunSummary classResult = await task;
+        classResults.Add(classResult);
+      }
+    }
+
+    suiteStopwatch.Stop();
+
+    // Aggregate results
+    int totalTests = classResults.Sum(r => r.TotalTests);
+    int passedCount = classResults.Sum(r => r.PassedCount);
+    int failedCount = classResults.Sum(r => r.FailedCount);
+    int skippedCount = classResults.Sum(r => r.SkippedCount);
+
+    var suiteSummary = new TestSuiteSummary(
+      suiteStartTime,
+      suiteStopwatch.Elapsed,
+      totalTests,
+      passedCount,
+      failedCount,
+      skippedCount,
+      classResults
+    );
+
+    // Print combined summary if multiple classes were run
+    if (classResults.Count > 1)
+    {
+      WriteLine();
+      TestHelpers.PrintSuiteSummaryTable(suiteSummary);
+    }
+
+    return suiteSummary;
   }
 
   private static async Task<List<TestResult>> RunTest<T>(MethodInfo method, string? filterTag) where T : class

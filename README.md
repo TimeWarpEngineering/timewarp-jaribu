@@ -82,6 +82,37 @@ foreach (TestResult result in summary.Results)
 }
 ```
 
+### Multi-Class Test Registration
+
+Run tests from multiple test classes with aggregated results:
+
+```csharp
+using TimeWarp.Jaribu;
+
+// Register test classes explicitly (no assembly scanning)
+TestRunner.RegisterTests<LexerTests>();
+TestRunner.RegisterTests<ParserTests>();
+TestRunner.RegisterTests<RoutingTests>();
+
+// Run all registered and get exit code (0 = success, 1 = failure)
+return await TestRunner.RunAllTests();
+
+// Or with tag filter
+return await TestRunner.RunAllTests(filterTag: "Unit");
+
+// Or get full results with TestSuiteSummary
+TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+Console.WriteLine($"Total: {summary.TotalTests}, Passed: {summary.PassedCount}, Failed: {summary.FailedCount}");
+
+// Access individual class results
+foreach (TestRunSummary classResult in summary.ClassResults)
+{
+    Console.WriteLine($"{classResult.ClassName}: {classResult.PassedCount}/{classResult.TotalTests} passed");
+}
+```
+
+**Note**: Use `TestRunner.ClearRegisteredTests()` to clear all registrations if needed.
+
 ### Structured Results Types
 
 ```csharp
@@ -110,6 +141,20 @@ public record TestRunSummary(
 )
 {
     public int TotalTests => PassedCount + FailedCount + SkippedCount;
+    public bool Success => FailedCount == 0;
+}
+
+// Summary of multiple test class runs
+public record TestSuiteSummary(
+    DateTimeOffset StartTime,
+    TimeSpan TotalDuration,
+    int TotalTests,
+    int PassedCount,
+    int FailedCount,
+    int SkippedCount,
+    IReadOnlyList<TestRunSummary> ClassResults
+)
+{
     public bool Success => FailedCount == 0;
 }
 ```
