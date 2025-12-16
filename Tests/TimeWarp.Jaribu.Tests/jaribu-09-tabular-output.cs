@@ -1,20 +1,24 @@
 #!/usr/bin/dotnet --
 #:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-using TimeWarp.Jaribu;
-using TimeWarp.Nuru;
-using static System.Console;
+// This is a meta-test file that tests the tabular output formatting.
+// It uses mock data and TestTerminal to verify output without running actual tests.
 
-// Test the tabular output formatting
-await TestTabularOutput();
+#if !JARIBU_MULTI
+RegisterTests<TabularOutputTests>();
+return await RunAllTests();
+#endif
 
-async Task TestTabularOutput()
+/// <summary>
+/// Tests for the tabular output formatting in TestHelpers.PrintResultsTable.
+/// </summary>
+[TestTag("Jaribu")]
+public class TabularOutputTests
 {
-  WriteLine("=== Testing Tabular Output Formatting ===");
-  WriteLine();
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<TabularOutputTests>();
 
-  // Test 1: Verify table structure is rendered
-  WriteLine("Test 1: Table structure with TestTerminal");
+  public static async Task TableStructureWithTestTerminal()
   {
     using TestTerminal terminal = new();
 
@@ -39,53 +43,37 @@ async Task TestTabularOutput()
     TestHelpers.PrintResultsTable(summary, terminal);
 
     string output = terminal.Output;
-    bool passed = true;
 
     // Verify table borders (rounded style)
-    if (!output.Contains('╭') || !output.Contains('╰'))
-    {
-      WriteLine("  ✗ Missing rounded table corners");
-      passed = false;
-    }
+    output.ShouldContain("╭");
+    output.ShouldContain("╰");
 
     // Verify column headers
-    if (!output.Contains("Test") || !output.Contains("Status") || !output.Contains("Duration") || !output.Contains("Message"))
-    {
-      WriteLine("  ✗ Missing column headers");
-      passed = false;
-    }
+    output.ShouldContain("Test");
+    output.ShouldContain("Status");
+    output.ShouldContain("Duration");
+    output.ShouldContain("Message");
 
     // Verify test names are formatted (PascalCase to spaces)
-    if (!output.Contains("Passing Test") || !output.Contains("Failing Test") || !output.Contains("Skipped Test"))
-    {
-      WriteLine("  ✗ Test names not formatted correctly");
-      passed = false;
-    }
+    output.ShouldContain("Passing Test");
+    output.ShouldContain("Failing Test");
+    output.ShouldContain("Skipped Test");
 
     // Verify status text
-    if (!output.Contains("Pass") || !output.Contains("Fail") || !output.Contains("Skip"))
-    {
-      WriteLine("  ✗ Missing status indicators");
-      passed = false;
-    }
+    output.ShouldContain("Pass");
+    output.ShouldContain("Fail");
+    output.ShouldContain("Skip");
 
     // Verify summary totals
-    if (!output.Contains("Total:") || !output.Contains("Passed:") || !output.Contains("Failed:") || !output.Contains("Skipped:"))
-    {
-      WriteLine("  ✗ Missing summary totals");
-      passed = false;
-    }
+    output.ShouldContain("Total:");
+    output.ShouldContain("Passed:");
+    output.ShouldContain("Failed:");
+    output.ShouldContain("Skipped:");
 
-    if (passed)
-    {
-      WriteLine("  ✓ Test 1 PASSED: Table structure correct");
-    }
+    await Task.CompletedTask;
   }
 
-  WriteLine();
-
-  // Test 2: Verify message truncation
-  WriteLine("Test 2: Long message truncation");
+  public static async Task LongMessageTruncation()
   {
     using TestTerminal terminal = new();
 
@@ -109,32 +97,17 @@ async Task TestTabularOutput()
     TestHelpers.PrintResultsTable(summary, terminal, maxMessageWidth: 30);
 
     string output = terminal.Output;
-    bool passed = true;
 
     // Should contain truncation indicator
-    if (!output.Contains("..."))
-    {
-      WriteLine("  ✗ Missing truncation indicator (...)");
-      passed = false;
-    }
+    output.ShouldContain("...");
 
     // Should NOT contain the full message
-    if (output.Contains("maximum width limit"))
-    {
-      WriteLine("  ✗ Message was not truncated");
-      passed = false;
-    }
+    output.ShouldNotContain("maximum width limit");
 
-    if (passed)
-    {
-      WriteLine("  ✓ Test 2 PASSED: Long messages truncated correctly");
-    }
+    await Task.CompletedTask;
   }
 
-  WriteLine();
-
-  // Test 3: Verify color codes are present
-  WriteLine("Test 3: ANSI color codes in output");
+  public static async Task AnsiColorCodesInOutput()
   {
     using TestTerminal terminal = new();
 
@@ -158,37 +131,16 @@ async Task TestTabularOutput()
     TestHelpers.PrintResultsTable(summary, terminal);
 
     string output = terminal.Output;
-    bool passed = true;
 
     // Check for ANSI color codes (32=green, 31=red, 33=yellow)
-    if (!output.Contains("\u001b[32m") && !output.Contains("[32m"))
-    {
-      WriteLine("  ✗ Missing green ANSI code for passed");
-      passed = false;
-    }
+    (output.Contains("\u001b[32m") || output.Contains("[32m")).ShouldBeTrue();
+    (output.Contains("\u001b[31m") || output.Contains("[31m")).ShouldBeTrue();
+    (output.Contains("\u001b[33m") || output.Contains("[33m")).ShouldBeTrue();
 
-    if (!output.Contains("\u001b[31m") && !output.Contains("[31m"))
-    {
-      WriteLine("  ✗ Missing red ANSI code for failed");
-      passed = false;
-    }
-
-    if (!output.Contains("\u001b[33m") && !output.Contains("[33m"))
-    {
-      WriteLine("  ✗ Missing yellow ANSI code for skipped");
-      passed = false;
-    }
-
-    if (passed)
-    {
-      WriteLine("  ✓ Test 3 PASSED: ANSI color codes present");
-    }
+    await Task.CompletedTask;
   }
 
-  WriteLine();
-
-  // Test 4: Verify duration formatting
-  WriteLine("Test 4: Duration formatting");
+  public static async Task DurationFormatting()
   {
     using TestTerminal terminal = new();
 
@@ -211,31 +163,15 @@ async Task TestTabularOutput()
     TestHelpers.PrintResultsTable(summary, terminal);
 
     string output = terminal.Output;
-    bool passed = true;
 
     // Should contain formatted durations with 's' suffix
-    if (!output.Contains("0.01s") && !output.Contains("0.00s"))
-    {
-      WriteLine($"  ✗ Quick test duration not formatted correctly");
-      passed = false;
-    }
+    (output.Contains("0.01s") || output.Contains("0.00s")).ShouldBeTrue();
+    output.ShouldContain("2.50s");
 
-    if (!output.Contains("2.50s"))
-    {
-      WriteLine("  ✗ Slow test duration not formatted correctly");
-      passed = false;
-    }
-
-    if (passed)
-    {
-      WriteLine("  ✓ Test 4 PASSED: Duration formatting correct");
-    }
+    await Task.CompletedTask;
   }
 
-  WriteLine();
-
-  // Test 5: Empty results
-  WriteLine("Test 5: Empty results handling");
+  public static async Task EmptyResultsHandling()
   {
     using TestTerminal terminal = new();
 
@@ -252,28 +188,15 @@ async Task TestTabularOutput()
     TestHelpers.PrintResultsTable(summary, terminal);
 
     string output = terminal.Output;
-    bool passed = true;
 
     // Should still render table structure
-    if (!output.Contains("Test") || !output.Contains("Status"))
-    {
-      WriteLine("  ✗ Empty table missing headers");
-      passed = false;
-    }
+    output.ShouldContain("Test");
+    output.ShouldContain("Status");
 
     // Should show Total: 0
-    if (!output.Contains("Total:") || !output.Contains('0'))
-    {
-      WriteLine("  ✗ Missing zero total");
-      passed = false;
-    }
+    output.ShouldContain("Total:");
+    output.ShouldContain("0");
 
-    if (passed)
-    {
-      WriteLine("  ✓ Test 5 PASSED: Empty results handled correctly");
-    }
+    await Task.CompletedTask;
   }
-
-  WriteLine();
-  WriteLine("=== Tabular Output Tests Complete ===");
 }

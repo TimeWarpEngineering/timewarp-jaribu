@@ -1,16 +1,23 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 // Test cache clearing functionality
 // Note: [Clean] and [ClearRunfileCache] attributes are for ORCHESTRATORS to clean OTHER files,
 // not for a runfile to clean itself (which would corrupt the running process).
 // Use: dotnet clean <file> BEFORE running, or use run-all-tests.cs --clean
 
-await RunTests<CacheAttributeDocTest>();
-await RunTests<CleanMethodTest>();
+#if !JARIBU_MULTI
+RegisterTests<CacheAttributeDocTest>();
+RegisterTests<CleanMethodTest>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class CacheAttributeDocTest
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<CacheAttributeDocTest>();
+
   /// <summary>
   /// Verify that [Clean] and [ClearRunfileCache] attributes exist and have correct properties.
   /// These attributes are markers for orchestrators, not for self-cleaning.
@@ -51,6 +58,9 @@ public class CacheAttributeDocTest
 [TestTag("Jaribu")]
 public class CleanMethodTest
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<CleanMethodTest>();
+
   /// <summary>
   /// Verify TestRunner.RunClean() handles non-runfile execution gracefully.
   /// When not running as a runfile, it should return without error.

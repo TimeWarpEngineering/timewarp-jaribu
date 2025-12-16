@@ -1,234 +1,94 @@
 #!/usr/bin/dotnet --
 #:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-using TimeWarp.Jaribu;
-using static System.Console;
+// This is a meta-test file that tests the RunTestsWithResults API itself.
+// It uses custom validation logic rather than the standard test pattern.
+// In multi-mode, it registers StructuredResultsMetaTests which wraps the validation.
 
-// Test the new RunTestsWithResults method
-await TestStructuredResults();
+#if !JARIBU_MULTI
+RegisterTests<StructuredResultsMetaTests>();
+return await RunAllTests();
+#endif
 
-async Task TestStructuredResults()
+/// <summary>
+/// Meta-tests that validate the RunTestsWithResults API by running test classes
+/// and validating their structured output.
+/// </summary>
+[TestTag("Jaribu")]
+public class StructuredResultsMetaTests
 {
-  WriteLine("=== Testing RunTestsWithResults<T>() ===");
-  WriteLine();
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<StructuredResultsMetaTests>();
 
-  // Test 1: Basic structured results
-  WriteLine("Test 1: Basic structured results from mixed pass/fail/skip");
-  TestRunSummary summary = await TestRunner.RunTestsWithResults<MixedResultsTests>();
-
-  // Verify the summary
-  bool test1Passed = true;
-
-  if (summary.ClassName != "MixedResults")
+  public static async Task BasicStructuredResultsFromMixedPassFailSkip()
   {
-    WriteLine($"  ✗ ClassName expected 'MixedResults', got '{summary.ClassName}'");
-    test1Passed = false;
+    TestRunSummary summary = await TestRunner.RunTestsWithResults<MixedResultsTests>();
+
+    summary.ClassName.ShouldBe("MixedResults");
+    summary.PassedCount.ShouldBe(1);
+    summary.FailedCount.ShouldBe(1);
+    summary.SkippedCount.ShouldBe(1);
+    summary.TotalTests.ShouldBe(3);
+    summary.Success.ShouldBeFalse();
+    summary.Results.Count.ShouldBe(3);
+    summary.TotalDuration.ShouldBeGreaterThan(TimeSpan.Zero);
   }
 
-  if (summary.PassedCount != 1)
+  public static async Task IndividualTestResultDetails()
   {
-    WriteLine($"  ✗ PassedCount expected 1, got {summary.PassedCount}");
-    test1Passed = false;
+    TestRunSummary summary = await TestRunner.RunTestsWithResults<MixedResultsTests>();
+
+    TestResult? passedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Passed);
+    passedResult.ShouldNotBeNull();
+    passedResult.TestName.ShouldBe("PassingTest");
+    passedResult.Duration.ShouldBeGreaterThan(TimeSpan.Zero);
+    passedResult.FailureMessage.ShouldBeNull();
+
+    TestResult? failedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Failed);
+    failedResult.ShouldNotBeNull();
+    failedResult.TestName.ShouldBe("FailingTest");
+    failedResult.FailureMessage.ShouldNotBeNullOrEmpty();
+    failedResult.StackTrace.ShouldNotBeNullOrEmpty();
+
+    TestResult? skippedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Skipped);
+    skippedResult.ShouldNotBeNull();
+    skippedResult.TestName.ShouldBe("SkippedTest");
+    skippedResult.FailureMessage.ShouldNotBeNullOrEmpty();
   }
 
-  if (summary.FailedCount != 1)
+  public static async Task ParameterizedTestResults()
   {
-    WriteLine($"  ✗ FailedCount expected 1, got {summary.FailedCount}");
-    test1Passed = false;
-  }
+    TestRunSummary paramSummary = await TestRunner.RunTestsWithResults<ParameterizedResultTests>();
 
-  if (summary.SkippedCount != 1)
-  {
-    WriteLine($"  ✗ SkippedCount expected 1, got {summary.SkippedCount}");
-    test1Passed = false;
-  }
+    paramSummary.Results.Count.ShouldBe(2);
 
-  if (summary.TotalTests != 3)
-  {
-    WriteLine($"  ✗ TotalTests expected 3, got {summary.TotalTests}");
-    test1Passed = false;
-  }
-
-  if (summary.Success)
-  {
-    WriteLine($"  ✗ Success expected false (has failures), got true");
-    test1Passed = false;
-  }
-
-  if (summary.Results.Count != 3)
-  {
-    WriteLine($"  ✗ Results.Count expected 3, got {summary.Results.Count}");
-    test1Passed = false;
-  }
-
-  if (summary.TotalDuration <= TimeSpan.Zero)
-  {
-    WriteLine($"  ✗ TotalDuration should be > 0, got {summary.TotalDuration}");
-    test1Passed = false;
-  }
-
-  if (test1Passed)
-  {
-    WriteLine("  ✓ Test 1 PASSED: Summary counts correct");
-  }
-
-  WriteLine();
-
-  // Test 2: Verify individual TestResult details
-  WriteLine("Test 2: Verify individual TestResult details");
-  bool test2Passed = true;
-
-  TestResult? passedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Passed);
-  if (passedResult is null)
-  {
-    WriteLine("  ✗ No passed result found");
-    test2Passed = false;
-  }
-  else
-  {
-    if (passedResult.TestName != "PassingTest")
+    foreach (TestResult result in paramSummary.Results)
     {
-      WriteLine($"  ✗ Passed test name expected 'PassingTest', got '{passedResult.TestName}'");
-      test2Passed = false;
-    }
-    if (passedResult.Duration <= TimeSpan.Zero)
-    {
-      WriteLine($"  ✗ Passed test duration should be > 0");
-      test2Passed = false;
-    }
-    if (passedResult.FailureMessage is not null)
-    {
-      WriteLine($"  ✗ Passed test should have null FailureMessage");
-      test2Passed = false;
+      result.Parameters.ShouldNotBeNull();
+      result.Parameters.Count.ShouldBeGreaterThan(0);
     }
   }
 
-  TestResult? failedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Failed);
-  if (failedResult is null)
+  public static async Task AllPassingTestsSuccessProperty()
   {
-    WriteLine("  ✗ No failed result found");
-    test2Passed = false;
-  }
-  else
-  {
-    if (failedResult.TestName != "FailingTest")
-    {
-      WriteLine($"  ✗ Failed test name expected 'FailingTest', got '{failedResult.TestName}'");
-      test2Passed = false;
-    }
-    if (string.IsNullOrEmpty(failedResult.FailureMessage))
-    {
-      WriteLine($"  ✗ Failed test should have FailureMessage");
-      test2Passed = false;
-    }
-    if (string.IsNullOrEmpty(failedResult.StackTrace))
-    {
-      WriteLine($"  ✗ Failed test should have StackTrace");
-      test2Passed = false;
-    }
+    TestRunSummary allPassSummary = await TestRunner.RunTestsWithResults<AllPassingResultTests>();
+
+    allPassSummary.Success.ShouldBeTrue();
+    allPassSummary.FailedCount.ShouldBe(0);
   }
 
-  TestResult? skippedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Skipped);
-  if (skippedResult is null)
+  public static async Task StartTimeVerification()
   {
-    WriteLine("  ✗ No skipped result found");
-    test2Passed = false;
+    DateTimeOffset beforeTest = DateTimeOffset.Now;
+    TestRunSummary timeSummary = await TestRunner.RunTestsWithResults<AllPassingResultTests>();
+    DateTimeOffset afterTest = DateTimeOffset.Now;
+
+    timeSummary.StartTime.ShouldBeGreaterThanOrEqualTo(beforeTest);
+    timeSummary.StartTime.ShouldBeLessThanOrEqualTo(afterTest);
   }
-  else
-  {
-    if (skippedResult.TestName != "SkippedTest")
-    {
-      WriteLine($"  ✗ Skipped test name expected 'SkippedTest', got '{skippedResult.TestName}'");
-      test2Passed = false;
-    }
-    if (string.IsNullOrEmpty(skippedResult.FailureMessage))
-    {
-      WriteLine($"  ✗ Skipped test should have FailureMessage (skip reason)");
-      test2Passed = false;
-    }
-  }
-
-  if (test2Passed)
-  {
-    WriteLine("  ✓ Test 2 PASSED: Individual result details correct");
-  }
-
-  WriteLine();
-
-  // Test 3: Parameterized test results
-  WriteLine("Test 3: Parameterized test results");
-  TestRunSummary paramSummary = await TestRunner.RunTestsWithResults<ParameterizedResultTests>();
-  bool test3Passed = true;
-
-  if (paramSummary.Results.Count != 2)
-  {
-    WriteLine($"  ✗ Expected 2 results for parameterized test, got {paramSummary.Results.Count}");
-    test3Passed = false;
-  }
-
-  foreach (TestResult result in paramSummary.Results)
-  {
-    if (result.Parameters is null || result.Parameters.Count == 0)
-    {
-      WriteLine($"  ✗ Result '{result.TestName}' should have Parameters");
-      test3Passed = false;
-    }
-  }
-
-  if (test3Passed)
-  {
-    WriteLine("  ✓ Test 3 PASSED: Parameterized results have parameters");
-  }
-
-  WriteLine();
-
-  // Test 4: All passing tests - Success should be true
-  WriteLine("Test 4: All passing tests - Success property");
-  TestRunSummary allPassSummary = await TestRunner.RunTestsWithResults<AllPassingTests>();
-  bool test4Passed = true;
-
-  if (!allPassSummary.Success)
-  {
-    WriteLine($"  ✗ Success expected true for all passing, got false");
-    test4Passed = false;
-  }
-
-  if (allPassSummary.FailedCount != 0)
-  {
-    WriteLine($"  ✗ FailedCount expected 0, got {allPassSummary.FailedCount}");
-    test4Passed = false;
-  }
-
-  if (test4Passed)
-  {
-    WriteLine("  ✓ Test 4 PASSED: All passing tests have Success=true");
-  }
-
-  WriteLine();
-
-  // Test 5: StartTime is set
-  WriteLine("Test 5: StartTime verification");
-  DateTimeOffset beforeTest = DateTimeOffset.Now;
-  TestRunSummary timeSummary = await TestRunner.RunTestsWithResults<AllPassingTests>();
-  DateTimeOffset afterTest = DateTimeOffset.Now;
-  bool test5Passed = true;
-
-  if (timeSummary.StartTime < beforeTest || timeSummary.StartTime > afterTest)
-  {
-    WriteLine($"  ✗ StartTime {timeSummary.StartTime} not within expected range");
-    test5Passed = false;
-  }
-
-  if (test5Passed)
-  {
-    WriteLine("  ✓ Test 5 PASSED: StartTime is correctly set");
-  }
-
-  WriteLine();
-  WriteLine("=== Structured Results Tests Complete ===");
 }
 
-// Test class with mixed results
+// Test class with mixed results (used by meta-tests above)
 [TestTag("Jaribu")]
 public class MixedResultsTests
 {
@@ -250,7 +110,7 @@ public class MixedResultsTests
   }
 }
 
-// Test class with parameterized tests
+// Test class with parameterized tests (used by meta-tests above)
 [TestTag("Jaribu")]
 public class ParameterizedResultTests
 {
@@ -263,9 +123,9 @@ public class ParameterizedResultTests
   }
 }
 
-// Test class with all passing tests
+// Test class with all passing tests (used by meta-tests above)
 [TestTag("Jaribu")]
-public class AllPassingTests
+public class AllPassingResultTests
 {
   public static async Task Test1()
   {

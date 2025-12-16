@@ -1,10 +1,18 @@
 #!/usr/bin/dotnet --
-await RunTests<ReportTests>();
-await RunTests<ZeroTestsClass>();
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
+
+#if !JARIBU_MULTI
+RegisterTests<ReportTests>();
+RegisterTests<ZeroTestsClass>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class ReportTests
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<ReportTests>();
+
   /// <summary>
   /// 2 passing, 1 failing - verify summary "2/3 passed".
   /// </summary>
@@ -41,6 +49,7 @@ public class ReportTests
     WriteLine("CleanUp invoked");
     await Task.CompletedTask;
   }
+
   /// <summary>
   /// Async CleanUp (future) - if Task, should await.
   /// Currently sync only; uncomment when supported.
@@ -69,6 +78,9 @@ public class ReportTests
 [TestTag("Jaribu")]
 public class ZeroTestsClass
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<ZeroTestsClass>();
+
   // No test methods - should TotalTests=0, exit=0
   public static async Task CleanUp()
   {

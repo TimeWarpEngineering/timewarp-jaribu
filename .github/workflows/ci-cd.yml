@@ -51,9 +51,9 @@ jobs:
           cd Scripts && ./Build.cs
           cd ..
 
-          echo "Running integration tests..."
-          chmod +x Tests/Scripts/run-all-tests.cs
-          cd Tests/Scripts && ./run-all-tests.cs
+          echo "Running CI tests..."
+          chmod +x Tests/TimeWarp.Jaribu.Tests/ci-tests/run-ci-tests.cs
+          cd Tests/TimeWarp.Jaribu.Tests/ci-tests && ./run-ci-tests.cs
 
       - name: Check if version already published (Releases only)
         if: github.event_name == 'release'

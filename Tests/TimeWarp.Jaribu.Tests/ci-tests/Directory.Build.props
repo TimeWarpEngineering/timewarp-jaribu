@@ -1,0 +1,15 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Define JARIBU_MULTI so included files don't self-execute -->
+    <DefineConstants>$(DefineConstants);JARIBU_MULTI</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- CI-safe test files only (no intentional failures) -->
+    <Compile Include="../jaribu-03-tag-filtering.cs" />
+    <Compile Include="../jaribu-05-cache-clearing.cs" />
+    <Compile Include="../jaribu-09-tabular-output.cs" />
+  </ItemGroup>
+</Project>

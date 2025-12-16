@@ -1,10 +1,17 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-return await RunTests<DiscoveryTests>();
+#if !JARIBU_MULTI
+RegisterTests<DiscoveryTests>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class DiscoveryTests
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<DiscoveryTests>();
+
   private static int SetupCount;
   private static int CleanUpCount;
 

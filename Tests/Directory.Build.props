@@ -22,6 +22,7 @@
     <Using Include="TimeWarp.Jaribu" />
     <Using Include="TimeWarp.Jaribu.TestRunner" Static="true" />
     <Using Include="TimeWarp.Nuru" />
+    <Using Include="System.Runtime.CompilerServices" />
   </ItemGroup>
 
   <ItemGroup>
