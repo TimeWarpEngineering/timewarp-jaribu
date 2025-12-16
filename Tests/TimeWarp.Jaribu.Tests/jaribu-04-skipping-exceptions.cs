@@ -1,10 +1,17 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-return await RunTests<SkipExceptionTests>(clearCache: true);
+#if !JARIBU_MULTI
+RegisterTests<SkipExceptionTests>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class SkipExceptionTests
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<SkipExceptionTests>();
+
   /// <summary>
   /// Skipped test with reason - should skip and report reason.
   /// </summary>

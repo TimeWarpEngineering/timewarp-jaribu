@@ -1,10 +1,17 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-return await RunTests<TagFilteringTests>(clearCache: true);
+#if !JARIBU_MULTI
+RegisterTests<TagFilteringTests>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class TagFilteringTests
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<TagFilteringTests>();
+
   /// <summary>
   /// Method with matching tag - should run when filter="feature1".
   /// </summary>

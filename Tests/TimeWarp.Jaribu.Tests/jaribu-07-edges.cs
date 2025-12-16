@@ -1,10 +1,17 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-return await RunTests<EdgeTests>(clearCache: true);
+#if !JARIBU_MULTI
+RegisterTests<EdgeTests>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
 public class EdgeTests
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<EdgeTests>();
+
   /// <summary>
   /// Generic test method - reflection should handle generics.
   /// </summary>

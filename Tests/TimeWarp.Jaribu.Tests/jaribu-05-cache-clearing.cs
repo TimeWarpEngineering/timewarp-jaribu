@@ -1,73 +1,109 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-await RunTests<CacheClearTest>();
-await RunTests<NoCacheTest>(clearCache: false);
-await RunTests<CurrentAssemblySkipTest>();
-await RunTests<EmptyCacheTest>();
+// Test cache clearing functionality
+// Note: [Clean] and [ClearRunfileCache] attributes are for ORCHESTRATORS to clean OTHER files,
+// not for a runfile to clean itself (which would corrupt the running process).
+// Use: dotnet clean <file> BEFORE running, or use run-all-tests.cs --clean
+
+#if !JARIBU_MULTI
+RegisterTests<CacheAttributeDocTest>();
+RegisterTests<CleanMethodTest>();
+return await RunAllTests();
+#endif
 
 [TestTag("Jaribu")]
-[ClearRunfileCache(true)]
-public class CacheClearTest
+public class CacheAttributeDocTest
 {
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<CacheAttributeDocTest>();
+
   /// <summary>
-  /// Class with [ClearRunfileCache(Enabled=true)] - should clear cache and log.
-  /// Verify output shows "✓ Clearing runfile cache:".
+  /// Verify that [Clean] and [ClearRunfileCache] attributes exist and have correct properties.
+  /// These attributes are markers for orchestrators, not for self-cleaning.
   /// </summary>
-  public static async Task ClearTestMethod()
+  public static async Task AttributesExistWithCorrectProperties()
   {
-    WriteLine("CacheClearTest.ClearTestMethod: Running after cache clear");
+    // Verify CleanAttribute exists and has Enabled property
+    var cleanAttr = new CleanAttribute(true);
+    cleanAttr.Enabled.ShouldBe(true);
+
+    var cleanAttrDisabled = new CleanAttribute(false);
+    cleanAttrDisabled.Enabled.ShouldBe(false);
+
+    // Verify ClearRunfileCacheAttribute exists (backward compatibility)
+    var cacheAttr = new ClearRunfileCacheAttribute(true);
+    cacheAttr.Enabled.ShouldBe(true);
+
+    WriteLine("✓ Both [Clean] and [ClearRunfileCache] attributes exist with Enabled property");
+    await Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// Verify default attribute values.
+  /// </summary>
+  public static async Task AttributeDefaultsToEnabled()
+  {
+    var cleanAttr = new CleanAttribute();
+    cleanAttr.Enabled.ShouldBe(true);
+
+    var cacheAttr = new ClearRunfileCacheAttribute();
+    cacheAttr.Enabled.ShouldBe(true);
+
+    WriteLine("✓ Attributes default to Enabled=true");
     await Task.CompletedTask;
   }
 }
 
 [TestTag("Jaribu")]
-public class NoCacheTest
+public class CleanMethodTest
 {
-  /// <summary>
-  /// No attribute, default false - no clearing output.
-  /// </summary>
-  public static async Task NoClearTestMethod()
-  {
-    WriteLine("NoCacheTest.NoClearTestMethod: Running without cache clear");
-    await Task.CompletedTask;
-  }
-}
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<CleanMethodTest>();
 
-[TestTag("Jaribu")]
-[ClearRunfileCache(true)]
-public class CurrentAssemblySkipTest
-{
   /// <summary>
-  /// Clear enabled - should skip deleting current assembly's cache dir.
-  /// Verify no deletion of current exe dir.
+  /// Verify TestRunner.RunClean() handles non-runfile execution gracefully.
+  /// When not running as a runfile, it should return without error.
   /// </summary>
-  public static async Task SkipCurrentTest()
+  public static async Task RunCleanHandlesNonRunfile()
   {
-    WriteLine("CurrentAssemblySkipTest.SkipCurrentTest: Running, cache should not delete self");
-    await Task.CompletedTask;
-  }
-}
+    // This test IS running as a runfile, but we can test the method exists
+    // and is callable. The actual clean would be skipped for self-cleaning.
+    // The method should handle edge cases gracefully.
 
-[TestTag("Jaribu")]
-[ClearRunfileCache(true)]
-public class EmptyCacheTest
-{
-  /// <summary>
-  /// Run with clear=true param - handles empty cache dir gracefully.
-  /// </summary>
-  public static async Task EmptyCacheMethod()
-  {
-    WriteLine("EmptyCacheTest.EmptyCacheMethod: No cache exists, should silent return");
-    await Task.CompletedTask;
+    // Test that RunClean can be called with a non-existent file (should not throw)
+    await TestRunner.RunClean("/nonexistent/path/test.cs");
+
+    WriteLine("✓ RunClean handles non-existent paths gracefully");
   }
 
   /// <summary>
-  /// Simulate permission issue (manual verification needed).
+  /// Verify that attempting to clean the currently running file is skipped with a warning.
   /// </summary>
-  public static async Task PermissionEdge()
+  public static async Task RunCleanSkipsSelfCleaning()
   {
-    // Hard to test automatically; log for manual check
-    WriteLine("PermissionEdge: Check if IOException handled in ClearRunfileCache");
-    await Task.CompletedTask;
+    // Get current runfile path
+    string? currentPath = AppContext.GetData("EntryPointFilePath") as string;
+    currentPath.ShouldNotBeNull();
+
+    // Capture console output
+    var originalOut = Console.Out;
+    using var sw = new StringWriter();
+    Console.SetOut(sw);
+
+    try
+    {
+      await TestRunner.RunClean(currentPath);
+    }
+    finally
+    {
+      Console.SetOut(originalOut);
+    }
+
+    string output = sw.ToString();
+    output.ShouldContain("Skipping dotnet clean");
+    output.ShouldContain("cannot clean currently executing runfile");
+
+    WriteLine("✓ RunClean correctly skips self-cleaning with helpful message");
   }
 }

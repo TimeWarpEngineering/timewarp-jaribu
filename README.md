@@ -59,7 +59,104 @@ For programmatic use:
 ```csharp
 using TimeWarp.Jaribu;
 
-await TestRunner.RunTests<MyTests>();
+// Simple usage - returns exit code (0 = success, 1 = failure)
+int exitCode = await TestRunner.RunTests<MyTests>();
+
+// With structured results - get detailed test information
+TestRunSummary summary = await TestRunner.RunTestsWithResults<MyTests>();
+
+// Access detailed results
+Console.WriteLine($"Passed: {summary.PassedCount}");
+Console.WriteLine($"Failed: {summary.FailedCount}");
+Console.WriteLine($"Skipped: {summary.SkippedCount}");
+Console.WriteLine($"Duration: {summary.TotalDuration}");
+
+// Iterate over individual test results
+foreach (TestResult result in summary.Results)
+{
+    Console.WriteLine($"{result.TestName}: {result.Outcome} ({result.Duration.TotalMilliseconds}ms)");
+    if (result.FailureMessage is not null)
+    {
+        Console.WriteLine($"  Error: {result.FailureMessage}");
+    }
+}
+```
+
+### Multi-Class Test Registration
+
+Run tests from multiple test classes with aggregated results:
+
+```csharp
+using TimeWarp.Jaribu;
+
+// Register test classes explicitly (no assembly scanning)
+TestRunner.RegisterTests<LexerTests>();
+TestRunner.RegisterTests<ParserTests>();
+TestRunner.RegisterTests<RoutingTests>();
+
+// Run all registered and get exit code (0 = success, 1 = failure)
+return await TestRunner.RunAllTests();
+
+// Or with tag filter
+return await TestRunner.RunAllTests(filterTag: "Unit");
+
+// Or get full results with TestSuiteSummary
+TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+Console.WriteLine($"Total: {summary.TotalTests}, Passed: {summary.PassedCount}, Failed: {summary.FailedCount}");
+
+// Access individual class results
+foreach (TestRunSummary classResult in summary.ClassResults)
+{
+    Console.WriteLine($"{classResult.ClassName}: {classResult.PassedCount}/{classResult.TotalTests} passed");
+}
+```
+
+**Note**: Use `TestRunner.ClearRegisteredTests()` to clear all registrations if needed.
+
+### Structured Results Types
+
+```csharp
+// Test outcome for each test
+public enum TestOutcome { Passed, Failed, Skipped }
+
+// Individual test result
+public record TestResult(
+    string TestName,
+    TestOutcome Outcome,
+    TimeSpan Duration,
+    string? FailureMessage,
+    string? StackTrace,
+    IReadOnlyList<object?>? Parameters  // For parameterized tests
+);
+
+// Summary of entire test run
+public record TestRunSummary(
+    string ClassName,
+    DateTimeOffset StartTime,
+    TimeSpan TotalDuration,
+    int PassedCount,
+    int FailedCount,
+    int SkippedCount,
+    IReadOnlyList<TestResult> Results
+)
+{
+    public int TotalTests => PassedCount + FailedCount + SkippedCount;
+    public bool Success => FailedCount == 0;
+}
+
+// Summary of multiple test class runs
+public record TestSuiteSummary(
+    DateTimeOffset StartTime,
+    TimeSpan TotalDuration,
+    int TotalTests,
+    int PassedCount,
+    int FailedCount,
+    int SkippedCount,
+    IReadOnlyList<TestRunSummary> ClassResults
+)
+{
+    public bool Success => FailedCount == 0;
+}
 ```
 
 ### Setup and CleanUp
