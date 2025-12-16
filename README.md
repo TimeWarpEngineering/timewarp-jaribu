@@ -129,7 +129,6 @@ This pattern uses `[ModuleInitializer]` for auto-registration and conditional co
 #:project ../../Source/MyProject/MyProject.csproj
 
 #if !JARIBU_MULTI
-RegisterTests<MyTests>();
 return await RunAllTests();
 #endif
 

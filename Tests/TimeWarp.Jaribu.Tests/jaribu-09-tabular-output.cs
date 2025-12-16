@@ -5,7 +5,6 @@
 // It uses mock data and TestTerminal to verify output without running actual tests.
 
 #if !JARIBU_MULTI
-RegisterTests<TabularOutputTests>();
 return await RunAllTests();
 #endif
 
