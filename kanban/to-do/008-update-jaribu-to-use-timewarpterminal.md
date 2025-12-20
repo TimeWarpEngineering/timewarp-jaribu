@@ -4,31 +4,41 @@
 
 Update TimeWarp.Jaribu to use the new TimeWarp.Terminal project/namespace instead of the ITerminal interface that was previously in TimeWarp.Nuru. This is a dependency extraction - ITerminal and related terminal abstractions are being moved from Nuru to a dedicated TimeWarp.Terminal project.
 
+**Investigation confirmed:** Jaribu does NOT use any Nuru CLI framework features (routes, NuruApp, etc.) - only terminal types that are moving to TimeWarp.Terminal. Therefore, we can **remove** the Nuru dependency entirely and replace it with just TimeWarp.Terminal.
+
 ## Checklist
 
-- [ ] Change TimeWarp.Nuru from PackageReference to ProjectReference (until new version published)
-  - Path: `/home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-nuru/timewarp-nuru.csproj`
-- [ ] Add ProjectReference to TimeWarp.Terminal (use local path until published)
+- [ ] Replace TimeWarp.Nuru PackageReference with TimeWarp.Terminal ProjectReference in `Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj`
   - Path: `/home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-terminal/timewarp-terminal.csproj`
-- [ ] Update namespace imports from `TimeWarp.Nuru` to `TimeWarp.Terminal` for ITerminal usage
-- [ ] Update any code referencing terminal-related types to use the new namespace
-- [ ] Verify all tests pass with the new dependencies
-- [ ] Once TimeWarp.Nuru and TimeWarp.Terminal are published to NuGet, convert ProjectReferences back to PackageReferences
+- [ ] Update namespace import in `Source/TimeWarp.Jaribu/TestHelpers.cs` from `TimeWarp.Nuru` to `TimeWarp.Terminal`
+- [ ] Verify build succeeds
+- [ ] Verify all tests pass
+- [ ] Once TimeWarp.Terminal is published to NuGet, convert ProjectReference to PackageReference
 
 ## Notes
 
 **Context:**
 - ITerminal interface is being extracted from TimeWarp.Nuru into a separate TimeWarp.Terminal project
-- This allows for better separation of concerns and independent versioning
-- Using ProjectReferences temporarily until both TimeWarp.Nuru and TimeWarp.Terminal are published to NuGet
-- The Nuru package also needs to be a ProjectReference since it depends on the Terminal changes
+- Jaribu only uses terminal types (ITerminal, NuruTerminal, Table, color extensions) - none of the CLI routing framework
+- This simplifies Jaribu's dependencies - no Nuru reference needed at all
 
-**Local Project Paths:**
+**Types used from TimeWarp.Terminal:**
+- `ITerminal`, `NuruTerminal`
+- `Table`, `Alignment`, `BorderStyle`
+- Color extensions: `.Green()`, `.Red()`, `.Yellow()`, `.Bold()`
+- `WriteTable()` extension method
+
+**Local Project Path:**
 ```
-TimeWarp.Nuru: /home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-nuru/timewarp-nuru.csproj
-TimeWarp.Terminal: /home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-terminal/timewarp-terminal.csproj
+/home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-terminal/timewarp-terminal.csproj
 ```
+
+**Files to modify:**
+1. `Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj` - replace PackageReference
+2. `Source/TimeWarp.Jaribu/TestHelpers.cs` - update using statement
 
 **Namespace Change:**
-- Old: `TimeWarp.Nuru` (for ITerminal)
-- New: `TimeWarp.Terminal`
+- Old: `using TimeWarp.Nuru;`
+- New: `using TimeWarp.Terminal;`
+
+**Note:** Scripts and Tests directories still reference Nuru for their own purposes (CLI scripts) - that's separate from the Jaribu library itself.
