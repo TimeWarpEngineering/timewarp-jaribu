@@ -11,8 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
-    <!-- Using ProjectReference until TimeWarp.Terminal is published to NuGet -->
-    <ProjectReference Include="/home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-terminal/timewarp-terminal.csproj" />
+    <PackageReference Include="TimeWarp.Terminal" />
   </ItemGroup>
 
   <ItemGroup>

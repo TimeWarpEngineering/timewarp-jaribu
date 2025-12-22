@@ -13,7 +13,7 @@ Update TimeWarp.Jaribu to use the new TimeWarp.Terminal project/namespace instea
 - [x] Update namespace import in `Source/TimeWarp.Jaribu/TestHelpers.cs` from `TimeWarp.Nuru` to `TimeWarp.Terminal`
 - [x] Verify build succeeds
 - [x] Verify all tests pass
-- [ ] Once TimeWarp.Terminal is published to NuGet, convert ProjectReference to PackageReference
+- [x] Once TimeWarp.Terminal is published to NuGet, convert ProjectReference to PackageReference
 
 ## Notes
 
