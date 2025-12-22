@@ -18,6 +18,7 @@
     <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0-beta.13" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.12" />
+    <PackageVersion Include="TimeWarp.Terminal" Version="1.0.0-beta.1" />
     <PackageVersion Include="TimeWarp.Nuru.Parsing" Version="$(Version)" />
     <PackageVersion Include="TimeWarp.Nuru.Analyzers" Version="$(Version)" />
     <!-- Benchmark packages -->

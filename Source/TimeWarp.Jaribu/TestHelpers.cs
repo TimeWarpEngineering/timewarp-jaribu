@@ -4,7 +4,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
-using TimeWarp.Nuru;
+using TimeWarp.Terminal;
 
 /// <summary>
 /// Helper utilities for test formatting and common patterns.
