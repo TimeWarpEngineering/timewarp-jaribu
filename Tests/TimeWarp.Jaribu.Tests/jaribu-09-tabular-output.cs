@@ -19,7 +19,7 @@ public class TabularOutputTests
 
   public static async Task TableStructureWithTestTerminal()
   {
-    using TestTerminal terminal = new();
+    using TimeWarp.Terminal.TestTerminal terminal = new();
 
     // Create a summary manually to test PrintResultsTable directly
     var results = new List<TestResult>
@@ -74,7 +74,7 @@ public class TabularOutputTests
 
   public static async Task LongMessageTruncation()
   {
-    using TestTerminal terminal = new();
+    using TimeWarp.Terminal.TestTerminal terminal = new();
 
     string longMessage = "This is a very long error message that should be truncated because it exceeds the maximum width limit";
 
@@ -108,7 +108,7 @@ public class TabularOutputTests
 
   public static async Task AnsiColorCodesInOutput()
   {
-    using TestTerminal terminal = new();
+    using TimeWarp.Terminal.TestTerminal terminal = new();
 
     var results = new List<TestResult>
     {
@@ -141,7 +141,7 @@ public class TabularOutputTests
 
   public static async Task DurationFormatting()
   {
-    using TestTerminal terminal = new();
+    using TimeWarp.Terminal.TestTerminal terminal = new();
 
     var results = new List<TestResult>
     {
@@ -172,7 +172,7 @@ public class TabularOutputTests
 
   public static async Task EmptyResultsHandling()
   {
-    using TestTerminal terminal = new();
+    using TimeWarp.Terminal.TestTerminal terminal = new();
 
     var summary = new TestRunSummary(
       "EmptyTest",
