@@ -32,11 +32,11 @@ Validate that the Microsoft.Testing.Platform integration works correctly with Vi
 
 ### Cleanup Tasks (discovered during validation)
 - [x] Fix CS9314 shebang error with `<Features>FileBasedProgram</Features>`
-- [ ] Add `FileBasedProgram` to M.T.P. props for automatic support
-- [ ] Remove obsolete cache clearing code (RunClean, CleanAttribute, etc.)
-- [ ] Remove ci-tests orchestrator (replaced by M.T.P.)
-- [ ] Update mtp-tests to include all jaribu-*.cs files
-- [ ] Verify dual-mode execution works
+- [x] Add `FileBasedProgram` to M.T.P. props for automatic support
+- [x] Remove obsolete cache clearing code (RunClean, CleanAttribute, etc.)
+- [x] Remove ci-tests orchestrator (replaced by M.T.P.)
+- [x] Update mtp-tests to include all jaribu-*.cs files
+- [x] Verify dual-mode execution works
 
 ## Notes
 

@@ -4,6 +4,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Using Include="Microsoft.Testing.Platform.Builder" />
+    <Using Include="Microsoft.Testing.Platform.Capabilities.TestFramework" />
+    <Using Include="Microsoft.Testing.Platform.Extensions" />
+    <Using Include="Microsoft.Testing.Platform.Extensions.Messages" />
+    <Using Include="Microsoft.Testing.Platform.Extensions.TestFramework" />
+    <Using Include="Microsoft.Testing.Platform.Requests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Testing.Platform" />
     <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
     <ProjectReference Include="../TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />

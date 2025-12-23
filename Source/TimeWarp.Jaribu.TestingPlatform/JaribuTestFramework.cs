@@ -1,8 +1,3 @@
-using Microsoft.Testing.Platform.Extensions;
-using Microsoft.Testing.Platform.Extensions.Messages;
-using Microsoft.Testing.Platform.Extensions.TestFramework;
-using Microsoft.Testing.Platform.Requests;
-
 namespace TimeWarp.Jaribu.TestingPlatform;
 
 /// <summary>
@@ -11,154 +6,192 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 /// </summary>
 internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 {
-    private readonly IExtension _extension;
+  private readonly IExtension Extension;
 
-    public JaribuTestFramework(IExtension extension, IServiceProvider serviceProvider)
+  public JaribuTestFramework
+  (
+    IExtension extension,
+    IServiceProvider _
+  )
+  {
+    Extension = extension;
+  }
+
+  public string Uid => Extension.Uid;
+  public string Version => Extension.Version;
+  public string DisplayName => Extension.DisplayName;
+  public string Description => Extension.Description;
+
+  public Type[] DataTypesProduced =>
+  [
+    typeof(TestNodeUpdateMessage)
+  ];
+
+  public Task<bool> IsEnabledAsync() => Extension.IsEnabledAsync();
+
+  public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
+  {
+    return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
+  }
+
+  public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
+  {
+    return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
+  }
+
+  public async Task ExecuteRequestAsync(ExecuteRequestContext context)
+  {
+    try
     {
-        _extension = extension;
-    }
+      bool isDiscovery = context.Request is DiscoverTestExecutionRequest;
+      ITestExecutionFilter? filter = GetFilter(context);
 
-    public string Uid => _extension.Uid;
-    public string Version => _extension.Version;
-    public string DisplayName => _extension.DisplayName;
-    public string Description => _extension.Description;
-
-    public Type[] DataTypesProduced =>
-    [
-        typeof(TestNodeUpdateMessage)
-    ];
-
-    public Task<bool> IsEnabledAsync() => _extension.IsEnabledAsync();
-
-    public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
-    {
-        return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
-    }
-
-    public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
-    {
-        return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
-    }
-
-    public async Task ExecuteRequestAsync(ExecuteRequestContext context)
-    {
-        try
+      foreach (Type testClass in TestRunner.RegisteredTestClasses)
+      {
+        foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
         {
-            bool isDiscovery = context.Request is DiscoverTestExecutionRequest;
-            ITestExecutionFilter? filter = GetFilter(context);
+          string testNodeUid = $"{testClass.FullName}.{method.Name}";
 
-            foreach (Type testClass in TestRunner.RegisteredTestClasses)
-            {
-                IEnumerable<System.Reflection.MethodInfo> testMethods = TestRunner.DiscoverTests(testClass);
+          if (filter != null && !MatchesFilter(testNodeUid, filter))
+            continue;
 
-                foreach (System.Reflection.MethodInfo method in testMethods)
-                {
-                    string testNodeUid = $"{testClass.FullName}.{method.Name}";
+          if (isDiscovery)
+          {
+            await PublishTestNode
+            (
+              context,
+              testNodeUid,
+              method.Name,
+              DiscoveredTestNodeStateProperty.CachedInstance
+            ).ConfigureAwait(false);
+          }
+          else
+          {
+            // Report in-progress
+            await PublishTestNode
+            (
+              context,
+              testNodeUid,
+              method.Name,
+              InProgressTestNodeStateProperty.CachedInstance
+            ).ConfigureAwait(false);
 
-                    if (filter != null && !MatchesFilter(testNodeUid, filter))
-                        continue;
+            // Execute test
+            MtpTestResult result = await TestRunner.RunSingleTestAsync(testClass, method).ConfigureAwait(false);
 
-                    if (isDiscovery)
-                    {
-                        await PublishTestNode(context, testNodeUid, method.Name,
-                            DiscoveredTestNodeStateProperty.CachedInstance).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        // Report in-progress
-                        await PublishTestNode(context, testNodeUid, method.Name,
-                            InProgressTestNodeStateProperty.CachedInstance).ConfigureAwait(false);
-
-                        // Execute test
-                        MtpTestResult result = await TestRunner.RunSingleTestAsync(testClass, method).ConfigureAwait(false);
-
-                        // Report result
-                        TestNodeStateProperty stateProperty = MapStatusToProperty(result);
-                        await PublishTestNode(context, testNodeUid, method.Name,
-                            stateProperty, result.Duration).ConfigureAwait(false);
-                    }
-                }
-            }
+            // Report result
+            TestNodeStateProperty stateProperty = MapStatusToProperty(result);
+            await PublishTestNode
+            (
+              context,
+              testNodeUid,
+              method.Name,
+              stateProperty,
+              result.Duration
+            ).ConfigureAwait(false);
+          }
         }
-        catch (Exception ex)
-        {
-            await ReportUnhandledException(context, ex).ConfigureAwait(false);
-            throw;
-        }
-        finally
-        {
-            context.Complete();
-        }
+      }
     }
-
-    private static TestNodeStateProperty MapStatusToProperty(MtpTestResult result)
-        => result.Status switch
-        {
-            TestStatus.Passed => PassedTestNodeStateProperty.CachedInstance,
-            TestStatus.Skipped => new SkippedTestNodeStateProperty(result.SkipReason),
-            TestStatus.Failed => new FailedTestNodeStateProperty(
-                result.Exception ?? new InvalidOperationException("Test failed without exception details")),
-            TestStatus.Timeout => new TimeoutTestNodeStateProperty(
-                result.Exception ?? new TimeoutException("Test timed out")),
-            _ => new ErrorTestNodeStateProperty(
-                result.Exception ?? new InvalidOperationException("Test error without exception details"))
-        };
-
-    private async Task PublishTestNode(
-        ExecuteRequestContext context,
-        string uid,
-        string displayName,
-        TestNodeStateProperty state,
-        TimeSpan? duration = null)
+    catch (Exception ex)
     {
-        var properties = new PropertyBag(state);
-
-        if (duration.HasValue)
-        {
-            DateTimeOffset endTime = DateTimeOffset.UtcNow;
-            DateTimeOffset startTime = endTime - duration.Value;
-            properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, duration.Value)));
-        }
-
-        await context.MessageBus.PublishAsync(this, new TestNodeUpdateMessage(
-            sessionUid: context.Request.Session.SessionUid,
-            testNode: new TestNode
-            {
-                Uid = new TestNodeUid(uid),
-                DisplayName = displayName,
-                Properties = properties
-            })).ConfigureAwait(false);
+      await ReportUnhandledException(context, ex).ConfigureAwait(false);
+      throw;
     }
-
-    private async Task ReportUnhandledException(ExecuteRequestContext context, Exception ex)
+    finally
     {
-        await context.MessageBus.PublishAsync(this, new TestNodeUpdateMessage(
-            sessionUid: context.Request.Session.SessionUid,
-            testNode: new TestNode
-            {
-                Uid = new TestNodeUid($"Jaribu.Error.{Guid.NewGuid()}"),
-                DisplayName = $"Unhandled: {ex.GetType().Name}",
-                Properties = new PropertyBag(new ErrorTestNodeStateProperty(ex))
-            })).ConfigureAwait(false);
+      context.Complete();
+    }
+  }
+
+  private static TestNodeStateProperty MapStatusToProperty(MtpTestResult result)
+    => result.Status switch
+    {
+      TestStatus.Passed => PassedTestNodeStateProperty.CachedInstance,
+      TestStatus.Skipped => new SkippedTestNodeStateProperty(result.SkipReason),
+      TestStatus.Failed => new FailedTestNodeStateProperty
+      (
+        result.Exception ?? new InvalidOperationException("Test failed without exception details")
+      ),
+      TestStatus.Timeout => new TimeoutTestNodeStateProperty
+      (
+        result.Exception ?? new TimeoutException("Test timed out")
+      ),
+      _ => new ErrorTestNodeStateProperty
+      (
+        result.Exception ?? new InvalidOperationException("Test error without exception details")
+      )
+    };
+
+  private async Task PublishTestNode
+  (
+    ExecuteRequestContext context,
+    string uid,
+    string displayName,
+    TestNodeStateProperty state,
+    TimeSpan? duration = null
+  )
+  {
+    PropertyBag properties = new(state);
+
+    if (duration.HasValue)
+    {
+      DateTimeOffset endTime = DateTimeOffset.UtcNow;
+      DateTimeOffset startTime = endTime - duration.Value;
+      properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, duration.Value)));
     }
 
-    private static ITestExecutionFilter? GetFilter(ExecuteRequestContext context)
-        => context.Request switch
+    await context.MessageBus.PublishAsync
+    (
+      this,
+      new TestNodeUpdateMessage
+      (
+        sessionUid: context.Request.Session.SessionUid,
+        testNode: new TestNode
         {
-            RunTestExecutionRequest r => r.Filter,
-            DiscoverTestExecutionRequest d => d.Filter,
-            _ => null
-        };
+          Uid = new TestNodeUid(uid),
+          DisplayName = displayName,
+          Properties = properties
+        }
+      )
+    ).ConfigureAwait(false);
+  }
+
+  private async Task ReportUnhandledException(ExecuteRequestContext context, Exception ex)
+  {
+    await context.MessageBus.PublishAsync
+    (
+      this,
+      new TestNodeUpdateMessage
+      (
+        sessionUid: context.Request.Session.SessionUid,
+        testNode: new TestNode
+        {
+          Uid = new TestNodeUid($"Jaribu.Error.{Guid.NewGuid()}"),
+          DisplayName = $"Unhandled: {ex.GetType().Name}",
+          Properties = new PropertyBag(new ErrorTestNodeStateProperty(ex))
+        }
+      )
+    ).ConfigureAwait(false);
+  }
+
+  private static ITestExecutionFilter? GetFilter(ExecuteRequestContext context)
+    => context.Request switch
+    {
+      RunTestExecutionRequest r => r.Filter,
+      DiscoverTestExecutionRequest d => d.Filter,
+      _ => null
+    };
 
 #pragma warning disable TPEXP // TreeNodeFilter is experimental
-    private static bool MatchesFilter(string testNodeUid, ITestExecutionFilter filter)
-        => filter switch
-        {
-            TestNodeUidListFilter uidFilter =>
-                uidFilter.TestNodeUids.Any(u => u.Value == testNodeUid),
-            TreeNodeFilter treeFilter =>
-                treeFilter.MatchesFilter(testNodeUid, new PropertyBag()),
-            _ => true
-        };
+  private static bool MatchesFilter(string testNodeUid, ITestExecutionFilter filter)
+    => filter switch
+    {
+      TestNodeUidListFilter uidFilter =>
+        uidFilter.TestNodeUids.Any(u => u.Value == testNodeUid),
+      TreeNodeFilter treeFilter =>
+        treeFilter.MatchesFilter(testNodeUid, new PropertyBag()),
+      _ => true
+    };
 #pragma warning restore TPEXP
 }
