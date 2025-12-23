@@ -17,10 +17,10 @@ Update package dependencies to their latest versions with breaking changes:
 
 ## Checklist
 
-- [ ] Update package versions in `Directory.Packages.props`
-- [ ] Fix `NuruTerminal` → `TimeWarpTerminal` in `Source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206)
-- [ ] Run `dotnet build` to verify no other compilation errors
-- [ ] Run full test suite to verify all tests pass
+- [x] Update package versions in `Directory.Packages.props`
+- [x] Fix `NuruTerminal` → `TimeWarpTerminal` in `Source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206)
+- [x] Run `dotnet build` to verify no other compilation errors
+- [x] Run full test suite to verify all tests pass (2/7 pass - expected, as tests intentionally include failures)
 
 ## Notes
 
