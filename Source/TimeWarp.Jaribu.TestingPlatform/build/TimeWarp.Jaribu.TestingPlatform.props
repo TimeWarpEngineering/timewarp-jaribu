@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Mark as test project for Microsoft.Testing.Platform -->
+    <IsTestProject>true</IsTestProject>
+    <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+    
+    <!-- Enable test discovery -->
+    <EnableMSTestRunner>false</EnableMSTestRunner>
+    <GenerateTestingPlatformEntryPoint>true</GenerateTestingPlatformEntryPoint>
+    
+    <!-- Register the TestingPlatformBuilderHook -->
+    <TestingPlatformBuilderHook>TimeWarp.Jaribu.TestingPlatform.TestingPlatformBuilderHook</TestingPlatformBuilderHook>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Microsoft.Testing.Platform adapter for TimeWarp.Jaribu test framework</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Platform" />
+    <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
+    <ProjectReference Include="../TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+  </ItemGroup>
+
+  <!-- Pack build props/targets -->
+  <ItemGroup>
+    <None Include="build/**" Pack="true" PackagePath="build/" />
+    <None Include="build/**" Pack="true" PackagePath="buildTransitive/" />
+  </ItemGroup>
+</Project>

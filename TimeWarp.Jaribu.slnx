@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Source/">
     <Project Path="Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+    <Project Path="Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
   </Folder>
 </Solution>

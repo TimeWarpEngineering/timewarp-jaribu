@@ -45,6 +45,9 @@
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta5.25306.1" />
     <!-- MCP Server packages -->
     <PackageVersion Include="ModelContextProtocol" Version="0.3.0-preview.4" />
+    <!-- Microsoft.Testing.Platform packages -->
+    <PackageVersion Include="Microsoft.Testing.Platform" Version="1.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="1.5.3" />
     <!-- Analyzers -->
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Roslynator.CodeAnalysis.Analyzers" Version="4.15.0" />
