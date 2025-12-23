@@ -43,16 +43,6 @@ public class EdgeTests
   }
 
   /// <summary>
-  /// Simulate permission issue - hard to automate, log for manual.
-  /// </summary>
-  public static async Task CachePermissionEdge()
-  {
-    // Manual: Run and check if IOException is handled without crash
-    WriteLine("CachePermissionEdge: Check ClearRunfileCache handles IO errors");
-    await Task.CompletedTask;
-  }
-
-  /// <summary>
   /// Class with 0 qualifying tests - summary "0/0", exit=0.
   /// Include non-qualifying methods only.
   /// </summary>

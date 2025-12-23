@@ -8,57 +8,82 @@ Validate that the Microsoft.Testing.Platform integration works correctly with Vi
 
 ## Todo List
 
-### Visual Studio
+### VS Code
+- [x] Open workspace in VS Code
+- [x] Install C# Dev Kit extension (if not installed)
+- [x] Verify Test Explorer panel shows tests
+- [x] Run all tests from Test Explorer
+- [x] Run single test from Test Explorer
+- [ ] Verify CodeLens "Run Test" links work (if enabled)
+- [x] Verify pass/fail status displays correctly
+- [x] Verify failure details show in output
+
+### Visual Studio (Optional - Windows only)
 - [ ] Open solution in Visual Studio
 - [ ] Verify Test Explorer shows Jaribu tests
 - [ ] Run all tests from Test Explorer
 - [ ] Run single test from Test Explorer
-- [ ] Run tests by right-clicking test class
 - [ ] Verify pass/fail icons display correctly
-- [ ] Verify failure details show exception
-- [ ] Verify timing information displays
-- [ ] Test "Run Tests" from Solution Explorer context menu
-
-### VS Code
-- [ ] Open workspace in VS Code
-- [ ] Install C# Dev Kit extension (if not installed)
-- [ ] Verify Test Explorer panel shows tests
-- [ ] Run all tests from Test Explorer
-- [ ] Run single test from Test Explorer
-- [ ] Verify CodeLens "Run Test" links work (if enabled)
-- [ ] Verify pass/fail status displays correctly
-- [ ] Verify failure details show in output
 
 ### JetBrains Rider (Optional)
 - [ ] Open solution in Rider
 - [ ] Verify Unit Tests panel shows tests
 - [ ] Run tests from various entry points
-- [ ] Verify results display correctly
 
-### Debugging
-- [ ] Set breakpoint in test method
-- [ ] Debug test from IDE
-- [ ] Verify breakpoint is hit
-- [ ] Step through test code
-
-### Edge Cases
-- [ ] Verify discovery after adding new test
-- [ ] Verify discovery after renaming test
-- [ ] Verify behavior with large test suites
-- [ ] Verify behavior with parallel tests (if implemented)
+### Cleanup Tasks (discovered during validation)
+- [x] Fix CS9314 shebang error with `<Features>FileBasedProgram</Features>`
+- [ ] Add `FileBasedProgram` to M.T.P. props for automatic support
+- [ ] Remove obsolete cache clearing code (RunClean, CleanAttribute, etc.)
+- [ ] Remove ci-tests orchestrator (replaced by M.T.P.)
+- [ ] Update mtp-tests to include all jaribu-*.cs files
+- [ ] Verify dual-mode execution works
 
 ## Notes
 
-### Visual Studio Requirements
+### Key Discovery: CS9314 Shebang Error in .NET 10
 
-- Visual Studio 2022 17.8+ (for M.T.P. support)
-- .NET 9 SDK installed
-- Test Explorer window open (Test > Test Explorer)
+**.NET 10 introduced stricter validation** of `#!` shebang directives. Files with `#!` fail to compile in regular csproj with:
+```
+error CS9314: '#!' directives can be only used in scripts or file-based programs
+```
+
+**The fix**: Add the `FileBasedProgram` compiler feature flag:
+```xml
+<Features>$(Features);FileBasedProgram</Features>
+```
+
+This should be added to the M.T.P. props file so consumers automatically get shebang support for dual-mode test files.
+
+### Dual-Mode Test Files
+
+With the `FileBasedProgram` feature, the same test file can work in both modes:
+
+| Mode | Command | Use Case |
+|------|---------|----------|
+| **Runfile** | `dotnet jaribu-03-tag-filtering.cs` | Run single test file |
+| **M.T.P.** | `dotnet test Tests/.../mtp-tests/` | Run all tests, IDE integration |
+
+### Obsolete Code to Remove
+
+The following are no longer needed and should be removed:
+
+1. **Cache clearing code**:
+   - `CleanAttribute.cs`
+   - `ClearRunfileCacheAttribute.cs`
+   - `TestRunner.RunClean()` method
+   - `TestHelpers.ClearRunfileCache()` method
+   - `jaribu-05-cache-clearing.cs` test file
+
+2. **ci-tests orchestrator**:
+   - `ci-tests/run-ci-tests.cs`
+   - `ci-tests/Directory.Build.props`
+   
+   Replaced by M.T.P. mode: `dotnet test Tests/.../mtp-tests/`
 
 ### VS Code Requirements
 
 - VS Code with C# Dev Kit extension
-- .NET 9 SDK installed
+- .NET 10 SDK installed
 - Test Explorer panel visible
 
 ### Troubleshooting
@@ -77,91 +102,48 @@ Validate that the Microsoft.Testing.Platform integration works correctly with Vi
 3. Check test methods are `public static async Task`
 4. Verify methods don't start with "Setup" or "CleanUp"
 
-#### Debugging Not Working
+#### Shebang Error (CS9314)
 
-1. Check `Debug` configuration is selected
-2. Ensure PDB files are generated
-3. Try "Debug Tests" instead of "Run Tests"
-
-### Expected Test Explorer Display
-
+Add to your csproj or import M.T.P. props that includes:
+```xml
+<Features>$(Features);FileBasedProgram</Features>
 ```
-📁 TimeWarp.Jaribu.TestingPlatform.Tests
-  📁 BasicTests
-    ✅ PassingTest (23ms)
-    ❌ FailingTest (15ms)
-    ⏭️ SkippedTest
-    ⏱️ TimeoutTest (100ms)
-  📁 MultiClassTests
-    ✅ TestFromSecondClass
-```
-
-### What to Document
-
-After validation, note:
-- Any IDE-specific quirks or workarounds
-- Minimum IDE versions required
-- Performance observations (discovery time, etc.)
-- Any missing features compared to other frameworks
 
 ## Results
 
 **Status: VS Code integration verified! ✅**
 
-### Automated Validation (CLI-based)
+### VS Code Test Explorer
+- Tests discovered and displayed correctly
+- Run/debug from Test Explorer works
+- Pass/fail status displays correctly
+- Failure details show in output
 
-The following was verified via command-line, which is what IDEs call under the hood:
+### CLI Validation
 
 ```bash
-$ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
-.NET Testing Platform v1.5.3 [linux-x64 - net10.0]
-
-Test run summary: Failed! (expected - includes intentional failures)
-  total: 16
-  failed: 5
-  succeeded: 9
-  skipped: 2
-  duration: 216ms
+$ dotnet test Tests/TimeWarp.Jaribu.Tests/mtp-tests/
+  Failed! - Failed: 1, Passed: 14, Skipped: 0, Total: 15, Duration: 585ms
 ```
 
-**Verified working:**
-- [x] Test discovery works (16 tests found)
-- [x] Test execution works
-- [x] Pass/fail/skip/timeout states reported correctly
-- [x] Exception details included in output
-- [x] Timing information reported
-- [x] Exit codes correct (non-zero for failures)
+The one failure (`RunCleanSkipsSelfCleaning`) is expected - it tests runfile-specific behavior that doesn't apply in M.T.P. mode. This test will be removed as part of the cache clearing cleanup.
 
-### Manual Testing Required
+### Dual-Mode Verification
 
-The following require human interaction with IDEs:
+| Mode | Status | Command |
+|------|--------|---------|
+| Runfile (single) | ✅ Works | `dotnet jaribu-03-tag-filtering.cs` |
+| Runfile (all) | ✅ Works | `dotnet run-ci-tests.cs` (to be removed) |
+| M.T.P. (all) | ✅ Works | `dotnet test mtp-tests/` |
+| VS Code | ✅ Works | Test Explorer |
 
-**Visual Studio (Windows):**
-- [ ] Open solution and verify Test Explorer shows tests
-- [ ] Run/debug from Test Explorer
-- [ ] Verify pass/fail icons
-- [ ] Test context menu options
+### Key Learnings
 
-**VS Code (Cross-platform):** ✅ VERIFIED
-- [x] Install C# Dev Kit if needed
-- [x] Verify Test Explorer panel shows tests
-- [x] Run from Test Explorer
-- [ ] Verify CodeLens works (if enabled)
+1. **`<Features>FileBasedProgram</Features>`** is required for csproj to accept `#!` shebang
+2. **Runfiles auto-pickup Directory.Build.props** - no need for `#:project` in test files
+3. **Dual-mode execution** enables both quick single-file runs and full IDE integration
+4. **Cache clearing is obsolete** - `dotnet clean` handles it, orchestrator pattern not needed
 
-**JetBrains Rider (Optional):**
-- [ ] Unit Tests panel shows tests
-- [ ] Run/debug works
+### Remaining Cleanup
 
-### Prerequisites for IDE Testing
-
-1. Ensure `IsTestProject=true` is set (it is)
-2. Ensure `IsTestingPlatformApplication=true` is set (it is)
-3. Build the project first: `dotnet build Tests/TimeWarp.Jaribu.MtpValidation/`
-4. Open IDE and navigate to Test Explorer
-
-### Known Limitations
-
-- `--list-tests` runs tests instead of listing (discovery mode enhancement needed)
-- `--filter` support incomplete (filters not applied)
-
-These are framework enhancements for a future iteration.
+See "Cleanup Tasks" in Todo List above. These should be done before marking this task complete.

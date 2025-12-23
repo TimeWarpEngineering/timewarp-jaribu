@@ -2,7 +2,6 @@ namespace TimeWarp.Jaribu;
 
 using System.Diagnostics;
 using System.Reflection;
-using TimeWarp.Amuru;
 using static System.Console;
 
 /// <summary>
@@ -389,30 +388,6 @@ public static class TestRunner
       }
     }
 
-    // Determine whether to clean: attribute wins, then parameter, then default (false)
-    // Check both [Clean] and [ClearRunfileCache] attributes (Clean takes precedence)
-    bool shouldClean = false;
-    CleanAttribute? cleanAttr = typeof(T).GetCustomAttribute<CleanAttribute>();
-    ClearRunfileCacheAttribute? cacheAttr = typeof(T).GetCustomAttribute<ClearRunfileCacheAttribute>();
-
-    if (cleanAttr is not null)
-    {
-      shouldClean = cleanAttr.Enabled;
-    }
-    else if (cacheAttr is not null)
-    {
-      shouldClean = cacheAttr.Enabled;
-    }
-    else if (clearCache.HasValue)
-    {
-      shouldClean = clearCache.Value;
-    }
-
-    if (shouldClean)
-    {
-      await RunClean();
-    }
-
     WriteLine($"🧪 Testing {testClassName}...");
 
     if (filterTag is not null)
@@ -748,52 +723,4 @@ public static class TestRunner
     }
   }
 
-  /// <summary>
-  /// Runs `dotnet clean` on the specified runfile to ensure tests pick up latest source changes.
-  /// Uses the official .NET SDK command introduced in .NET 10.
-  /// </summary>
-  /// <param name="runfilePath">Path to the runfile to clean. If null, attempts to clean the current runfile.</param>
-  /// <remarks>
-  /// Note: Cleaning the currently executing runfile is not possible as it would corrupt the running process.
-  /// In that case, a warning is displayed and the clean operation is skipped.
-  /// For self-cleaning scenarios, run `dotnet clean yourfile.cs` before executing the runfile.
-  /// </remarks>
-  public static async Task RunClean(string? runfilePath = null)
-  {
-    // If no path provided, get the current runfile path
-    runfilePath ??= AppContext.GetData("EntryPointFilePath") as string;
-
-    if (string.IsNullOrEmpty(runfilePath))
-    {
-      // Not running as a runfile, nothing to clean
-      return;
-    }
-
-    // Check if we're trying to clean the currently executing file
-    string? currentRunfile = AppContext.GetData("EntryPointFilePath") as string;
-    if (!string.IsNullOrEmpty(currentRunfile) &&
-        string.Equals(Path.GetFullPath(runfilePath), Path.GetFullPath(currentRunfile), StringComparison.OrdinalIgnoreCase))
-    {
-      // Cannot clean ourselves while running - this would corrupt the build
-      WriteLine($"⚠ Skipping dotnet clean on {Path.GetFileName(runfilePath)} (cannot clean currently executing runfile)");
-      WriteLine("  Tip: Run 'dotnet clean <file>' before execution to ensure fresh compilation.");
-      WriteLine();
-      return;
-    }
-
-    WriteLine($"✓ Running dotnet clean on: {Path.GetFileName(runfilePath)}");
-
-    CommandOutput result = await Shell.Builder("dotnet")
-      .WithArguments("clean", runfilePath)
-      .WithNoValidation()
-      .CaptureAsync();
-
-    if (!result.Success)
-    {
-      // Log error but don't fail the test run - cleaning is best-effort
-      WriteLine($"  ⚠ Clean failed: {result.Stderr}");
-    }
-
-    WriteLine();
-  }
 }

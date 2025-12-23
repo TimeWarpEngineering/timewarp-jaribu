@@ -1,5 +1,4 @@
 #!/usr/bin/dotnet --
-#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 #if !JARIBU_MULTI
 return await RunAllTests();

@@ -3,4 +3,8 @@
     <Project Path="Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
     <Project Path="Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/TimeWarp.Jaribu.Tests/mtp-tests/TimeWarp.Jaribu.Tests.Mtp.csproj" />
+    <Project Path="Tests/TimeWarp.Jaribu.MtpValidation/TimeWarp.Jaribu.MtpValidation.csproj" />
+  </Folder>
 </Solution>

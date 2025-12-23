@@ -1,5 +1,4 @@
 #!/usr/bin/dotnet --
-#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 // This is a meta-test file that tests the tabular output formatting.
 // It uses mock data and TestTerminal to verify output without running actual tests.

@@ -10,10 +10,9 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 
 - **Convention over Configuration**: Discover public static async Task methods as tests via reflection.
 - **Assertion Helpers**: Simple, fluent assertions inspired by Shouldly.
-- **Attributes**: Support for [Skip], [TestTag], [Timeout], [Input], and [ClearRunfileCache].
+- **Attributes**: Support for [Skip], [TestTag], [Timeout], and [Input].
 - **Parameterized Tests**: Easy data-driven testing.
 - **Tag Filtering**: Run specific test groups.
-- **Cache Management**: Clear runfile cache for consistent testing.
 - **Minimal Dependencies**: Only Shouldly for assertions.
 - **Visual Studio Test Explorer integration** (M.T.P. Mode)
 - **VS Code Test Explorer integration** (M.T.P. Mode)

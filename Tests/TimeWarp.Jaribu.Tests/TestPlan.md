@@ -9,7 +9,7 @@ The test runner supports:
 - Parameterized tests using `[Input]` attributes.
 - Tag-based filtering (`[TestTag]`) at class and method levels.
 - Skipping tests with `[Skip]`.
-- Optional cache clearing with `[ClearRunfileCache]`.
+
 - Basic reporting and exit codes.
 
 This plan will guide the creation of test classes under `Tests/TimeWarp.Jaribu.Tests/` to self-validate the runner.
@@ -82,18 +82,7 @@ This plan will guide the creation of test classes under `Tests/TimeWarp.Jaribu.T
 | SKIP-03 | TargetInvocationException unwrapping | Reflection-invoked exception | Call `RunTests<InvocationTest>()` | Inner exception type/message shown | High |
 | SKIP-04 | Async exception | Await throws after delay | Call `RunTests<AsyncExceptionTest>()` | Caught and reported | Medium |
 
-### 5. Cache Clearing
-**Objective**: Ensure safe deletion of .NET runfile cache.
-
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| CACHE-01 | Clear with [ClearRunfileCache] | Class with attribute Enabled=true | Call `RunTests<CacheClearTest>()` | Cache dirs deleted (except current), "✓ Clearing runfile cache:" output | High |
-| CACHE-02 | No clear (default) | No attribute, clearCache=false | Call `RunTests<NoCacheTest>()` | No deletion/output | High |
-| CACHE-03 | Skip current assembly | Run in temp dir with cache | Call with clear=true | Current exe dir not deleted | High |
-| CACHE-04 | Empty cache dir | No runfile cache exists | Call with clear=true | No error, silent return | Medium |
-| CACHE-05 | Path differences (Windows) | Simulate Windows paths | Manual verification | Handles backslashes correctly | Low |
-
-### 6. Reporting and Cleanup
+### 5. Reporting and Cleanup
 **Objective**: Validate output, counters, and post-run actions.
 
 | Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
@@ -104,22 +93,21 @@ This plan will guide the creation of test classes under `Tests/TimeWarp.Jaribu.T
 | REPORT-04 | Async CleanUp (future) | If Task-returning CleanUp | Call | Awaited properly | Low |
 | REPORT-05 | Counter reset (if implemented) | Multiple RunTests calls | Sequential calls | Counters reset per call | Medium |
 
-### 7. Edge Cases
+### 6. Edge Cases
 - **DISC-EDGE-01**: Generic test methods – Ensure reflection handles.
 - **PARAM-EDGE-01**: [Input] with 0 params for multi-param method – Fail gracefully.
 - **TAG-EDGE-01**: Multiple tags per method/class – Any match suffices.
-- **CACHE-EDGE-01**: Permission denied on cache dir – Handle IOException.
 - **REPORT-EDGE-01**: 0 tests – "Results: 0/0", exit=0.
 
 ## Test Execution Strategy
 - **Automation**: Write test classes (e.g., `DiscoveryTests.cs`) using Jaribu itself. Use a meta-runner script (e.g., `run-jaribu-tests.cs`) to invoke and assert outputs/exit codes.
-- **Manual Verification**: For cache clearing and console output, inspect logs/files.
+- **Manual Verification**: For console output, inspect logs/files.
 - **Coverage**: Aim for 90%+ code coverage (use `dotnet test --collect:"XPlat Code Coverage"` if integrating with MSTest).
 - **Pass/Fail Criteria**: All high-priority cases pass; no regressions in existing Nuru tests using Jaribu.
 
 ## Risks and Mitigations
 - **Risk**: Self-testing circularity – **Mitigation**: Use simple assertions in tests; fallback to manual runs.
-- **Risk**: Cache clearing affects other projects – **Mitigation**: Run in isolated temp dirs.
+
 - **Risk**: Reflection changes in future .NET – **Mitigation**: Pin to .NET 10.0; monitor updates.
 
 ## Next Steps

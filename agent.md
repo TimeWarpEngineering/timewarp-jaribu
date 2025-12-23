@@ -46,14 +46,14 @@ chmod +x Scripts/CheckVersion.cs
 - Convention-based test discovery: finds public static async Task methods via reflection
 - Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`
 - Supports parameterized tests via [Input] attributes
-- Manages runfile cache clearing via [ClearRunfileCache] attribute or parameter
+
 - Invokes Setup/CleanUp methods if present
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
 
 **TestHelpers** ([Source/TimeWarp.Jaribu/TestHelpers.cs](Source/TimeWarp.Jaribu/TestHelpers.cs))
 - FormatTestName: Converts PascalCase to readable format
 - TestPassed/TestFailed/TestSkipped: Formatted status logging
-- ClearRunfileCache: Clears cache for specific file or all caches
+
 - Uses Regex source generator for performance
 
 ### Test Attributes
@@ -62,7 +62,7 @@ chmod +x Scripts/CheckVersion.cs
 - **[Skip("reason")]**: Skip test execution
 - **[Input(params)]**: Parameterized test data
 - **[Timeout(ms)]**: Test timeout in milliseconds
-- **[ClearRunfileCache]**: Clear cache before running tests
+
 
 ### Single-File C# Scripts
 

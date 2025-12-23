@@ -154,7 +154,29 @@ $ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
 
 - `--list-tests` runs tests instead of just listing (discovery mode enhancement needed)
 - `--filter` support incomplete (future enhancement)
-- IDE integration (Task 016) requires manual validation
+
+### Key Discovery: Dual-Mode Test Files
+
+**.NET 10 CS9314 Error**: Files with `#!` shebang fail to compile in regular csproj:
+```
+error CS9314: '#!' directives can be only used in scripts or file-based programs
+```
+
+**Solution**: Add compiler feature flag to M.T.P. props:
+```xml
+<Features>$(Features);FileBasedProgram</Features>
+```
+
+This enables **dual-mode test files** - same `.cs` file works as:
+- **Runfile**: `dotnet jaribu-03-tag-filtering.cs` (single file)
+- **M.T.P.**: `dotnet test mtp-tests/` (all tests, IDE integration)
+
+### Cleanup Completed (Task 016)
+
+Obsolete code removed:
+- `CleanAttribute`, `ClearRunfileCacheAttribute` - no longer needed
+- `TestRunner.RunClean()`, `TestHelpers.ClearRunfileCache()` - replaced by `dotnet clean`
+- `ci-tests/` orchestrator - replaced by M.T.P. mode
 
 ### Commits
 
@@ -164,3 +186,4 @@ $ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
 - `e1a5e38` feat: enhance MSBuild props and add validation tests
 - `f8a3c21` feat: expand M.T.P. test suite with comprehensive tests
 - `7d2e4b3` docs: update README with M.T.P. mode documentation
+- (pending) refactor: remove cache clearing, enable dual-mode test files

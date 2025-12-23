@@ -17,6 +17,9 @@
     <!-- Enable protocol for IDE integration -->
     <UseTestingPlatformProtocol>true</UseTestingPlatformProtocol>
     <IsTestingPlatformEnabled>true</IsTestingPlatformEnabled>
+    
+    <!-- Enable shebang support for dual-mode test files -->
+    <Features>$(Features);FileBasedProgram</Features>
   </PropertyGroup>
 
   <ItemGroup>

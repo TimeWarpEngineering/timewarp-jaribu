@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Import M.T.P. props for dotnet test / IDE integration -->
+  <Import Project="../../../Source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props" />
+
+  <PropertyGroup>
+    <!-- Define JARIBU_MULTI so test files don't self-execute -->
+    <DefineConstants>$(DefineConstants);JARIBU_MULTI</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../jaribu-*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+  </ItemGroup>
+
+</Project>
