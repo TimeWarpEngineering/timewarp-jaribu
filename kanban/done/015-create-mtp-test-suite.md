@@ -138,4 +138,67 @@ dotnet test && echo "All passed" || echo "Some failed"
 
 ## Results
 
-_Added after completion._
+**Completed: 2025-12-23**
+
+### What was done:
+
+Used existing validation project `Tests/TimeWarp.Jaribu.MtpValidation/` (created in Task 014) and expanded it into a comprehensive test suite.
+
+### Test Classes Created:
+
+1. **BasicTests.cs** (renamed from SampleTests.cs) - 10 tests:
+   - `PassingTest` - Simple passing test
+   - `AssertionPassingTest` - Passing test with Shouldly assertion
+   - `AsyncWithDelayTest` - Async test with delay
+   - `FailingWithExceptionTest` - Test that throws exception
+   - `FailingWithAssertionTest` - Test with failed assertion
+   - `SkippedTest` - Test with `[Skip]` attribute
+   - `SkippedFeatureTest` - Another skipped test
+   - `TimeoutExceededTest` - Test that exceeds 50ms timeout
+   - `TimeoutNotExceededTest` - Test that completes within timeout
+
+2. **SetupCleanupTests.cs** - 2 tests:
+   - `SetupWasCalledTest` - Verifies Setup is called before test
+   - `SetupCalledMultipleTimesTest` - Verifies Setup is called for each test
+   - Includes `Setup()` and `CleanUp()` lifecycle methods
+
+3. **EdgeCaseTests.cs** - 5 tests:
+   - `NullReferenceExceptionTest` - Tests NullReferenceException handling
+   - `ArgumentExceptionTest` - Tests ArgumentException handling
+   - `WorkThenPassTest` - Test with computation before pass
+   - `MultipleAssertionsPassTest` - Test with multiple assertions
+   - `QuickOperationWithTimeoutTest` - Quick operation with timeout attribute
+
+### Validation Results:
+
+```
+$ dotnet test Tests/TimeWarp.Jaribu.MtpValidation/
+  Failed! - Failed: 5, Passed: 9, Skipped: 2, Total: 16, Duration: 125ms
+```
+
+| Category | Count | Status |
+|----------|-------|--------|
+| Passed | 9 | ✅ Tests that should pass do pass |
+| Failed | 5 | ✅ Tests designed to fail report failure correctly |
+| Skipped | 2 | ✅ Tests with `[Skip]` attribute report skipped |
+| Timeout | 1 | ✅ Timeout test reports timeout (counted in Failed) |
+| **Total** | **16** | ✅ All tests discovered and executed |
+
+### Verified Features:
+
+- [x] Test discovery via `dotnet test` works
+- [x] Passing tests report `Passed` state
+- [x] Failing tests report `Failed` state with exception details
+- [x] Skipped tests report `Skipped` state with reason
+- [x] Timeout tests report `Timeout` state
+- [x] Multiple test classes are discovered (3 classes)
+- [x] `[ModuleInitializer]` registration works for all classes
+- [x] Setup/CleanUp lifecycle methods work correctly
+- [x] Exception details included in test log output
+- [x] Timing information is reported
+- [x] Exit code is non-zero when tests fail
+
+### Known Limitations:
+
+- `--list-tests` currently runs tests instead of just listing (M.T.P. discovery mode not fully implemented)
+- `--filter` doesn't filter tests (filter support needs enhancement in JaribuTestFramework)
