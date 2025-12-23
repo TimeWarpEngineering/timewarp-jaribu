@@ -16,6 +16,43 @@ public enum TestOutcome
 }
 
 /// <summary>
+/// Represents the status of a test for Microsoft.Testing.Platform compatibility.
+/// </summary>
+public enum TestStatus
+{
+  /// <summary>Test passed successfully.</summary>
+  Passed,
+  /// <summary>Test failed due to assertion or exception.</summary>
+  Failed,
+  /// <summary>Test was skipped.</summary>
+  Skipped,
+  /// <summary>Test exceeded its timeout.</summary>
+  Timeout,
+  /// <summary>Test encountered an unexpected error during setup/teardown.</summary>
+  Error
+}
+
+/// <summary>
+/// Contains detailed information about a single test execution for M.T.P. integration.
+/// </summary>
+/// <param name="TestNodeUid">Fully qualified test identifier (Namespace.Class.Method).</param>
+/// <param name="DisplayName">Human-readable test name.</param>
+/// <param name="Status">The test execution status.</param>
+/// <param name="Duration">How long the test took to execute.</param>
+/// <param name="Exception">The exception if the test failed, null otherwise.</param>
+/// <param name="SkipReason">The reason the test was skipped, null if not skipped.</param>
+/// <param name="Output">Captured console output from the test, if any.</param>
+public record MtpTestResult(
+  string TestNodeUid,
+  string DisplayName,
+  TestStatus Status,
+  TimeSpan Duration,
+  Exception? Exception,
+  string? SkipReason,
+  string? Output = null
+);
+
+/// <summary>
 /// Contains detailed information about a single test execution.
 /// </summary>
 /// <param name="TestName">The name of the test method.</param>
@@ -103,7 +140,12 @@ public static class TestRunner
   /// <summary>
   /// Collection of registered test class types for batch execution.
   /// </summary>
-  private static readonly List<Type> RegisteredTestClasses = [];
+  private static readonly List<Type> InternalRegisteredTestClasses = [];
+
+  /// <summary>
+  /// Gets the collection of registered test class types.
+  /// </summary>
+  public static IReadOnlyList<Type> RegisteredTestClasses => InternalRegisteredTestClasses;
 
   /// <summary>
   /// Registers a test class for batch execution with RunAllTests().
@@ -112,9 +154,9 @@ public static class TestRunner
   public static void RegisterTests<T>()
   {
     Type testType = typeof(T);
-    if (!RegisteredTestClasses.Contains(testType))
+    if (!InternalRegisteredTestClasses.Contains(testType))
     {
-      RegisteredTestClasses.Add(testType);
+      InternalRegisteredTestClasses.Add(testType);
     }
   }
 
@@ -123,7 +165,172 @@ public static class TestRunner
   /// </summary>
   public static void ClearRegisteredTests()
   {
-    RegisteredTestClasses.Clear();
+    InternalRegisteredTestClasses.Clear();
+  }
+
+  /// <summary>
+  /// Discovers all test methods in the specified test class.
+  /// Test methods are public static methods that return Task, excluding Setup and CleanUp.
+  /// </summary>
+  /// <param name="testClass">The test class type to discover tests from.</param>
+  /// <returns>Enumerable of test method infos.</returns>
+  public static IEnumerable<MethodInfo> DiscoverTests(Type testClass)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+
+    return testClass
+      .GetMethods(BindingFlags.Public | BindingFlags.Static)
+      .Where(method =>
+        method.IsPublic &&
+        method.IsStatic &&
+        method.ReturnType == typeof(Task) &&
+        method.Name is not "CleanUp" and not "Setup");
+  }
+
+  /// <summary>
+  /// Runs a single test method and returns an M.T.P.-compatible result.
+  /// Handles Setup, test execution, CleanUp, timeout, skip, and exceptions.
+  /// </summary>
+  /// <param name="testClass">The test class containing the method.</param>
+  /// <param name="method">The test method to run.</param>
+  /// <param name="parameters">Optional parameters for parameterized tests.</param>
+  /// <returns>An MtpTestResult with the test outcome.</returns>
+  public static async Task<MtpTestResult> RunSingleTestAsync(Type testClass, MethodInfo method, object?[]? parameters = null)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+    ArgumentNullException.ThrowIfNull(method);
+
+    parameters ??= [];
+
+    string testNodeUid = $"{testClass.FullName}.{method.Name}";
+    string displayName = parameters.Length > 0
+      ? $"{method.Name}({string.Join(", ", parameters.Select(p => p?.ToString() ?? "null"))})"
+      : method.Name;
+
+    var stopwatch = Stopwatch.StartNew();
+
+    // Check for [Skip] attribute
+    SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
+    if (skipAttr is not null)
+    {
+      stopwatch.Stop();
+      return new MtpTestResult(
+        testNodeUid,
+        displayName,
+        TestStatus.Skipped,
+        stopwatch.Elapsed,
+        Exception: null,
+        SkipReason: skipAttr.Reason
+      );
+    }
+
+    try
+    {
+      // Run Setup
+      await InvokeSetupForType(testClass);
+
+      try
+      {
+        // Run the test
+        var testTask = method.Invoke(null, parameters) as Task;
+        if (testTask is not null)
+        {
+          TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
+          if (timeoutAttr is not null)
+          {
+            var timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
+            Task completedTask = await Task.WhenAny(testTask, timeoutTask);
+            if (completedTask == timeoutTask)
+            {
+              stopwatch.Stop();
+              return new MtpTestResult(
+                testNodeUid,
+                displayName,
+                TestStatus.Timeout,
+                stopwatch.Elapsed,
+                Exception: new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
+                SkipReason: null
+              );
+            }
+
+            await testTask; // Propagate any exceptions
+          }
+          else
+          {
+            await testTask;
+          }
+        }
+
+        stopwatch.Stop();
+        return new MtpTestResult(
+          testNodeUid,
+          displayName,
+          TestStatus.Passed,
+          stopwatch.Elapsed,
+          Exception: null,
+          SkipReason: null
+        );
+      }
+      finally
+      {
+        // Run CleanUp
+        await InvokeCleanupForType(testClass);
+      }
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is not null)
+    {
+      stopwatch.Stop();
+      return new MtpTestResult(
+        testNodeUid,
+        displayName,
+        TestStatus.Failed,
+        stopwatch.Elapsed,
+        Exception: ex.InnerException,
+        SkipReason: null
+      );
+    }
+    catch (Exception ex)
+    {
+      stopwatch.Stop();
+      return new MtpTestResult(
+        testNodeUid,
+        displayName,
+        TestStatus.Error,
+        stopwatch.Elapsed,
+        Exception: ex,
+        SkipReason: null
+      );
+    }
+  }
+
+  /// <summary>
+  /// Invokes the Setup method for a given type if it exists.
+  /// </summary>
+  private static async Task InvokeSetupForType(Type testClass)
+  {
+    MethodInfo? setupMethod = testClass.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
+    if (setupMethod is not null && setupMethod.ReturnType == typeof(Task))
+    {
+      if (setupMethod.Invoke(null, null) is Task task)
+      {
+        await task;
+      }
+    }
+  }
+
+  /// <summary>
+  /// Invokes the CleanUp method for a given type if it exists.
+  /// </summary>
+  private static async Task InvokeCleanupForType(Type testClass)
+  {
+    MethodInfo? cleanupMethod = testClass.GetMethod("CleanUp", BindingFlags.Public | BindingFlags.Static);
+    if (cleanupMethod is not null && cleanupMethod.ReturnType == typeof(Task))
+    {
+      if (cleanupMethod.Invoke(null, null) is Task task)
+      {
+        await task;
+      }
+    }
   }
 
   /// <summary>
