@@ -140,7 +140,7 @@ public static partial class TestHelpers
   public static void PrintResultsTable(TestRunSummary summary, ITerminal? terminal = null, int maxMessageWidth = 50)
   {
     ArgumentNullException.ThrowIfNull(summary);
-    terminal ??= new NuruTerminal();
+    terminal ??= new TimeWarpTerminal();
 
     Table table = new Table()
       .AddColumn("Test")
@@ -203,7 +203,7 @@ public static partial class TestHelpers
   public static void PrintSuiteSummaryTable(TestSuiteSummary summary, ITerminal? terminal = null)
   {
     ArgumentNullException.ThrowIfNull(summary);
-    terminal ??= new NuruTerminal();
+    terminal ??= new TimeWarpTerminal();
 
     terminal.WriteLine("Test Suite Summary".Bold());
     terminal.WriteLine(new string('=', 60));
