@@ -85,3 +85,16 @@ terminal ??= new TimeWarpTerminal();
 - `BorderStyle` enum - unchanged
 - Color extensions (`.Green()`, `.Red()`, `.Yellow()`, `.Bold()`) - unchanged
 - `terminal.WriteTable()`, `terminal.WriteLine()` - unchanged
+
+## Results
+
+**Completed successfully.** All packages updated and tests verified:
+
+- **Build:** 0 errors, 0 warnings
+- **Tests verified:**
+  - jaribu-01-discovery: ✅ 3 passed (1 intentional failure)
+  - jaribu-08-structured-results: ✅ 5 passed
+  - jaribu-09-tabular-output: ✅ 5 passed
+  - jaribu-10-multi-class-registration: ✅ 8 passed
+
+**Commit:** `738c150` - feat: update TimeWarp.Amuru and TimeWarp.Terminal to latest versions
