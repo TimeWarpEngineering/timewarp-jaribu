@@ -37,23 +37,23 @@ TimeWarp.Jaribu/
 
 | Task ID | Title | Priority | Status |
 |---------|-------|----------|--------|
-| 011 | Refactor TestRunner Core for M.T.P. Compatibility | High | pending |
-| 012 | Create TimeWarp.Jaribu.TestingPlatform Project | High | pending |
-| 013 | Implement JaribuTestFramework (ITestFramework) | High | pending |
-| 014 | Add MSBuild Integration (.props/.targets) | High | pending |
-| 015 | Create M.T.P. Test Suite | Medium | pending |
-| 016 | Validate IDE Integration | Medium | pending |
-| 017 | Update Documentation | Low | pending |
+| 011 | Refactor TestRunner Core for M.T.P. Compatibility | High | ✅ done |
+| 012 | Create TimeWarp.Jaribu.TestingPlatform Project | High | ✅ done |
+| 013 | Implement JaribuTestFramework (ITestFramework) | High | ✅ done |
+| 014 | Add MSBuild Integration (.props/.targets) | High | ✅ done |
+| 015 | Create M.T.P. Test Suite | Medium | ✅ done |
+| 016 | Validate IDE Integration | Medium | 🔄 in-progress (manual) |
+| 017 | Update Documentation | Low | ✅ done |
 
 ## Todo List
 
-- [ ] Task 011: Refactor TestRunner Core
-- [ ] Task 012: Create TestingPlatform Project
-- [ ] Task 013: Implement JaribuTestFramework
-- [ ] Task 014: Add MSBuild Integration
-- [ ] Task 015: Create M.T.P. Test Suite
-- [ ] Task 016: Validate IDE Integration
-- [ ] Task 017: Update Documentation
+- [x] Task 011: Refactor TestRunner Core
+- [x] Task 012: Create TestingPlatform Project
+- [x] Task 013: Implement JaribuTestFramework
+- [x] Task 014: Add MSBuild Integration
+- [x] Task 015: Create M.T.P. Test Suite
+- [ ] Task 016: Validate IDE Integration (requires manual testing)
+- [x] Task 017: Update Documentation
 
 ## Design Decisions
 
@@ -117,4 +117,50 @@ ErrorTestNodeStateProperty       // Infrastructure error
 
 ## Results
 
-_Added after completion._
+**Completed: 2025-12-23**
+
+### What Was Delivered
+
+1. **New Package**: `TimeWarp.Jaribu.TestingPlatform`
+   - Implements `ITestFramework` for M.T.P. integration
+   - MSBuild props for automatic configuration
+   - Works with `dotnet test` command
+
+2. **Core Enhancements**:
+   - `TestRunner.DiscoverTests(Type)` - public API for test discovery
+   - `TestRunner.RunSingleTestAsync(Type, MethodInfo)` - public API for single test execution
+   - `MtpTestResult` record with full test metadata
+   - `TestStatus` enum (Passed, Failed, Skipped, Timeout, Error)
+
+3. **Test Suite**: 16 tests validating all functionality
+   - 9 passing, 5 intentional failures, 2 skipped
+   - Covers all test states and edge cases
+
+4. **Documentation**: Updated README with both execution modes
+
+### Validation Results
+
+```bash
+$ dotnet test Tests/TimeWarp.Jaribu.MtpValidation/
+  Failed! - Failed: 5, Passed: 9, Skipped: 2, Total: 16
+
+$ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
+  .NET Testing Platform v1.5.3
+  Test run summary: Failed! (expected)
+    total: 16, failed: 5, succeeded: 9, skipped: 2
+```
+
+### Known Limitations
+
+- `--list-tests` runs tests instead of just listing (discovery mode enhancement needed)
+- `--filter` support incomplete (future enhancement)
+- IDE integration (Task 016) requires manual validation
+
+### Commits
+
+- `40c162a` feat: add M.T.P.-compatible APIs to TestRunner
+- `9b29801` feat: create TimeWarp.Jaribu.TestingPlatform project
+- `a4b1d7e` feat: implement JaribuTestFramework for M.T.P.
+- `e1a5e38` feat: enhance MSBuild props and add validation tests
+- `f8a3c21` feat: expand M.T.P. test suite with comprehensive tests
+- `7d2e4b3` docs: update README with M.T.P. mode documentation

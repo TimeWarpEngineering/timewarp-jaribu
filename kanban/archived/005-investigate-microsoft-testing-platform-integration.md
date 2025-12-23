@@ -87,3 +87,21 @@ Task 006 provides a simple `RegisterTests<T>()` + `RunAllTests()` API as an imme
 - https://tunit.dev/docs/guides/philosophy
 - GitHub: https://github.com/microsoft/testfx/tree/main/src/Platform/Microsoft.Testing.Platform
 - TUnit GitHub: https://github.com/thomhurst/TUnit
+
+## Archived
+
+**Date**: 2025-12-23
+
+**Reason**: Superseded by Epic 010 and its subtasks (011-017) which fully implemented the M.T.P. integration.
+
+**Outcome**: The investigation led to a successful implementation:
+- Created `TimeWarp.Jaribu.TestingPlatform` package
+- Implemented `ITestFramework` adapter
+- Added MSBuild integration for `dotnet test` support
+- Verified with 16-test validation suite
+- Updated documentation for both execution modes
+
+The answers to the original open questions:
+1. **Runfile compatibility**: M.T.P. requires compiled assemblies. We support both modes side-by-side.
+2. **Source generators**: Not implemented (used reflection mode like TUnit's fallback for VB/F#).
+3. **Effort vs. benefit**: Worth it - IDE integration is valuable for team environments.

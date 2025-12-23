@@ -106,4 +106,62 @@ After validation, note:
 
 ## Results
 
-_Added after completion._
+**Status: Automated validation complete. Manual IDE testing required.**
+
+### Automated Validation (CLI-based)
+
+The following was verified via command-line, which is what IDEs call under the hood:
+
+```bash
+$ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
+.NET Testing Platform v1.5.3 [linux-x64 - net10.0]
+
+Test run summary: Failed! (expected - includes intentional failures)
+  total: 16
+  failed: 5
+  succeeded: 9
+  skipped: 2
+  duration: 216ms
+```
+
+**Verified working:**
+- [x] Test discovery works (16 tests found)
+- [x] Test execution works
+- [x] Pass/fail/skip/timeout states reported correctly
+- [x] Exception details included in output
+- [x] Timing information reported
+- [x] Exit codes correct (non-zero for failures)
+
+### Manual Testing Required
+
+The following require human interaction with IDEs:
+
+**Visual Studio (Windows):**
+- [ ] Open solution and verify Test Explorer shows tests
+- [ ] Run/debug from Test Explorer
+- [ ] Verify pass/fail icons
+- [ ] Test context menu options
+
+**VS Code (Cross-platform):**
+- [ ] Install C# Dev Kit if needed
+- [ ] Verify Test Explorer panel shows tests
+- [ ] Run from Test Explorer
+- [ ] Verify CodeLens works (if enabled)
+
+**JetBrains Rider (Optional):**
+- [ ] Unit Tests panel shows tests
+- [ ] Run/debug works
+
+### Prerequisites for IDE Testing
+
+1. Ensure `IsTestProject=true` is set (it is)
+2. Ensure `IsTestingPlatformApplication=true` is set (it is)
+3. Build the project first: `dotnet build Tests/TimeWarp.Jaribu.MtpValidation/`
+4. Open IDE and navigate to Test Explorer
+
+### Known Limitations
+
+- `--list-tests` runs tests instead of listing (discovery mode enhancement needed)
+- `--filter` support incomplete (filters not applied)
+
+These are framework enhancements for a future iteration.
