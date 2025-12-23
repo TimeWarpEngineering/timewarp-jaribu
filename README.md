@@ -33,7 +33,7 @@ Both modes use the same test discovery conventions and attributes. Your test cla
 ### When to Use Runfile Mode
 
 - Rapid prototyping and experimentation
-- Single-file test scripts that run like shell scripts (Linux/macOS shebang support)
+- Single-file test apps that run like shell scripts (Linux/macOS shebang support)
 - CI pipelines with custom orchestration
 - When you prefer direct execution without project files
 - Unix-style workflows where tests are executable scripts
