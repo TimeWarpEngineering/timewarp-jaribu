@@ -25,7 +25,7 @@ TimeWarp.Jaribu supports two distinct ways to run your tests:
 
 | Mode | Best For | How to Run |
 |------|----------|------------|
-| **Runfile Mode** | Rapid development, single-file tests | `dotnet my-tests.cs` |
+| **Runfile Mode** | Rapid development, single-file tests | `./my-tests.cs` (Linux/macOS) or `dotnet my-tests.cs` |
 | **M.T.P. Mode** | IDE integration, team CI | `dotnet test` |
 
 Both modes use the same test discovery conventions and attributes. Your test classes work in either mode without modification.
@@ -33,9 +33,10 @@ Both modes use the same test discovery conventions and attributes. Your test cla
 ### When to Use Runfile Mode
 
 - Rapid prototyping and experimentation
-- Single-file test scripts
+- Single-file test scripts that run like shell scripts (Linux/macOS shebang support)
 - CI pipelines with custom orchestration
 - When you prefer direct execution without project files
+- Unix-style workflows where tests are executable scripts
 
 ### When to Use M.T.P. Mode
 
@@ -62,15 +63,30 @@ dotnet add package TimeWarp.Jaribu.TestingPlatform
 
 Runfile Mode executes test files directly without a project file. Ideal for rapid development and single-file tests.
 
+On **Linux/macOS**, test files with a shebang can be executed directly like scripts:
+
+```bash
+./my-tests.cs           # Direct execution (requires shebang + chmod +x)
+dotnet my-tests.cs      # Works on all platforms
+```
+
 ### Basic Test File (Runfile)
 
 Create a single-file test script (e.g., `my-tests.cs`):
 
 ```csharp
+#!/usr/bin/env dotnet run
+#:package TimeWarp.Jaribu
+
 using static TimeWarp.Jaribu.TestHelpers;
+
+return await RunAllTests();
 
 public static class MyTests
 {
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Register() => RegisterTests<MyTests>();
+
     public static async Task BasicTest()
     {
         1.ShouldBe(1);
@@ -84,10 +100,17 @@ public static class MyTests
 }
 ```
 
-Run with:
+Make it executable and run directly (Linux/macOS):
 
+```bash
+chmod +x my-tests.cs
+./my-tests.cs
 ```
-dotnet run --project my-tests.cs
+
+Or run with dotnet (all platforms):
+
+```bash
+dotnet my-tests.cs
 ```
 
 ### TestRunner
