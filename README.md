@@ -1,8 +1,10 @@
 # TimeWarp.Jaribu
 
-Lightweight testing helpers for single-file C# programs and scripts.
+Lightweight test framework for .NET with two execution modes:
+- **Runfile Mode**: Direct `.cs` file execution for rapid development
+- **M.T.P. Mode**: IDE integration and `dotnet test` support
 
-Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern and assertion helpers for executable .cs files. It enables easy testing in single-file scenarios without heavy test frameworks.
+Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that discovers public static async Task methods as tests. Write once, run anywhere—from quick scripts to full IDE integration.
 
 ## Features
 
@@ -13,18 +15,54 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern and 
 - **Tag Filtering**: Run specific test groups.
 - **Cache Management**: Clear runfile cache for consistent testing.
 - **Minimal Dependencies**: Only Shouldly for assertions.
+- **Visual Studio Test Explorer integration** (M.T.P. Mode)
+- **VS Code Test Explorer integration** (M.T.P. Mode)
+- **`dotnet test` support** (M.T.P. Mode)
+
+## Two Execution Modes
+
+TimeWarp.Jaribu supports two distinct ways to run your tests:
+
+| Mode | Best For | How to Run |
+|------|----------|------------|
+| **Runfile Mode** | Rapid development, single-file tests | `dotnet my-tests.cs` |
+| **M.T.P. Mode** | IDE integration, team CI | `dotnet test` |
+
+Both modes use the same test discovery conventions and attributes. Your test classes work in either mode without modification.
+
+### When to Use Runfile Mode
+
+- Rapid prototyping and experimentation
+- Single-file test scripts
+- CI pipelines with custom orchestration
+- When you prefer direct execution without project files
+
+### When to Use M.T.P. Mode
+
+- Visual Studio or VS Code Test Explorer integration
+- Standard `dotnet test` workflow
+- Team environments with mixed IDEs
+- CI pipelines expecting standard test output (TRX, JUnit, etc.)
 
 ## Installation
 
-Add the NuGet package:
-
+For **Runfile Mode** (single-file scripts):
 ```
 dotnet add package TimeWarp.Jaribu
 ```
 
-## Usage
+For **M.T.P. Mode** (IDE integration and `dotnet test`):
+```
+dotnet add package TimeWarp.Jaribu.TestingPlatform
+```
 
-### Basic Test File
+---
+
+## Runfile Mode
+
+Runfile Mode executes test files directly without a project file. Ideal for rapid development and single-file tests.
+
+### Basic Test File (Runfile)
 
 Create a single-file test script (e.g., `my-tests.cs`):
 
@@ -188,6 +226,95 @@ Jaribu uses this pattern for its own test suite:
 
 - `Tests/TimeWarp.Jaribu.Tests/jaribu-*.cs` - Test files following the dual-mode pattern
 - `Tests/TimeWarp.Jaribu.Tests/ci-tests/` - CI orchestrator with curated test selection
+
+---
+
+## M.T.P. Mode
+
+M.T.P. (Microsoft.Testing.Platform) Mode integrates with Visual Studio Test Explorer, VS Code Test Explorer, and the standard `dotnet test` command.
+
+### Project Setup
+
+Create a test project with the TestingPlatform package:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="*" />
+  </ItemGroup>
+</Project>
+```
+
+### Test Class Example
+
+```csharp
+using System.Runtime.CompilerServices;
+using static TimeWarp.Jaribu.TestHelpers;
+
+public class MyTests
+{
+    [ModuleInitializer]
+    internal static void Register() => RegisterTests<MyTests>();
+
+    public static async Task AdditionTest()
+    {
+        (1 + 1).ShouldBe(2);
+        await Task.CompletedTask;
+    }
+
+    [TestTag("Integration")]
+    public static async Task IntegrationTest()
+    {
+        // Integration test logic
+        await Task.CompletedTask;
+    }
+
+    [Skip("Not yet implemented")]
+    public static async Task FutureTest()
+    {
+        await Task.CompletedTask;
+    }
+}
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+dotnet test
+
+# Run with detailed output
+dotnet test --logger "console;verbosity=detailed"
+
+# List discovered tests
+dotnet run -- --list-tests
+
+# Filter by test name
+dotnet run -- --filter "Name~Addition"
+
+# Run directly (also works)
+dotnet run
+```
+
+### IDE Integration
+
+1. Open the test project in Visual Studio or VS Code
+2. Test Explorer automatically discovers all registered test classes
+3. Run, debug, or filter tests from the Test Explorer panel
+
+**Visual Studio**: Tests appear in Test Explorer (Test → Test Explorer)
+
+**VS Code**: Install the C# Dev Kit extension; tests appear in the Testing sidebar
+
+---
+
+## API Reference
 
 ### Structured Results Types
 
