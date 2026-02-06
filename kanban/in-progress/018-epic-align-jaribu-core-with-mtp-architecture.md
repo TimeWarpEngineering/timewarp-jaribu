@@ -16,7 +16,7 @@ Refactor TimeWarp.Jaribu core to align with Microsoft.Testing.Platform (MTP) arc
 
 ## Todo List
 
-- [ ] #019 - Create TestNodeState and TestNodeInfo core types
+- [x] #019 - Create TestNodeState and TestNodeInfo core types
 - [ ] #020 - Create ITestResultSink interface and implementations
 - [ ] #021 - Refactor TestRunner to use sink-based output
 - [ ] #022 - Create MtpSink and simplify JaribuTestFramework
