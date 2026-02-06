@@ -49,44 +49,45 @@ public static partial class TestHelpers
     ArgumentNullException.ThrowIfNull(summary);
     terminal ??= new TimeWarpTerminal();
 
-    Table table = new Table()
-      .AddColumn("Test")
-      .AddColumn("Status")
-      .AddColumn("Duration", Alignment.Right)
-      .AddColumn("Message");
-
-    table.Border = BorderStyle.Rounded;
-
-    foreach (TestResult result in summary.Results)
+    terminal.WriteTable(table =>
     {
-      string status = result.Outcome switch
-      {
-        TestOutcome.Passed => "✓ Pass".Green(),
-        TestOutcome.Failed => "X Fail".Red(),
-        TestOutcome.Skipped => "⚠ Skip".Yellow(),
-        _ => result.Outcome.ToString()
-      };
+      table
+        .AddColumn("Test")
+        .AddColumn("Status")
+        .AddColumn("Duration", Alignment.Right)
+        .AddColumn("Message")
+        .Border(BorderStyle.Rounded);
 
-      string duration = $"{result.Duration.TotalSeconds:F2}s";
-
-      string message = result.Outcome switch
+      foreach (TestResult result in summary.Results)
       {
-        TestOutcome.Passed => "Completed successfully",
-        TestOutcome.Skipped => result.FailureMessage ?? "Skipped",
-        TestOutcome.Failed => result.FailureMessage ?? "Failed",
-        _ => string.Empty
-      };
+        string status = result.Outcome switch
+        {
+          TestOutcome.Passed => "✓ Pass".Green(),
+          TestOutcome.Failed => "X Fail".Red(),
+          TestOutcome.Skipped => "⚠ Skip".Yellow(),
+          _ => result.Outcome.ToString()
+        };
 
-      // Truncate long messages
-      if (message.Length > maxMessageWidth)
-      {
-        message = string.Concat(message.AsSpan(0, maxMessageWidth - 3), "...");
+        string duration = $"{result.Duration.TotalSeconds:F2}s";
+
+        string message = result.Outcome switch
+        {
+          TestOutcome.Passed => "Completed successfully",
+          TestOutcome.Skipped => result.FailureMessage ?? "Skipped",
+          TestOutcome.Failed => result.FailureMessage ?? "Failed",
+          _ => string.Empty
+        };
+
+        // Truncate long messages
+        if (message.Length > maxMessageWidth)
+        {
+          message = string.Concat(message.AsSpan(0, maxMessageWidth - 3), "...");
+        }
+
+        table.AddRow(FormatTestName(result.TestName), status, duration, message);
       }
+    });
 
-      table.AddRow(FormatTestName(result.TestName), status, duration, message);
-    }
-
-    terminal.WriteTable(table);
     terminal.WriteLine();
 
     // Summary line with colors
@@ -115,38 +116,39 @@ public static partial class TestHelpers
     terminal.WriteLine("Test Suite Summary".Bold());
     terminal.WriteLine(new string('=', 60));
 
-    Table table = new Table()
-      .AddColumn("Class")
-      .AddColumn("Passed", Alignment.Right)
-      .AddColumn("Failed", Alignment.Right)
-      .AddColumn("Skipped", Alignment.Right)
-      .AddColumn("Total", Alignment.Right)
-      .AddColumn("Duration", Alignment.Right);
-
-    table.Border = BorderStyle.Rounded;
-
-    foreach (TestRunSummary classResult in summary.ClassResults)
+    terminal.WriteTable(table =>
     {
-      string passedText = classResult.PassedCount.ToString(CultureInfo.InvariantCulture);
-      string failedText = classResult.FailedCount > 0
-        ? classResult.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
-        : classResult.FailedCount.ToString(CultureInfo.InvariantCulture);
-      string skippedText = classResult.SkippedCount > 0
-        ? classResult.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
-        : classResult.SkippedCount.ToString(CultureInfo.InvariantCulture);
-      string duration = $"{classResult.TotalDuration.TotalSeconds:F2}s";
+      table
+        .AddColumn("Class")
+        .AddColumn("Passed", Alignment.Right)
+        .AddColumn("Failed", Alignment.Right)
+        .AddColumn("Skipped", Alignment.Right)
+        .AddColumn("Total", Alignment.Right)
+        .AddColumn("Duration", Alignment.Right)
+        .Border(BorderStyle.Rounded);
 
-      table.AddRow(
-        classResult.ClassName,
-        passedText.Green(),
-        failedText,
-        skippedText,
-        classResult.TotalTests.ToString(CultureInfo.InvariantCulture),
-        duration
-      );
-    }
+      foreach (TestRunSummary classResult in summary.ClassResults)
+      {
+        string passedText = classResult.PassedCount.ToString(CultureInfo.InvariantCulture);
+        string failedText = classResult.FailedCount > 0
+          ? classResult.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
+          : classResult.FailedCount.ToString(CultureInfo.InvariantCulture);
+        string skippedText = classResult.SkippedCount > 0
+          ? classResult.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
+          : classResult.SkippedCount.ToString(CultureInfo.InvariantCulture);
+        string duration = $"{classResult.TotalDuration.TotalSeconds:F2}s";
 
-    terminal.WriteTable(table);
+        table.AddRow(
+          classResult.ClassName,
+          passedText.Green(),
+          failedText,
+          skippedText,
+          classResult.TotalTests.ToString(CultureInfo.InvariantCulture),
+          duration
+        );
+      }
+    });
+
     terminal.WriteLine();
 
     // Overall summary
