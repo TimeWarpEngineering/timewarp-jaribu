@@ -1,5 +1,7 @@
 # Update TimeWarp.Terminal from 1.0.0-beta.2 to 1.0.0-beta.4
 
+skill({ name: "terminal" })
+
 ## Description
 
 Update the TimeWarp.Terminal NuGet package dependency from version 1.0.0-beta.2 to 1.0.0-beta.4 across all projects in the solution.
