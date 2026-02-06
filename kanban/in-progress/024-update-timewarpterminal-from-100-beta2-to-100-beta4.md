@@ -17,6 +17,8 @@ Update the TimeWarp.Terminal NuGet package dependency from version 1.0.0-beta.2 
 
 ## Notes
 
+Blocked by #025 - Breaking changes in Table API require migration before package update can proceed
+
 This is a minor version update within the same beta channel. Review the release notes for 1.0.0-beta.3 and 1.0.0-beta.4 to identify any breaking changes or new features that may require attention.
 
 ## TimeWarp.Terminal Skill Reference
