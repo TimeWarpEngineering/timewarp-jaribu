@@ -3,28 +3,7 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <IsPackable>false</IsPackable>
-    <!-- Suppress analyzer warnings for test projects -->
-    <NoWarn>$(NoWarn);CA1812;CS1998;CS8652;CA2252;CA1707;CA1052;CA1515</NoWarn>
+    <!-- Suppress additional analyzer warnings for test projects -->
+    <NoWarn>$(NoWarn);CA1812;CS1998;CS8652;CA2252</NoWarn>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="$(MSBuildThisFileDirectory)../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
-    <PackageReference Include="Shouldly" />
-    <PackageReference Include="TimeWarp.Nuru" />
-    <PackageReference Include="TimeWarp.Terminal" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Global usings for all test projects -->
-    <Using Include="System.Console" Static="true" />
-    <Using Include="System.Diagnostics" />
-    <Using Include="System.Globalization" />
-    <Using Include="System.Runtime.CompilerServices" />
-    <Using Include="Shouldly" />
-    <Using Include="TimeWarp.Jaribu" />
-    <Using Include="TimeWarp.Jaribu.TestRunner" Static="true" />
-    <Using Include="TimeWarp.Nuru" />
-    <Using Include="TimeWarp.Terminal" />
-  </ItemGroup>
 </Project>
