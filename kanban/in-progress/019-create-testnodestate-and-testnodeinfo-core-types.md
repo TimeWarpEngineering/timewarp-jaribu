@@ -14,35 +14,43 @@ Parent Epic: #018
 - [x] Ensure all types follow coding conventions (2-space indent, PascalCase, explicit types, file-scoped namespaces)
 - [x] Verify build succeeds
 
-## Notes
+## Implementation Plan
 
-### TestNodeState Mapping to MTP
+### Phase 1: Create Core Types
 
-| TestNodeState | MTP Property |
-|---------------|--------------|
-| Discovered | DiscoveredTestNodeStateProperty |
-| InProgress | InProgressTestNodeStateProperty |
-| Passed | PassedTestNodeStateProperty |
-| Failed | FailedTestNodeStateProperty |
-| Skipped | SkippedTestNodeStateProperty |
-| Timeout | TimeoutTestNodeStateProperty |
-| Error | ErrorTestNodeStateProperty |
-| Cancelled | CancelledTestNodeStateProperty |
+Create three new files in `Source/TimeWarp.Jaribu/`:
 
-### TestNodeInfo Design
+1. **TestNodeState.cs** - Enum with 8 states:
+   - Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
+   - Aligns with MTP's TestNodeStateProperty types
 
-```csharp
-public record TestNodeInfo
-(
-  string Uid,           // "Namespace.Class.Method"
-  string DisplayName,   // "MethodName" or "MethodName(param1, param2)"
-  TestNodeState State,
-  TimeSpan? Duration = null,
-  Exception? Exception = null,
-  string? Message = null,
-  IReadOnlyList<object?>? Parameters = null
-);
-```
+2. **TestNodeInfo.cs** - Positional record:
+   - string Uid ("Namespace.Class.Method")
+   - string DisplayName
+   - TestNodeState State
+   - TimeSpan? Duration
+   - Exception? Exception
+   - string? Message
+   - IReadOnlyList<object?>? Parameters
+
+3. **TestRunStats.cs** - Positional record:
+   - string ClassName
+   - DateTimeOffset StartTime
+   - TimeSpan Duration
+   - int PassedCount
+   - int FailedCount
+   - int SkippedCount
+   - Plus computed: TotalTests, Success
+
+### Coding Conventions
+- 2-space indentation
+- File-scoped namespaces
+- Explicit types (no var)
+- PascalCase for all public members
+
+### Build Verification
+- Must compile with 0 warnings, 0 errors
+- Verify no naming conflicts with existing types
 
 ## Results
 
