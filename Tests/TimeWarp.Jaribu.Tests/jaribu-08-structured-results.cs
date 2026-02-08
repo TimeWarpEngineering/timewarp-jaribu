@@ -1,16 +1,36 @@
 #!/usr/bin/dotnet --
 #:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
-// This is a meta-test file that tests the RunTestsWithResults API itself.
-// It uses custom validation logic rather than the standard test pattern.
-// In multi-mode, it registers StructuredResultsMetaTests which wraps the validation.
+// This is a meta-test file that tests the RunTestsAsync sink-based API.
+// It uses a CollectingSink to capture individual test results and validates
+// both aggregated stats and individual test node details.
 
 #if !JARIBU_MULTI
 return await RunAllTests();
 #endif
 
 /// <summary>
-/// Meta-tests that validate the RunTestsWithResults API by running test classes
+/// A test sink that collects all completed test results for inspection.
+/// </summary>
+sealed class CollectingSink : ITestResultSink
+{
+  public List<TestNodeInfo> Results { get; } = [];
+
+  public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
+  public Task OnTestStartedAsync(TestNodeInfo node) => Task.CompletedTask;
+
+  public Task OnTestCompletedAsync(TestNodeInfo node)
+  {
+    Results.Add(node);
+    return Task.CompletedTask;
+  }
+
+  public Task OnRunStartedAsync(string className, string? filterTag = null) => Task.CompletedTask;
+  public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results) => Task.CompletedTask;
+}
+
+/// <summary>
+/// Meta-tests that validate the RunTestsAsync sink-based API by running test classes
 /// and validating their structured output.
 /// </summary>
 [TestTag("Jaribu")]
@@ -21,47 +41,51 @@ public class StructuredResultsMetaTests
 
   public static async Task BasicStructuredResultsFromMixedPassFailSkip()
   {
-    TestRunSummary summary = await TestRunner.RunTestsWithResults<MixedResultsTests>();
+    CollectingSink sink = new();
+    TestRunStats stats = await TestRunner.RunTestsAsync<MixedResultsTests>(sink);
 
-    summary.ClassName.ShouldBe("MixedResults");
-    summary.PassedCount.ShouldBe(1);
-    summary.FailedCount.ShouldBe(1);
-    summary.SkippedCount.ShouldBe(1);
-    summary.TotalTests.ShouldBe(3);
-    summary.Success.ShouldBeFalse();
-    summary.Results.Count.ShouldBe(3);
-    summary.TotalDuration.ShouldBeGreaterThan(TimeSpan.Zero);
+    stats.ClassName.ShouldBe("MixedResults");
+    stats.PassedCount.ShouldBe(1);
+    stats.FailedCount.ShouldBe(1);
+    stats.SkippedCount.ShouldBe(1);
+    stats.TotalTests.ShouldBe(3);
+    stats.Success.ShouldBeFalse();
+    sink.Results.Count.ShouldBe(3);
+    stats.Duration.ShouldBeGreaterThan(TimeSpan.Zero);
   }
 
   public static async Task IndividualTestResultDetails()
   {
-    TestRunSummary summary = await TestRunner.RunTestsWithResults<MixedResultsTests>();
+    CollectingSink sink = new();
+    TestRunStats stats = await TestRunner.RunTestsAsync<MixedResultsTests>(sink);
 
-    TestResult? passedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Passed);
+    TestNodeInfo? passedResult = sink.Results.FirstOrDefault(r => r.State == TestNodeState.Passed);
     passedResult.ShouldNotBeNull();
-    passedResult.TestName.ShouldBe("PassingTest");
-    passedResult.Duration.ShouldBeGreaterThan(TimeSpan.Zero);
-    passedResult.FailureMessage.ShouldBeNull();
+    passedResult.DisplayName.ShouldBe("PassingTest");
+    passedResult.Duration.ShouldNotBeNull();
+    passedResult.Duration.Value.ShouldBeGreaterThan(TimeSpan.Zero);
+    passedResult.Message.ShouldBeNull();
 
-    TestResult? failedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Failed);
+    TestNodeInfo? failedResult = sink.Results.FirstOrDefault(r => r.State is TestNodeState.Failed or TestNodeState.Error);
     failedResult.ShouldNotBeNull();
-    failedResult.TestName.ShouldBe("FailingTest");
-    failedResult.FailureMessage.ShouldNotBeNullOrEmpty();
-    failedResult.StackTrace.ShouldNotBeNullOrEmpty();
+    failedResult.DisplayName.ShouldBe("FailingTest");
+    failedResult.Message.ShouldNotBeNullOrEmpty();
+    failedResult.Exception.ShouldNotBeNull();
 
-    TestResult? skippedResult = summary.Results.FirstOrDefault(r => r.Outcome == TestOutcome.Skipped);
+    TestNodeInfo? skippedResult = sink.Results.FirstOrDefault(r => r.State == TestNodeState.Skipped);
     skippedResult.ShouldNotBeNull();
-    skippedResult.TestName.ShouldBe("SkippedTest");
-    skippedResult.FailureMessage.ShouldNotBeNullOrEmpty();
+    skippedResult.DisplayName.ShouldBe("SkippedTest");
+    skippedResult.Message.ShouldNotBeNullOrEmpty();
   }
 
   public static async Task ParameterizedTestResults()
   {
-    TestRunSummary paramSummary = await TestRunner.RunTestsWithResults<ParameterizedResultTests>();
+    CollectingSink sink = new();
+    TestRunStats stats = await TestRunner.RunTestsAsync<ParameterizedResultTests>(sink);
 
-    paramSummary.Results.Count.ShouldBe(2);
+    sink.Results.Count.ShouldBe(2);
 
-    foreach (TestResult result in paramSummary.Results)
+    foreach (TestNodeInfo result in sink.Results)
     {
       result.Parameters.ShouldNotBeNull();
       result.Parameters.Count.ShouldBeGreaterThan(0);
@@ -70,20 +94,22 @@ public class StructuredResultsMetaTests
 
   public static async Task AllPassingTestsSuccessProperty()
   {
-    TestRunSummary allPassSummary = await TestRunner.RunTestsWithResults<AllPassingResultTests>();
+    CollectingSink sink = new();
+    TestRunStats stats = await TestRunner.RunTestsAsync<AllPassingResultTests>(sink);
 
-    allPassSummary.Success.ShouldBeTrue();
-    allPassSummary.FailedCount.ShouldBe(0);
+    stats.Success.ShouldBeTrue();
+    stats.FailedCount.ShouldBe(0);
   }
 
   public static async Task StartTimeVerification()
   {
     DateTimeOffset beforeTest = DateTimeOffset.Now;
-    TestRunSummary timeSummary = await TestRunner.RunTestsWithResults<AllPassingResultTests>();
+    CollectingSink sink = new();
+    TestRunStats stats = await TestRunner.RunTestsAsync<AllPassingResultTests>(sink);
     DateTimeOffset afterTest = DateTimeOffset.Now;
 
-    timeSummary.StartTime.ShouldBeGreaterThanOrEqualTo(beforeTest);
-    timeSummary.StartTime.ShouldBeLessThanOrEqualTo(afterTest);
+    stats.StartTime.ShouldBeGreaterThanOrEqualTo(beforeTest);
+    stats.StartTime.ShouldBeLessThanOrEqualTo(afterTest);
   }
 }
 

@@ -17,6 +17,50 @@ return await RunTests<MultiClassRegistrationTests>();
 #endif
 
 /// <summary>
+/// A collecting sink that captures results per-class for multi-class inspection.
+/// </summary>
+sealed class MultiClassCollectingSink : ITestResultSink
+{
+  public List<TestRunStats> ClassStats { get; } = [];
+  public List<TestNodeInfo> AllResults { get; } = [];
+
+  public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
+  public Task OnTestStartedAsync(TestNodeInfo node) => Task.CompletedTask;
+
+  public Task OnTestCompletedAsync(TestNodeInfo node)
+  {
+    AllResults.Add(node);
+    return Task.CompletedTask;
+  }
+
+  public Task OnRunStartedAsync(string className, string? filterTag = null) => Task.CompletedTask;
+
+  public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results)
+  {
+    ClassStats.Add(stats);
+    return Task.CompletedTask;
+  }
+}
+
+/// <summary>
+/// Helper to run all registered test classes using a sink and collect per-class stats.
+/// </summary>
+static class MultiClassHelper
+{
+  public static async Task<MultiClassCollectingSink> RunAllRegisteredAsync(string? filterTag = null)
+  {
+    MultiClassCollectingSink sink = new();
+
+    foreach (Type testClass in TestRunner.RegisteredTestClasses)
+    {
+      await TestRunner.RunTestsAsync(testClass, sink, filterTag);
+    }
+
+    return sink;
+  }
+}
+
+/// <summary>
 /// Meta-tests that validate the RegisterTests and RunAllTests API.
 /// Note: This class manipulates the static registration state, so it cannot use [ModuleInitializer].
 /// It must NOT be included in multi-mode orchestration.
@@ -29,10 +73,10 @@ public class MultiClassRegistrationTests
     TestRunner.ClearRegisteredTests();
     TestRunner.RegisterTests<SampleTestClassA>();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    summary.ClassResults.Count.ShouldBe(1);
-    summary.ClassResults[0].ClassName.ShouldBe("SampleTestClassA");
+    sink.ClassStats.Count.ShouldBe(1);
+    sink.ClassStats[0].ClassName.ShouldBe("SampleTestClassA");
 
     TestRunner.ClearRegisteredTests();
   }
@@ -43,9 +87,9 @@ public class MultiClassRegistrationTests
     TestRunner.RegisterTests<SampleTestClassA>();
     TestRunner.RegisterTests<SampleTestClassB>();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    summary.ClassResults.Count.ShouldBe(2);
+    sink.ClassStats.Count.ShouldBe(2);
 
     TestRunner.ClearRegisteredTests();
   }
@@ -56,9 +100,9 @@ public class MultiClassRegistrationTests
     TestRunner.RegisterTests<SampleTestClassA>();
     TestRunner.RegisterTests<SampleTestClassA>(); // Duplicate
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    summary.ClassResults.Count.ShouldBe(1);
+    sink.ClassStats.Count.ShouldBe(1);
 
     TestRunner.ClearRegisteredTests();
   }
@@ -70,10 +114,10 @@ public class MultiClassRegistrationTests
     TestRunner.RegisterTests<SampleTestClassB>();
     TestRunner.ClearRegisteredTests();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    summary.ClassResults.Count.ShouldBe(0);
-    summary.TotalTests.ShouldBe(0);
+    sink.ClassStats.Count.ShouldBe(0);
+    sink.AllResults.Count.ShouldBe(0);
   }
 
   public static async Task RunAllTestsReturnsCorrectExitCode()
@@ -88,20 +132,20 @@ public class MultiClassRegistrationTests
     TestRunner.ClearRegisteredTests();
   }
 
-  public static async Task TestSuiteSummaryAggregatesCorrectly()
+  public static async Task TestSuiteStatsAggregateCorrectly()
   {
     TestRunner.ClearRegisteredTests();
     TestRunner.RegisterTests<SampleTestClassA>();
     TestRunner.RegisterTests<SampleTestClassB>();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    int expectedTotal = summary.ClassResults.Sum(r => r.TotalTests);
-    int expectedPassed = summary.ClassResults.Sum(r => r.PassedCount);
+    int expectedTotal = sink.ClassStats.Sum(r => r.TotalTests);
+    int expectedPassed = sink.ClassStats.Sum(r => r.PassedCount);
 
-    summary.TotalTests.ShouldBe(expectedTotal);
-    summary.PassedCount.ShouldBe(expectedPassed);
-    summary.Success.ShouldBe(summary.FailedCount == 0);
+    expectedTotal.ShouldBeGreaterThan(0);
+    expectedPassed.ShouldBe(expectedTotal);
+    sink.ClassStats.All(s => s.Success).ShouldBeTrue();
 
     TestRunner.ClearRegisteredTests();
   }
@@ -110,23 +154,23 @@ public class MultiClassRegistrationTests
   {
     TestRunner.ClearRegisteredTests();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-    summary.TotalTests.ShouldBe(0);
-    summary.Success.ShouldBeTrue();
+    sink.ClassStats.Count.ShouldBe(0);
+    sink.AllResults.Count.ShouldBe(0);
   }
 
-  public static async Task FilterTagWorksWithRunAllTests()
+  public static async Task FilterTagWorksWithRunAllRegistered()
   {
     TestRunner.ClearRegisteredTests();
     TestRunner.RegisterTests<SampleTestClassA>();
     TestRunner.RegisterTests<TaggedSampleTestClass>();
 
-    TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults(filterTag: "Integration");
+    MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync(filterTag: "Integration");
 
     // Both classes should be included (SampleTestClassA has no tags, TaggedSampleTestClass matches)
-    summary.ClassResults.Any(r => r.ClassName == "TaggedSampleTestClass").ShouldBeTrue();
-    summary.ClassResults.Count.ShouldBe(2);
+    sink.ClassStats.Any(r => r.ClassName == "TaggedSampleTestClass").ShouldBeTrue();
+    sink.ClassStats.Count.ShouldBe(2);
 
     TestRunner.ClearRegisteredTests();
   }

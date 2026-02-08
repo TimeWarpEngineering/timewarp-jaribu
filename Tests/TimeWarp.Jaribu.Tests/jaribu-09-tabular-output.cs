@@ -1,14 +1,15 @@
 #!/usr/bin/dotnet --
+#:project ../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 // This is a meta-test file that tests the tabular output formatting.
-// It uses mock data and TestTerminal to verify output without running actual tests.
+// It uses mock data and TestTerminal to verify TerminalSink output directly.
 
 #if !JARIBU_MULTI
 return await RunAllTests();
 #endif
 
 /// <summary>
-/// Tests for the tabular output formatting in TestHelpers.PrintResultsTable.
+/// Tests for the tabular output formatting in TerminalSink.OnRunCompletedAsync.
 /// </summary>
 [TestTag("Jaribu")]
 public class TabularOutputTests
@@ -19,26 +20,25 @@ public class TabularOutputTests
   public static async Task TableStructureWithTestTerminal()
   {
     using TimeWarp.Terminal.TestTerminal terminal = new();
+    using TerminalSink sink = new(terminal);
 
-    // Create a summary manually to test PrintResultsTable directly
-    var results = new List<TestResult>
-    {
-      new("PassingTest", TestOutcome.Passed, TimeSpan.FromMilliseconds(150), null, null, null),
-      new("FailingTest", TestOutcome.Failed, TimeSpan.FromMilliseconds(250), "ArgumentException: Invalid value", "at Test.Method()", null),
-      new("SkippedTest", TestOutcome.Skipped, TimeSpan.Zero, "Not implemented yet", null, null)
-    };
+    List<TestNodeInfo> results =
+    [
+      new("NS.Class.PassingTest", "PassingTest", TestNodeState.Passed, TimeSpan.FromMilliseconds(150)),
+      new("NS.Class.FailingTest", "FailingTest", TestNodeState.Failed, TimeSpan.FromMilliseconds(250), Exception: new ArgumentException("Invalid value"), Message: "ArgumentException: Invalid value"),
+      new("NS.Class.SkippedTest", "SkippedTest", TestNodeState.Skipped, TimeSpan.Zero, Message: "Not implemented yet")
+    ];
 
-    var summary = new TestRunSummary(
+    TestRunStats stats = new(
       "TestClass",
       DateTimeOffset.Now,
       TimeSpan.FromMilliseconds(400),
       PassedCount: 1,
       FailedCount: 1,
-      SkippedCount: 1,
-      results
+      SkippedCount: 1
     );
 
-    TestHelpers.PrintResultsTable(summary, terminal);
+    await sink.OnRunCompletedAsync(stats, results);
 
     string output = terminal.Output;
 
@@ -67,32 +67,30 @@ public class TabularOutputTests
     output.ShouldContain("Passed:");
     output.ShouldContain("Failed:");
     output.ShouldContain("Skipped:");
-
-    await Task.CompletedTask;
   }
 
   public static async Task LongMessageTruncation()
   {
     using TimeWarp.Terminal.TestTerminal terminal = new();
+    using TerminalSink sink = new(terminal, maxMessageWidth: 30);
 
     string longMessage = "This is a very long error message that should be truncated because it exceeds the maximum width limit";
 
-    var results = new List<TestResult>
-    {
-      new("LongMessageTest", TestOutcome.Failed, TimeSpan.FromMilliseconds(100), longMessage, null, null)
-    };
+    List<TestNodeInfo> results =
+    [
+      new("NS.Class.LongMessageTest", "LongMessageTest", TestNodeState.Failed, TimeSpan.FromMilliseconds(100), Message: longMessage)
+    ];
 
-    var summary = new TestRunSummary(
+    TestRunStats stats = new(
       "TestClass",
       DateTimeOffset.Now,
       TimeSpan.FromMilliseconds(100),
       PassedCount: 0,
       FailedCount: 1,
-      SkippedCount: 0,
-      results
+      SkippedCount: 0
     );
 
-    TestHelpers.PrintResultsTable(summary, terminal, maxMessageWidth: 30);
+    await sink.OnRunCompletedAsync(stats, results);
 
     string output = terminal.Output;
 
@@ -101,32 +99,30 @@ public class TabularOutputTests
 
     // Should NOT contain the full message
     output.ShouldNotContain("maximum width limit");
-
-    await Task.CompletedTask;
   }
 
   public static async Task AnsiColorCodesInOutput()
   {
     using TimeWarp.Terminal.TestTerminal terminal = new();
+    using TerminalSink sink = new(terminal);
 
-    var results = new List<TestResult>
-    {
-      new("GreenTest", TestOutcome.Passed, TimeSpan.FromMilliseconds(50), null, null, null),
-      new("RedTest", TestOutcome.Failed, TimeSpan.FromMilliseconds(50), "Error", null, null),
-      new("YellowTest", TestOutcome.Skipped, TimeSpan.Zero, "Skipped", null, null)
-    };
+    List<TestNodeInfo> results =
+    [
+      new("NS.Class.GreenTest", "GreenTest", TestNodeState.Passed, TimeSpan.FromMilliseconds(50)),
+      new("NS.Class.RedTest", "RedTest", TestNodeState.Failed, TimeSpan.FromMilliseconds(50), Message: "Error"),
+      new("NS.Class.YellowTest", "YellowTest", TestNodeState.Skipped, TimeSpan.Zero, Message: "Skipped")
+    ];
 
-    var summary = new TestRunSummary(
+    TestRunStats stats = new(
       "ColorTest",
       DateTimeOffset.Now,
       TimeSpan.FromMilliseconds(100),
       PassedCount: 1,
       FailedCount: 1,
-      SkippedCount: 1,
-      results
+      SkippedCount: 1
     );
 
-    TestHelpers.PrintResultsTable(summary, terminal);
+    await sink.OnRunCompletedAsync(stats, results);
 
     string output = terminal.Output;
 
@@ -134,56 +130,52 @@ public class TabularOutputTests
     (output.Contains("\u001b[32m") || output.Contains("[32m")).ShouldBeTrue();
     (output.Contains("\u001b[31m") || output.Contains("[31m")).ShouldBeTrue();
     (output.Contains("\u001b[33m") || output.Contains("[33m")).ShouldBeTrue();
-
-    await Task.CompletedTask;
   }
 
   public static async Task DurationFormatting()
   {
     using TimeWarp.Terminal.TestTerminal terminal = new();
+    using TerminalSink sink = new(terminal);
 
-    var results = new List<TestResult>
-    {
-      new("QuickTest", TestOutcome.Passed, TimeSpan.FromMilliseconds(5), null, null, null),
-      new("SlowTest", TestOutcome.Passed, TimeSpan.FromSeconds(2.5), null, null, null)
-    };
+    List<TestNodeInfo> results =
+    [
+      new("NS.Class.QuickTest", "QuickTest", TestNodeState.Passed, TimeSpan.FromMilliseconds(5)),
+      new("NS.Class.SlowTest", "SlowTest", TestNodeState.Passed, TimeSpan.FromSeconds(2.5))
+    ];
 
-    var summary = new TestRunSummary(
+    TestRunStats stats = new(
       "DurationTest",
       DateTimeOffset.Now,
       TimeSpan.FromSeconds(2.505),
       PassedCount: 2,
       FailedCount: 0,
-      SkippedCount: 0,
-      results
+      SkippedCount: 0
     );
 
-    TestHelpers.PrintResultsTable(summary, terminal);
+    await sink.OnRunCompletedAsync(stats, results);
 
     string output = terminal.Output;
 
     // Should contain formatted durations with 's' suffix
     (output.Contains("0.01s") || output.Contains("0.00s")).ShouldBeTrue();
     output.ShouldContain("2.50s");
-
-    await Task.CompletedTask;
   }
 
   public static async Task EmptyResultsHandling()
   {
     using TimeWarp.Terminal.TestTerminal terminal = new();
+    using TerminalSink sink = new(terminal);
 
-    var summary = new TestRunSummary(
+    TestRunStats stats = new(
       "EmptyTest",
       DateTimeOffset.Now,
       TimeSpan.Zero,
       PassedCount: 0,
       FailedCount: 0,
-      SkippedCount: 0,
-      new List<TestResult>()
+      SkippedCount: 0
     );
 
-    TestHelpers.PrintResultsTable(summary, terminal);
+    await sink.OnRunCompletedAsync(stats, []);
 
     string output = terminal.Output;
 
@@ -194,7 +186,5 @@ public class TabularOutputTests
     // Should show Total: 0
     output.ShouldContain("Total:");
     output.ShouldContain("0");
-
-    await Task.CompletedTask;
   }
 }
