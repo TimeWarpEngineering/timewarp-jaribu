@@ -59,4 +59,51 @@ dotnet test Tests/TimeWarp.Jaribu.MtpValidation/
 
 ## Results
 
-_Added after completion_
+### Types Removed from TestRunner.cs
+
+| Type | Replacement |
+|------|-------------|
+| `TestOutcome` enum | `TestNodeState` |
+| `TestStatus` enum | `TestNodeState` |
+| `MtpTestResult` record | `TestNodeInfo` |
+| `TestResult` record | `TestNodeInfo` |
+| `TestRunSummary` record | `TestRunStats` |
+| `TestSuiteSummary` record | Collecting sinks aggregate per-class |
+| `MapTestStatusToNodeState` helper | Removed (TestStatus no longer exists) |
+
+### Methods Removed from TestHelpers.cs
+
+- `PrintResultsTable(TestRunSummary, ...)` - functionality in TerminalSink
+- `PrintSuiteSummaryTable(TestSuiteSummary, ...)` - functionality in TerminalSink
+- Removed unused `using TimeWarp.Terminal` and `using System.Globalization`
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `Source/TimeWarp.Jaribu/TestRunner.cs` | Removed 6 old types + 1 helper (~135 lines deleted) |
+| `Source/TimeWarp.Jaribu/TestHelpers.cs` | Removed 2 print methods + unused usings (~137 lines deleted) |
+| `Tests/.../jaribu-08-structured-results.cs` | Rewritten: CollectingSink + RunTestsAsync |
+| `Tests/.../jaribu-09-tabular-output.cs` | Rewritten: tests TerminalSink directly |
+| `Tests/.../jaribu-10-multi-class-registration.cs` | Rewritten: MultiClassCollectingSink |
+
+### Test Results
+
+| Test File | Passed | Failed | Notes |
+|-----------|--------|--------|-------|
+| jaribu-01-discovery.cs | 3 | 1 | Pre-existing intentional failure |
+| jaribu-02-parameterized.cs | 5 | 2 | Pre-existing edge cases |
+| jaribu-08-structured-results.cs | 5 | 0 | All rewritten tests pass |
+| jaribu-09-tabular-output.cs | 5 | 0 | All rewritten tests pass |
+| jaribu-10-multi-class-registration.cs | 8 | 0 | All rewritten tests pass |
+
+### Build Status
+
+- ✅ TimeWarp.Jaribu: 0 errors, 0 warnings
+- ✅ TimeWarp.Jaribu.TestingPlatform: 0 errors, 0 warnings
+
+### Decisions Made
+
+1. Used CollectingSink pattern for tests needing individual result inspection
+2. TestNodeState.Error captures exceptions from async unwrapping (TargetInvocationException)
+3. Stats count Error and Timeout as "failed" for pass/fail determination
