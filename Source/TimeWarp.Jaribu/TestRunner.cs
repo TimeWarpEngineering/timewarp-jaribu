@@ -462,18 +462,34 @@ public static class TestRunner
       return 0;
     }
 
-    int totalFailed = 0;
+    List<TestRunStats> allStats = [];
 
     foreach (Type testClass in RegisteredTestClasses)
     {
-      using var sink = new TerminalSink();
+      using TerminalSink sink = new();
       TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
-      if (!stats.Success)
-      {
-        totalFailed += stats.FailedCount;
-      }
+      allStats.Add(stats);
     }
 
-    return totalFailed == 0 ? 0 : 1;
+    // Print grand total summary when multiple classes were run
+    if (allStats.Count > 1)
+    {
+      int totalPassed = allStats.Sum(s => s.PassedCount);
+      int totalFailed = allStats.Sum(s => s.FailedCount);
+      int totalSkipped = allStats.Sum(s => s.SkippedCount);
+      int totalTests = totalPassed + totalFailed + totalSkipped;
+
+      Console.WriteLine();
+      Console.WriteLine("══════════════════════════════════════");
+      Console.WriteLine($"  Grand Total: {totalTests}");
+      Console.WriteLine($"  Passed: {totalPassed}");
+      if (totalFailed > 0)
+        Console.WriteLine($"  Failed: {totalFailed}");
+      if (totalSkipped > 0)
+        Console.WriteLine($"  Skipped: {totalSkipped}");
+      Console.WriteLine("══════════════════════════════════════");
+    }
+
+    return allStats.Any(s => !s.Success) ? 1 : 0;
   }
 }
