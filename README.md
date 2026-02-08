@@ -1,38 +1,91 @@
 # TimeWarp.Jaribu
 
-Lightweight testing helpers for single-file C# programs and scripts.
+Lightweight test framework for .NET with two execution modes:
+- **Runfile Mode**: Direct `.cs` file execution for rapid development
+- **M.T.P. Mode**: IDE integration and `dotnet test` support
 
-Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern and assertion helpers for executable .cs files. It enables easy testing in single-file scenarios without heavy test frameworks.
+Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that discovers public static async Task methods as tests. Write once, run anywhere—from quick scripts to full IDE integration.
 
 ## Features
 
 - **Convention over Configuration**: Discover public static async Task methods as tests via reflection.
 - **Assertion Helpers**: Simple, fluent assertions inspired by Shouldly.
-- **Attributes**: Support for [Skip], [TestTag], [Timeout], [Input], and [ClearRunfileCache].
+- **Attributes**: Support for [Skip], [TestTag], [Timeout], and [Input].
 - **Parameterized Tests**: Easy data-driven testing.
 - **Tag Filtering**: Run specific test groups.
-- **Cache Management**: Clear runfile cache for consistent testing.
 - **Minimal Dependencies**: Only Shouldly for assertions.
+- **Visual Studio Test Explorer integration** (M.T.P. Mode)
+- **VS Code Test Explorer integration** (M.T.P. Mode)
+- **`dotnet test` support** (M.T.P. Mode)
+
+## Two Execution Modes
+
+TimeWarp.Jaribu supports two distinct ways to run your tests:
+
+| Mode | Best For | How to Run |
+|------|----------|------------|
+| **Runfile Mode** | Rapid development, single-file tests | `./my-tests.cs` (Linux/macOS) or `dotnet my-tests.cs` |
+| **M.T.P. Mode** | IDE integration, team CI | `dotnet test` |
+
+Both modes use the same test discovery conventions and attributes. Your test classes work in either mode without modification.
+
+### When to Use Runfile Mode
+
+- Rapid prototyping and experimentation
+- Single-file test apps that run like shell scripts (Linux/macOS shebang support)
+- CI pipelines with custom orchestration
+- When you prefer direct execution without project files
+- Unix-style workflows where tests are executable scripts
+
+### When to Use M.T.P. Mode
+
+- Visual Studio or VS Code Test Explorer integration
+- Standard `dotnet test` workflow
+- Team environments with mixed IDEs
+- CI pipelines expecting standard test output (TRX, JUnit, etc.)
 
 ## Installation
 
-Add the NuGet package:
-
+For **Runfile Mode** (single-file scripts):
 ```
 dotnet add package TimeWarp.Jaribu
 ```
 
-## Usage
+For **M.T.P. Mode** (IDE integration and `dotnet test`):
+```
+dotnet add package TimeWarp.Jaribu.TestingPlatform
+```
 
-### Basic Test File
+---
+
+## Runfile Mode
+
+Runfile Mode executes test files directly without a project file. Ideal for rapid development and single-file tests.
+
+On **Linux/macOS**, test files with a shebang can be executed directly like scripts:
+
+```bash
+./my-tests.cs           # Direct execution (requires shebang + chmod +x)
+dotnet my-tests.cs      # Works on all platforms
+```
+
+### Basic Test File (Runfile)
 
 Create a single-file test script (e.g., `my-tests.cs`):
 
 ```csharp
+#!/usr/bin/env dotnet run
+#:package TimeWarp.Jaribu
+
 using static TimeWarp.Jaribu.TestHelpers;
+
+return await RunAllTests();
 
 public static class MyTests
 {
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Register() => RegisterTests<MyTests>();
+
     public static async Task BasicTest()
     {
         1.ShouldBe(1);
@@ -46,10 +99,17 @@ public static class MyTests
 }
 ```
 
-Run with:
+Make it executable and run directly (Linux/macOS):
 
+```bash
+chmod +x my-tests.cs
+./my-tests.cs
 ```
-dotnet run --project my-tests.cs
+
+Or run with dotnet (all platforms):
+
+```bash
+dotnet my-tests.cs
 ```
 
 ### TestRunner
@@ -62,24 +122,17 @@ using TimeWarp.Jaribu;
 // Simple usage - returns exit code (0 = success, 1 = failure)
 int exitCode = await TestRunner.RunTests<MyTests>();
 
-// With structured results - get detailed test information
-TestRunSummary summary = await TestRunner.RunTestsWithResults<MyTests>();
+// Sink-based API - get detailed test information via ITestResultSink
+// Use NullSink for silent execution, TerminalSink for console output
+using TerminalSink sink = new();
+TestRunStats stats = await TestRunner.RunTestsAsync<MyTests>(sink);
 
-// Access detailed results
-Console.WriteLine($"Passed: {summary.PassedCount}");
-Console.WriteLine($"Failed: {summary.FailedCount}");
-Console.WriteLine($"Skipped: {summary.SkippedCount}");
-Console.WriteLine($"Duration: {summary.TotalDuration}");
-
-// Iterate over individual test results
-foreach (TestResult result in summary.Results)
-{
-    Console.WriteLine($"{result.TestName}: {result.Outcome} ({result.Duration.TotalMilliseconds}ms)");
-    if (result.FailureMessage is not null)
-    {
-        Console.WriteLine($"  Error: {result.FailureMessage}");
-    }
-}
+// Access aggregated stats
+Console.WriteLine($"Passed: {stats.PassedCount}");
+Console.WriteLine($"Failed: {stats.FailedCount}");
+Console.WriteLine($"Skipped: {stats.SkippedCount}");
+Console.WriteLine($"Duration: {stats.Duration}");
+Console.WriteLine($"Success: {stats.Success}");
 ```
 
 ### Multi-Class Test Registration
@@ -99,16 +152,6 @@ return await TestRunner.RunAllTests();
 
 // Or with tag filter
 return await TestRunner.RunAllTests(filterTag: "Unit");
-
-// Or get full results with TestSuiteSummary
-TestSuiteSummary summary = await TestRunner.RunAllTestsWithResults();
-Console.WriteLine($"Total: {summary.TotalTests}, Passed: {summary.PassedCount}, Failed: {summary.FailedCount}");
-
-// Access individual class results
-foreach (TestRunSummary classResult in summary.ClassResults)
-{
-    Console.WriteLine($"{classResult.ClassName}: {classResult.PassedCount}/{classResult.TotalTests} passed");
-}
 ```
 
 **Note**: Use `TestRunner.ClearRegisteredTests()` to clear all registrations if needed.
@@ -189,51 +232,151 @@ Jaribu uses this pattern for its own test suite:
 - `Tests/TimeWarp.Jaribu.Tests/jaribu-*.cs` - Test files following the dual-mode pattern
 - `Tests/TimeWarp.Jaribu.Tests/ci-tests/` - CI orchestrator with curated test selection
 
-### Structured Results Types
+---
+
+## M.T.P. Mode
+
+M.T.P. (Microsoft.Testing.Platform) Mode integrates with Visual Studio Test Explorer, VS Code Test Explorer, and the standard `dotnet test` command.
+
+### Project Setup
+
+Create a test project with the TestingPlatform package:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="*" />
+  </ItemGroup>
+</Project>
+```
+
+### Test Class Example
 
 ```csharp
-// Test outcome for each test
-public enum TestOutcome { Passed, Failed, Skipped }
+using System.Runtime.CompilerServices;
+using static TimeWarp.Jaribu.TestHelpers;
+
+public class MyTests
+{
+    [ModuleInitializer]
+    internal static void Register() => RegisterTests<MyTests>();
+
+    public static async Task AdditionTest()
+    {
+        (1 + 1).ShouldBe(2);
+        await Task.CompletedTask;
+    }
+
+    [TestTag("Integration")]
+    public static async Task IntegrationTest()
+    {
+        // Integration test logic
+        await Task.CompletedTask;
+    }
+
+    [Skip("Not yet implemented")]
+    public static async Task FutureTest()
+    {
+        await Task.CompletedTask;
+    }
+}
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+dotnet test
+
+# Run with detailed output
+dotnet test --logger "console;verbosity=detailed"
+
+# List discovered tests
+dotnet run -- --list-tests
+
+# Filter by test name
+dotnet run -- --filter "Name~Addition"
+
+# Run directly (also works)
+dotnet run
+```
+
+### IDE Integration
+
+1. Open the test project in Visual Studio or VS Code
+2. Test Explorer automatically discovers all registered test classes
+3. Run, debug, or filter tests from the Test Explorer panel
+
+**Visual Studio**: Tests appear in Test Explorer (Test → Test Explorer)
+
+**VS Code**: Install the C# Dev Kit extension; tests appear in the Testing sidebar
+
+---
+
+## API Reference
+
+### Core Types
+
+```csharp
+// Test state aligned with Microsoft.Testing.Platform
+public enum TestNodeState
+{
+    Discovered, InProgress, Passed, Failed,
+    Skipped, Timeout, Error, Cancelled
+}
 
 // Individual test result
-public record TestResult(
-    string TestName,
-    TestOutcome Outcome,
-    TimeSpan Duration,
-    string? FailureMessage,
-    string? StackTrace,
-    IReadOnlyList<object?>? Parameters  // For parameterized tests
+public record TestNodeInfo(
+    string Uid,                          // "Namespace.Class.Method"
+    string DisplayName,                  // "MethodName" or "MethodName(param1, param2)"
+    TestNodeState State,
+    TimeSpan? Duration = null,
+    Exception? Exception = null,
+    string? Message = null,
+    IReadOnlyList<object?>? Parameters = null
 );
 
-// Summary of entire test run
-public record TestRunSummary(
+// Aggregated stats for a test class run
+public record TestRunStats(
     string ClassName,
     DateTimeOffset StartTime,
-    TimeSpan TotalDuration,
+    TimeSpan Duration,
     int PassedCount,
     int FailedCount,
-    int SkippedCount,
-    IReadOnlyList<TestResult> Results
+    int SkippedCount
 )
 {
     public int TotalTests => PassedCount + FailedCount + SkippedCount;
     public bool Success => FailedCount == 0;
 }
+```
 
-// Summary of multiple test class runs
-public record TestSuiteSummary(
-    DateTimeOffset StartTime,
-    TimeSpan TotalDuration,
-    int TotalTests,
-    int PassedCount,
-    int FailedCount,
-    int SkippedCount,
-    IReadOnlyList<TestRunSummary> ClassResults
-)
+### Sink-Based Architecture
+
+Test output flows through `ITestResultSink` implementations, enabling pluggable output destinations:
+
+```csharp
+// Interface for receiving test lifecycle events
+public interface ITestResultSink
 {
-    public bool Success => FailedCount == 0;
+    Task OnTestDiscoveredAsync(TestNodeInfo node);
+    Task OnTestStartedAsync(TestNodeInfo node);
+    Task OnTestCompletedAsync(TestNodeInfo node);
+    Task OnRunStartedAsync(string className, string? filterTag = null);
+    Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results);
 }
 ```
+
+**Built-in sinks:**
+- **`TerminalSink`** — Pretty console output with colored tables (used by `RunTests<T>()`)
+- **`NullSink`** — Silent sink for testing/benchmarking (`NullSink.Instance`)
+- **`MtpSink`** — Publishes to MTP's `IMessageBus` for `dotnet test` integration (internal)
 
 ### Setup and CleanUp
 

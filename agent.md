@@ -18,18 +18,21 @@ cd Scripts && ./Build.cs
 
 ### Run tests
 ```bash
-# Run all tests
-chmod +x Tests/Scripts/run-all-tests.cs
-cd Tests/Scripts && ./run-all-tests.cs
+# Run all tests (multi-file runner)
+chmod +x Tests/timewarp-jaribu/multi-file-runners/run-tests.cs
+cd Tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
 
-# Run tests filtered by tag
-cd Tests/Scripts && ./run-all-tests.cs --tag Jaribu
+# Run CI-safe tests only
+chmod +x Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
+cd Tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
+
+# Run via dotnet test (MTP mode)
+dotnet test Tests/timewarp-jaribu/multi-file-runners/mtp-runner/
 ```
 
 ### Run individual test file
 ```bash
-chmod +x Tests/TimeWarp.Jaribu.Tests/jaribu-01-discovery.cs
-./Tests/TimeWarp.Jaribu.Tests/jaribu-01-discovery.cs
+dotnet run Tests/timewarp-jaribu/single-file-tests/core/test-runner.discovery.cs
 ```
 
 ### Check version before publishing
@@ -40,20 +43,43 @@ chmod +x Scripts/CheckVersion.cs
 
 ## Architecture
 
+### Sink-Based Architecture
+
+Test output flows through `ITestResultSink` implementations, enabling pluggable output destinations:
+
+```
+TestRunner.RunTestsAsync(sink)
+    ├── TerminalSink → Console output (dotnet run single-file)
+    ├── MtpSink → IMessageBus → VS/Rider/dotnet test
+    └── NullSink → Silent (testing/benchmarking)
+```
+
+### Core Types
+
+- **TestNodeState** — Enum with 8 states aligned to MTP: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
+- **TestNodeInfo** — Record representing a single test result with Uid, DisplayName, State, Duration, Exception, Message, Parameters
+- **TestRunStats** — Record with aggregated stats: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount
+- **ITestResultSink** — Interface for receiving test lifecycle events (discovered, started, completed, run started/completed)
+
 ### Core Components
 
 **TestRunner** ([Source/TimeWarp.Jaribu/TestRunner.cs](Source/TimeWarp.Jaribu/TestRunner.cs))
 - Convention-based test discovery: finds public static async Task methods via reflection
+- Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
+- Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
 - Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`
 - Supports parameterized tests via [Input] attributes
-- Manages runfile cache clearing via [ClearRunfileCache] attribute or parameter
 - Invokes Setup/CleanUp methods if present
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
+
+**Sinks** ([Source/TimeWarp.Jaribu/](Source/TimeWarp.Jaribu/))
+- **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal
+- **NullSink** — Singleton silent sink for testing/benchmarking
+- **MtpSink** ([Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
 
 **TestHelpers** ([Source/TimeWarp.Jaribu/TestHelpers.cs](Source/TimeWarp.Jaribu/TestHelpers.cs))
 - FormatTestName: Converts PascalCase to readable format
 - TestPassed/TestFailed/TestSkipped: Formatted status logging
-- ClearRunfileCache: Clears cache for specific file or all caches
 - Uses Regex source generator for performance
 
 ### Test Attributes
@@ -62,7 +88,7 @@ chmod +x Scripts/CheckVersion.cs
 - **[Skip("reason")]**: Skip test execution
 - **[Input(params)]**: Parameterized test data
 - **[Timeout(ms)]**: Test timeout in milliseconds
-- **[ClearRunfileCache]**: Clear cache before running tests
+
 
 ### Single-File C# Scripts
 
@@ -85,7 +111,9 @@ Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Am
 
 **Scripts have package generation disabled** via [Scripts/Directory.Build.props](Scripts/Directory.Build.props)
 
-**Tests are single-file scripts** in [Tests/TimeWarp.Jaribu.Tests/](Tests/TimeWarp.Jaribu.Tests/) named `jaribu-##-feature.cs`
+**Tests** organized in [Tests/timewarp-jaribu/](Tests/timewarp-jaribu/):
+- `single-file-tests/` — Individual test scripts named `sut.action.cs` (e.g., `test-runner.discovery.cs`)
+- `multi-file-runners/` — Aggregated runners (all tests, CI-safe subset, MTP integration)
 
 ## CI/CD
 
@@ -95,10 +123,12 @@ Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Am
 - Manual workflow_dispatch
 
 Pipeline:
-1. Runs [Scripts/Build.cs](Scripts/Build.cs)
-2. Runs [Tests/Scripts/run-all-tests.cs](Tests/Scripts/run-all-tests.cs)
+1. Runs [Scripts/Build.cs](Scripts/Build.cs) — Builds TimeWarp.Jaribu in Release mode
+2. Runs [Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs) — CI-safe tests only (no intentional failures)
 3. On release: checks version not already published via [Scripts/CheckVersion.cs](Scripts/CheckVersion.cs)
 4. On release: publishes to NuGet.org
+
+CI-safe tests are configured in [Tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props](Tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props) — only test files with zero intentional failures are included.
 
 ## Version Management
 
@@ -106,26 +136,42 @@ Version is centralized in [Directory.Build.props](Directory.Build.props) `<Versi
 
 ## Writing Tests
 
-Test files should:
-- Use `#!/usr/bin/dotnet --` shebang
-- Call `return await RunTests<YourTestClass>();`
-- Define test class with public static async Task methods
-- Use Shouldly assertions (available via implicit using)
-- Apply attributes as needed ([TestTag], [Skip], [Input], etc.)
+Test files use SUT_Action_Given_Should_Result naming convention:
 
-Example:
 ```csharp
 #!/usr/bin/dotnet --
 
-return await RunTests<MyTests>();
+#region Purpose
+// Tests for TestRunner discovery - validates method discovery via reflection
+#endregion
 
-[TestTag("Feature")]
-public class MyTests
+#region Design
+// Naming convention: SUT_Action_Given_Should_Result
+// - Namespace = SUT (TestRunner_)
+// - Class = Action + Given (Discovery_Given_)
+// - Method = Scenario + Should + Result (BasicMethod_Should_BeDiscovered)
+#endregion
+
+#if !JARIBU_MULTI
+return await RunAllTests();
+#endif
+
+namespace TestRunner_
 {
-  public static async Task MyTest()
+  [TestTag("Core")]
+  public class Discovery_Given_
   {
-    1.ShouldBe(1);
-    await Task.CompletedTask;
+    [ModuleInitializer]
+    internal static void Register() => RegisterTests<Discovery_Given_>();
+
+    public static async Task BasicMethod_Should_BeDiscovered()
+    {
+      1.ShouldBe(1);
+      await Task.CompletedTask;
+    }
   }
 }
 ```
+
+**File naming**: `sut.action.cs` (e.g., `test-runner.discovery.cs`)
+**Location**: `Tests/timewarp-jaribu/single-file-tests/{category}/`

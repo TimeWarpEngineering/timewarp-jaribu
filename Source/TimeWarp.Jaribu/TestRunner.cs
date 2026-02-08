@@ -1,94 +1,30 @@
 namespace TimeWarp.Jaribu;
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
-using TimeWarp.Amuru;
-using static System.Console;
+using TimeWarp.Terminal;
 
-/// <summary>
-/// Represents the outcome of a single test execution.
-/// </summary>
-public enum TestOutcome
-{
-  Passed,
-  Failed,
-  Skipped
-}
+#region Purpose
+// TestRunner - Main entry point for discovering and executing tests.
+// Provides both sink-based async API for extensibility and backward-compatible
+// synchronous-style methods that use TerminalSink internally.
+#endregion
 
-/// <summary>
-/// Contains detailed information about a single test execution.
-/// </summary>
-/// <param name="TestName">The name of the test method.</param>
-/// <param name="Outcome">Whether the test passed, failed, or was skipped.</param>
-/// <param name="Duration">How long the test took to execute.</param>
-/// <param name="FailureMessage">The failure or skip reason, if applicable.</param>
-/// <param name="StackTrace">The stack trace if the test failed with an exception.</param>
-/// <param name="Parameters">The parameters passed to the test, if parameterized.</param>
-public record TestResult(
-  string TestName,
-  TestOutcome Outcome,
-  TimeSpan Duration,
-  string? FailureMessage,
-  string? StackTrace,
-  IReadOnlyList<object?>? Parameters
-);
-
-/// <summary>
-/// Contains aggregated results from running all tests in a test class.
-/// </summary>
-/// <param name="ClassName">The name of the test class.</param>
-/// <param name="StartTime">When the test run started.</param>
-/// <param name="TotalDuration">Total time for all tests.</param>
-/// <param name="PassedCount">Number of tests that passed.</param>
-/// <param name="FailedCount">Number of tests that failed.</param>
-/// <param name="SkippedCount">Number of tests that were skipped.</param>
-/// <param name="Results">Detailed results for each test.</param>
-public record TestRunSummary(
-  string ClassName,
-  DateTimeOffset StartTime,
-  TimeSpan TotalDuration,
-  int PassedCount,
-  int FailedCount,
-  int SkippedCount,
-  IReadOnlyList<TestResult> Results
-)
-{
-  /// <summary>
-  /// Total number of tests executed.
-  /// </summary>
-  public int TotalTests => PassedCount + FailedCount + SkippedCount;
-
-  /// <summary>
-  /// Whether all tests passed (or were skipped).
-  /// </summary>
-  public bool Success => FailedCount == 0;
-}
-
-/// <summary>
-/// Contains aggregated results from running multiple test classes.
-/// </summary>
-/// <param name="StartTime">When the test suite run started.</param>
-/// <param name="TotalDuration">Total time for all test classes.</param>
-/// <param name="TotalTests">Total number of tests across all classes.</param>
-/// <param name="PassedCount">Number of tests that passed across all classes.</param>
-/// <param name="FailedCount">Number of tests that failed across all classes.</param>
-/// <param name="SkippedCount">Number of tests that were skipped across all classes.</param>
-/// <param name="ClassResults">Results for each test class.</param>
-public record TestSuiteSummary(
-  DateTimeOffset StartTime,
-  TimeSpan TotalDuration,
-  int TotalTests,
-  int PassedCount,
-  int FailedCount,
-  int SkippedCount,
-  IReadOnlyList<TestRunSummary> ClassResults
-)
-{
-  /// <summary>
-  /// Whether all tests passed (or were skipped) across all classes.
-  /// </summary>
-  public bool Success => FailedCount == 0;
-}
+#region Design
+// The TestRunner uses a sink-based architecture where all test output flows through
+// ITestResultSink implementations. This enables pluggable output destinations
+// (terminal, MTP message bus, files, etc.) without changing the test execution logic.
+//
+// Execution flow:
+//   RunTestsAsync(sink) -> sink.OnRunStartedAsync -> foreach test:
+//     sink.OnTestStartedAsync -> RunSingleTestAsync -> sink.OnTestCompletedAsync
+//   -> sink.OnRunCompletedAsync -> return stats
+//
+// Backward compatibility:
+//   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
+//   This ensures existing test files continue to work unchanged.
+#endregion
 
 /// <summary>
 /// Simple test runner for single-file C# programs.
@@ -96,14 +32,15 @@ public record TestSuiteSummary(
 /// </summary>
 public static class TestRunner
 {
-  private static int PassCount;
-  private static int SkippedCount;
-  private static int TotalTests;
-
   /// <summary>
   /// Collection of registered test class types for batch execution.
   /// </summary>
-  private static readonly List<Type> RegisteredTestClasses = [];
+  private static readonly List<Type> InternalRegisteredTestClasses = [];
+
+  /// <summary>
+  /// Gets the collection of registered test class types.
+  /// </summary>
+  public static IReadOnlyList<Type> RegisteredTestClasses => InternalRegisteredTestClasses;
 
   /// <summary>
   /// Registers a test class for batch execution with RunAllTests().
@@ -112,9 +49,9 @@ public static class TestRunner
   public static void RegisterTests<T>()
   {
     Type testType = typeof(T);
-    if (!RegisteredTestClasses.Contains(testType))
+    if (!InternalRegisteredTestClasses.Contains(testType))
     {
-      RegisteredTestClasses.Add(testType);
+      InternalRegisteredTestClasses.Add(testType);
     }
   }
 
@@ -123,235 +60,283 @@ public static class TestRunner
   /// </summary>
   public static void ClearRegisteredTests()
   {
-    RegisteredTestClasses.Clear();
+    InternalRegisteredTestClasses.Clear();
   }
 
   /// <summary>
-  /// Runs all public static async Task methods in the specified test class.
+  /// Discovers all test methods in the specified test class.
+  /// Test methods are public static methods that return Task, excluding Setup and CleanUp.
   /// </summary>
-  /// <typeparam name="T">The test class containing test methods.</typeparam>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests. Defaults to false for performance. Set true to ensure latest source changes are picked up.</param>
-  /// <param name="filterTag">Optional tag to filter tests. Only runs tests with this tag. Checks both class-level and method-level TestTag attributes. If not specified, checks JARIBU_FILTER_TAG environment variable.</param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
-  public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
+  /// <param name="testClass">The test class type to discover tests from.</param>
+  /// <returns>Enumerable of test method infos.</returns>
+  public static IEnumerable<MethodInfo> DiscoverTests(Type testClass)
   {
-    TestRunSummary summary = await RunTestsWithResults<T>(clearCache, filterTag);
-    return summary.Success ? 0 : 1;
+    ArgumentNullException.ThrowIfNull(testClass);
+
+    return testClass
+      .GetMethods(BindingFlags.Public | BindingFlags.Static)
+      .Where(method =>
+        method.IsPublic &&
+        method.IsStatic &&
+        method.ReturnType == typeof(Task) &&
+        method.Name is not "CleanUp" and not "Setup");
   }
 
   /// <summary>
-  /// Runs all public static async Task methods in the specified test class and returns structured results.
+  /// Runs a single test method and returns TestNodeInfo.
+  /// Handles Setup, test execution, CleanUp, timeout, skip, and exceptions.
+  /// </summary>
+  /// <param name="testClass">The test class containing the method.</param>
+  /// <param name="method">The test method to run.</param>
+  /// <param name="parameters">Optional parameters for parameterized tests.</param>
+  /// <returns>A TestNodeInfo with the test outcome.</returns>
+  public static async Task<TestNodeInfo> RunSingleTestAsync(Type testClass, MethodInfo method, object?[]? parameters = null)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+    ArgumentNullException.ThrowIfNull(method);
+
+    parameters ??= [];
+
+    string testNodeUid = $"{testClass.FullName}.{method.Name}";
+    string displayName = parameters.Length > 0
+      ? $"{method.Name}({string.Join(", ", parameters.Select(p => p?.ToString() ?? "null"))})"
+      : method.Name;
+
+    var stopwatch = Stopwatch.StartNew();
+
+    // Check for [Skip] attribute
+    SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
+    if (skipAttr is not null)
+    {
+      stopwatch.Stop();
+      return new TestNodeInfo(
+        testNodeUid,
+        displayName,
+        TestNodeState.Skipped,
+        stopwatch.Elapsed,
+        Exception: null,
+        Message: skipAttr.Reason,
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
+    }
+
+    try
+    {
+      // Run Setup
+      await InvokeSetupForType(testClass);
+
+      try
+      {
+        // Run the test
+        var testTask = method.Invoke(null, parameters) as Task;
+        if (testTask is not null)
+        {
+          TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
+          if (timeoutAttr is not null)
+          {
+            var timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
+            Task completedTask = await Task.WhenAny(testTask, timeoutTask);
+            if (completedTask == timeoutTask)
+            {
+              stopwatch.Stop();
+              return new TestNodeInfo(
+                testNodeUid,
+                displayName,
+                TestNodeState.Timeout,
+                stopwatch.Elapsed,
+                Exception: new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
+                Message: $"Timeout after {timeoutAttr.Milliseconds}ms",
+                parameters.Length > 0 ? parameters.ToList() : null
+              );
+            }
+
+            await testTask; // Propagate any exceptions
+          }
+          else
+          {
+            await testTask;
+          }
+        }
+
+        stopwatch.Stop();
+        return new TestNodeInfo(
+          testNodeUid,
+          displayName,
+          TestNodeState.Passed,
+          stopwatch.Elapsed,
+          Exception: null,
+          Message: null,
+          parameters.Length > 0 ? parameters.ToList() : null
+        );
+      }
+      finally
+      {
+        // Run CleanUp
+        await InvokeCleanupForType(testClass);
+      }
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is not null)
+    {
+      stopwatch.Stop();
+      return new TestNodeInfo(
+        testNodeUid,
+        displayName,
+        TestNodeState.Failed,
+        stopwatch.Elapsed,
+        Exception: ex.InnerException,
+        Message: $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}",
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
+    }
+    catch (Exception ex)
+    {
+      stopwatch.Stop();
+      return new TestNodeInfo(
+        testNodeUid,
+        displayName,
+        TestNodeState.Error,
+        stopwatch.Elapsed,
+        Exception: ex,
+        Message: $"{ex.GetType().Name}: {ex.Message}",
+        parameters.Length > 0 ? parameters.ToList() : null
+      );
+    }
+  }
+
+  /// <summary>
+  /// Invokes the Setup method for a given type if it exists.
+  /// </summary>
+  private static async Task InvokeSetupForType(Type testClass)
+  {
+    MethodInfo? setupMethod = testClass.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
+    if (setupMethod is not null && setupMethod.ReturnType == typeof(Task))
+    {
+      if (setupMethod.Invoke(null, null) is Task task)
+      {
+        await task;
+      }
+    }
+  }
+
+  /// <summary>
+  /// Invokes the CleanUp method for a given type if it exists.
+  /// </summary>
+  private static async Task InvokeCleanupForType(Type testClass)
+  {
+    MethodInfo? cleanupMethod = testClass.GetMethod("CleanUp", BindingFlags.Public | BindingFlags.Static);
+    if (cleanupMethod is not null && cleanupMethod.ReturnType == typeof(Task))
+    {
+      if (cleanupMethod.Invoke(null, null) is Task task)
+      {
+        await task;
+      }
+    }
+  }
+
+  /// <summary>
+  /// Runs all tests in the specified test class using the provided sink.
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests. Defaults to false for performance. Set true to ensure latest source changes are picked up.</param>
-  /// <param name="filterTag">Optional tag to filter tests. Only runs tests with this tag. Checks both class-level and method-level TestTag attributes. If not specified, checks JARIBU_FILTER_TAG environment variable.</param>
-  /// <returns>A TestRunSummary containing detailed results for all tests.</returns>
-  public static async Task<TestRunSummary> RunTestsWithResults<T>(bool? clearCache = null, string? filterTag = null) where T : class
+  /// <param name="sink">The sink to receive test execution events.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>TestRunStats containing aggregated results.</returns>
+  public static Task<TestRunStats> RunTestsAsync<T>(ITestResultSink sink, string? filterTag = null) where T : class
   {
-    // Reset static counters for this run
-    PassCount = 0;
-    SkippedCount = 0;
-    TotalTests = 0;
+    ArgumentNullException.ThrowIfNull(sink);
+    return RunTestsAsyncCore(typeof(T), sink, filterTag);
+  }
 
+  /// <summary>
+  /// Runs all tests in the specified test class using the provided sink.
+  /// </summary>
+  /// <param name="testClass">The test class type.</param>
+  /// <param name="sink">The sink to receive test execution events.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>TestRunStats containing aggregated results.</returns>
+  public static Task<TestRunStats> RunTestsAsync(Type testClass, ITestResultSink sink, string? filterTag = null)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+    ArgumentNullException.ThrowIfNull(sink);
+    return RunTestsAsyncCore(testClass, sink, filterTag);
+  }
+
+  /// <summary>
+  /// Core implementation for running tests with a sink.
+  /// </summary>
+  private static async Task<TestRunStats> RunTestsAsyncCore(Type testClass, ITestResultSink sink, string? filterTag = null)
+  {
     DateTimeOffset startTime = DateTimeOffset.Now;
     var overallStopwatch = Stopwatch.StartNew();
-    var allResults = new List<TestResult>();
+    var results = new List<TestNodeInfo>();
 
     // Check environment variable if filterTag not explicitly provided
     filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
 
-    string testClassName = typeof(T).Name.Replace("Tests", "", StringComparison.Ordinal);
+    string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
 
     // Check if test class matches filter tag (if specified)
     if (filterTag is not null)
     {
-      TestTagAttribute[] classTags = typeof(T).GetCustomAttributes<TestTagAttribute>().ToArray();
+      TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
       if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
       {
         // Class has tags but none match the filter - skip entire class
         overallStopwatch.Stop();
-        return new TestRunSummary(
-          testClassName,
+        var emptyStats = new TestRunStats(
+          className,
           startTime,
           overallStopwatch.Elapsed,
           PassedCount: 0,
           FailedCount: 0,
-          SkippedCount: 0,
-          Results: allResults
+          SkippedCount: 0
         );
+        await sink.OnRunStartedAsync(className, filterTag);
+        await sink.OnRunCompletedAsync(emptyStats, results);
+        return emptyStats;
       }
     }
 
-    // Determine whether to clean: attribute wins, then parameter, then default (false)
-    // Check both [Clean] and [ClearRunfileCache] attributes (Clean takes precedence)
-    bool shouldClean = false;
-    CleanAttribute? cleanAttr = typeof(T).GetCustomAttribute<CleanAttribute>();
-    ClearRunfileCacheAttribute? cacheAttr = typeof(T).GetCustomAttribute<ClearRunfileCacheAttribute>();
+    // Notify sink that run is starting
+    await sink.OnRunStartedAsync(className, filterTag);
 
-    if (cleanAttr is not null)
-    {
-      shouldClean = cleanAttr.Enabled;
-    }
-    else if (cacheAttr is not null)
-    {
-      shouldClean = cacheAttr.Enabled;
-    }
-    else if (clearCache.HasValue)
-    {
-      shouldClean = clearCache.Value;
-    }
+    // Get all test methods
+    IEnumerable<MethodInfo> testMethods = DiscoverTests(testClass);
 
-    if (shouldClean)
-    {
-      await RunClean();
-    }
-
-    WriteLine($"🧪 Testing {testClassName}...");
-
-    if (filterTag is not null)
-    {
-      WriteLine($"   (filtered by tag: {filterTag})");
-    }
-
-    WriteLine();
-
-    // Get all public static methods in the class
-    MethodInfo[] testMethods = typeof(T).GetMethods(BindingFlags.Public | BindingFlags.Static);
-
-    // Run them as tests
+    // Run each test
     foreach (MethodInfo method in testMethods)
     {
-      List<TestResult> methodResults = await RunTest<T>(method, filterTag);
-      allResults.AddRange(methodResults);
+      List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag);
+      results.AddRange(methodResults);
     }
 
     overallStopwatch.Stop();
 
-    // Calculate counts from results
-    int passedCount = allResults.Count(r => r.Outcome == TestOutcome.Passed);
-    int failedCount = allResults.Count(r => r.Outcome == TestOutcome.Failed);
-    int skippedCount = allResults.Count(r => r.Outcome == TestOutcome.Skipped);
+    // Calculate stats
+    int passedCount = results.Count(r => r.State == TestNodeState.Passed);
+    int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
+    int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
 
-    var summary = new TestRunSummary(
-      testClassName,
+    var stats = new TestRunStats(
+      className,
       startTime,
       overallStopwatch.Elapsed,
       passedCount,
       failedCount,
-      skippedCount,
-      allResults
+      skippedCount
     );
 
-    // Print formatted results table
-    WriteLine();
-    TestHelpers.PrintResultsTable(summary);
+    // Notify sink that run is completed
+    await sink.OnRunCompletedAsync(stats, results);
 
-    return summary;
+    return stats;
   }
 
   /// <summary>
-  /// Runs all registered test classes and returns an exit code.
+  /// Runs a single test method with sink notifications.
   /// </summary>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
-  public static async Task<int> RunAllTests(bool? clearCache = null, string? filterTag = null)
+  private static async Task<List<TestNodeInfo>> RunTestWithSinkAsync(Type testClass, MethodInfo method, ITestResultSink sink, string? filterTag)
   {
-    TestSuiteSummary summary = await RunAllTestsWithResults(clearCache, filterTag);
-    return summary.Success ? 0 : 1;
-  }
-
-  /// <summary>
-  /// Runs all registered test classes and returns aggregated results.
-  /// </summary>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
-  /// <returns>A TestSuiteSummary containing results for all registered test classes.</returns>
-  public static async Task<TestSuiteSummary> RunAllTestsWithResults(bool? clearCache = null, string? filterTag = null)
-  {
-    if (RegisteredTestClasses.Count == 0)
-    {
-      WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
-      return new TestSuiteSummary(
-        DateTimeOffset.Now,
-        TimeSpan.Zero,
-        TotalTests: 0,
-        PassedCount: 0,
-        FailedCount: 0,
-        SkippedCount: 0,
-        ClassResults: []
-      );
-    }
-
-    DateTimeOffset suiteStartTime = DateTimeOffset.Now;
-    var suiteStopwatch = Stopwatch.StartNew();
-    var classResults = new List<TestRunSummary>();
-
-    // Get the generic method definition for RunTestsWithResults<T>
-    MethodInfo? runTestsMethod = typeof(TestRunner).GetMethod(
-      nameof(RunTestsWithResults),
-      BindingFlags.Public | BindingFlags.Static
-    );
-
-    if (runTestsMethod is null)
-    {
-      throw new InvalidOperationException("Could not find RunTestsWithResults method");
-    }
-
-    foreach (Type testClass in RegisteredTestClasses)
-    {
-      // Make the generic method for this specific type
-      MethodInfo genericMethod = runTestsMethod.MakeGenericMethod(testClass);
-
-      // Invoke and await the result
-      object? result = genericMethod.Invoke(null, [clearCache, filterTag]);
-      if (result is Task<TestRunSummary> task)
-      {
-        TestRunSummary classResult = await task;
-        classResults.Add(classResult);
-      }
-    }
-
-    suiteStopwatch.Stop();
-
-    // Aggregate results
-    int totalTests = classResults.Sum(r => r.TotalTests);
-    int passedCount = classResults.Sum(r => r.PassedCount);
-    int failedCount = classResults.Sum(r => r.FailedCount);
-    int skippedCount = classResults.Sum(r => r.SkippedCount);
-
-    var suiteSummary = new TestSuiteSummary(
-      suiteStartTime,
-      suiteStopwatch.Elapsed,
-      totalTests,
-      passedCount,
-      failedCount,
-      skippedCount,
-      classResults
-    );
-
-    // Print combined summary if multiple classes were run
-    if (classResults.Count > 1)
-    {
-      WriteLine();
-      TestHelpers.PrintSuiteSummaryTable(suiteSummary);
-    }
-
-    return suiteSummary;
-  }
-
-  private static async Task<List<TestResult>> RunTest<T>(MethodInfo method, string? filterTag) where T : class
-  {
-    var results = new List<TestResult>();
-
-    // Skip non-test methods (not public, not static, not Task, or named CleanUp/Setup)
-    if (!method.IsPublic ||
-        !method.IsStatic ||
-        method.ReturnType != typeof(Task) ||
-        method.Name is "CleanUp" or "Setup")
-    {
-      return results;
-    }
+    var results = new List<TestNodeInfo>();
 
     // Check for method tag filter if specified
     if (filterTag is not null)
@@ -359,19 +344,20 @@ public static class TestRunner
       TestTagAttribute[] methodTags = method.GetCustomAttributes<TestTagAttribute>().ToArray();
       if (methodTags.Length > 0 && !methodTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
       {
-        SkippedCount++;
-        TotalTests++;
-        WriteLine($"Test: {TestHelpers.FormatTestName(method.Name)}");
-        TestHelpers.TestSkipped($"No matching tag '{filterTag}'");
-        WriteLine();
-        results.Add(new TestResult(
+        // Method has tags but none match - report as skipped
+        string testNodeUid = $"{testClass.FullName}.{method.Name}";
+        var skipNode = new TestNodeInfo(
+          testNodeUid,
           method.Name,
-          TestOutcome.Skipped,
+          TestNodeState.Skipped,
           TimeSpan.Zero,
-          $"No matching tag '{filterTag}'",
-          StackTrace: null,
+          Exception: null,
+          Message: $"No matching tag '{filterTag}'",
           Parameters: null
-        ));
+        );
+        await sink.OnTestStartedAsync(skipNode);
+        await sink.OnTestCompletedAsync(skipNode);
+        results.Add(skipNode);
         return results;
       }
     }
@@ -380,20 +366,19 @@ public static class TestRunner
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
     {
-      SkippedCount++;
-      TotalTests++;
-      string testName = method.Name;
-      WriteLine($"Test: {TestHelpers.FormatTestName(testName)}");
-      TestHelpers.TestSkipped(skipAttr.Reason);
-      WriteLine();
-      results.Add(new TestResult(
-        testName,
-        TestOutcome.Skipped,
+      string testNodeUid = $"{testClass.FullName}.{method.Name}";
+      var skipNode = new TestNodeInfo(
+        testNodeUid,
+        method.Name,
+        TestNodeState.Skipped,
         TimeSpan.Zero,
-        skipAttr.Reason,
-        StackTrace: null,
+        Exception: null,
+        Message: skipAttr.Reason,
         Parameters: null
-      ));
+      );
+      await sink.OnTestStartedAsync(skipNode);
+      await sink.OnTestCompletedAsync(skipNode);
+      results.Add(skipNode);
       return results;
     }
 
@@ -405,188 +390,144 @@ public static class TestRunner
       // Run test once for each [Input]
       foreach (InputAttribute inputAttr in inputAttrs)
       {
-        await InvokeSetup<T>();
-        TestResult result = await RunSingleTest(method, inputAttr.Parameters);
+        // Create in-progress node
+        string testNodeUid = $"{testClass.FullName}.{method.Name}";
+        string displayName = inputAttr.Parameters.Length > 0
+          ? $"{method.Name}({string.Join(", ", inputAttr.Parameters.Select(p => p?.ToString() ?? "null"))})"
+          : method.Name;
+        var inProgressNode = new TestNodeInfo(
+          testNodeUid,
+          displayName,
+          TestNodeState.InProgress,
+          Parameters: inputAttr.Parameters.Length > 0 ? inputAttr.Parameters.ToList() : null
+        );
+
+        await sink.OnTestStartedAsync(inProgressNode);
+
+        // Run the test
+        TestNodeInfo result = await RunSingleTestAsync(testClass, method, inputAttr.Parameters);
+
+        await sink.OnTestCompletedAsync(result);
         results.Add(result);
-        await InvokeCleanup<T>();
       }
     }
     else
     {
       // No [Input] attributes - run once with no parameters
-      await InvokeSetup<T>();
-      TestResult result = await RunSingleTest(method, []);
+      string testNodeUid = $"{testClass.FullName}.{method.Name}";
+      var inProgressNode = new TestNodeInfo(
+        testNodeUid,
+        method.Name,
+        TestNodeState.InProgress,
+        Parameters: null
+      );
+
+      await sink.OnTestStartedAsync(inProgressNode);
+
+      // Run the test
+      TestNodeInfo result = await RunSingleTestAsync(testClass, method, []);
+
+      await sink.OnTestCompletedAsync(result);
       results.Add(result);
-      await InvokeCleanup<T>();
     }
 
     return results;
   }
 
-  private static async Task<TestResult> RunSingleTest(MethodInfo method, object?[] parameters)
+  /// <summary>
+  /// Runs all public static async Task methods in the specified test class.
+  /// Uses TerminalSink internally for backward compatibility.
+  /// </summary>
+  /// <typeparam name="T">The test class containing test methods.</typeparam>
+  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
+  public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
   {
-    TotalTests++;
-    string testName = method.Name;
-
-    // Format test name with parameters if provided
-    string displayName = parameters.Length > 0
-      ? $"{TestHelpers.FormatTestName(testName)} ({string.Join(", ", parameters.Select(p => p?.ToString() ?? "null"))})"
-      : TestHelpers.FormatTestName(testName);
-
-    WriteLine($"Test: {displayName}");
-
-    var stopwatch = Stopwatch.StartNew();
-
-    try
-    {
-      var testTask = method.Invoke(null, parameters) as Task;
-      if (testTask is not null)
-      {
-        TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
-        if (timeoutAttr is not null)
-        {
-          var timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
-          Task completedTask = await Task.WhenAny(testTask, timeoutTask);
-          if (completedTask == timeoutTask)
-          {
-            stopwatch.Stop();
-            string timeoutMessage = $"Timeout after {timeoutAttr.Milliseconds}ms";
-            TestHelpers.TestFailed(timeoutMessage);
-            WriteLine();
-            return new TestResult(
-              testName,
-              TestOutcome.Failed,
-              stopwatch.Elapsed,
-              timeoutMessage,
-              StackTrace: null,
-              parameters.Length > 0 ? parameters.ToList() : null
-            );
-          }
-
-          await testTask; // Propagate any exceptions from the test task
-        }
-        else
-        {
-          await testTask;
-        }
-      }
-
-      stopwatch.Stop();
-      PassCount++;
-      TestHelpers.TestPassed();
-      WriteLine();
-      return new TestResult(
-        testName,
-        TestOutcome.Passed,
-        stopwatch.Elapsed,
-        FailureMessage: null,
-        StackTrace: null,
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
-    }
-    catch (TargetInvocationException ex) when (ex.InnerException is not null)
-    {
-      stopwatch.Stop();
-      // Unwrap the TargetInvocationException to get the actual exception
-      string failureMessage = $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
-      TestHelpers.TestFailed(failureMessage);
-      WriteLine();
-      return new TestResult(
-        testName,
-        TestOutcome.Failed,
-        stopwatch.Elapsed,
-        failureMessage,
-        ex.InnerException.StackTrace,
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
-    }
-    catch (Exception ex)
-    {
-      stopwatch.Stop();
-      string failureMessage = $"{ex.GetType().Name}: {ex.Message}";
-      TestHelpers.TestFailed(failureMessage);
-      WriteLine();
-      return new TestResult(
-        testName,
-        TestOutcome.Failed,
-        stopwatch.Elapsed,
-        failureMessage,
-        ex.StackTrace,
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
-    }
-  }
-
-  private static async Task InvokeSetup<T>() where T : class
-  {
-    MethodInfo? setupMethod = typeof(T).GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
-    if (setupMethod is not null && setupMethod.ReturnType == typeof(Task))
-    {
-      if (setupMethod.Invoke(null, null) is Task task)
-      {
-        await task;
-      }
-    }
-  }
-
-  private static async Task InvokeCleanup<T>() where T : class
-  {
-    MethodInfo? cleanupMethod = typeof(T).GetMethod("CleanUp", BindingFlags.Public | BindingFlags.Static);
-    if (cleanupMethod is not null && cleanupMethod.ReturnType == typeof(Task))
-    {
-      if (cleanupMethod.Invoke(null, null) is Task task)
-      {
-        await task;
-      }
-    }
+    using var sink = new TerminalSink();
+    TestRunStats stats = await RunTestsAsync<T>(sink, filterTag);
+    return stats.Success ? 0 : 1;
   }
 
   /// <summary>
-  /// Runs `dotnet clean` on the specified runfile to ensure tests pick up latest source changes.
-  /// Uses the official .NET SDK command introduced in .NET 10.
+  /// Runs all registered test classes and returns an exit code.
+  /// Uses TerminalSink internally for backward compatibility.
   /// </summary>
-  /// <param name="runfilePath">Path to the runfile to clean. If null, attempts to clean the current runfile.</param>
-  /// <remarks>
-  /// Note: Cleaning the currently executing runfile is not possible as it would corrupt the running process.
-  /// In that case, a warning is displayed and the clean operation is skipped.
-  /// For self-cleaning scenarios, run `dotnet clean yourfile.cs` before executing the runfile.
-  /// </remarks>
-  public static async Task RunClean(string? runfilePath = null)
+  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
+  public static async Task<int> RunAllTests(bool? clearCache = null, string? filterTag = null)
   {
-    // If no path provided, get the current runfile path
-    runfilePath ??= AppContext.GetData("EntryPointFilePath") as string;
-
-    if (string.IsNullOrEmpty(runfilePath))
+    if (RegisteredTestClasses.Count == 0)
     {
-      // Not running as a runfile, nothing to clean
-      return;
+      Console.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+      return 0;
     }
 
-    // Check if we're trying to clean the currently executing file
-    string? currentRunfile = AppContext.GetData("EntryPointFilePath") as string;
-    if (!string.IsNullOrEmpty(currentRunfile) &&
-        string.Equals(Path.GetFullPath(runfilePath), Path.GetFullPath(currentRunfile), StringComparison.OrdinalIgnoreCase))
+    List<TestRunStats> allStats = [];
+
+    foreach (Type testClass in RegisteredTestClasses)
     {
-      // Cannot clean ourselves while running - this would corrupt the build
-      WriteLine($"⚠ Skipping dotnet clean on {Path.GetFileName(runfilePath)} (cannot clean currently executing runfile)");
-      WriteLine("  Tip: Run 'dotnet clean <file>' before execution to ensure fresh compilation.");
-      WriteLine();
-      return;
+      using TerminalSink sink = new();
+      TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
+      allStats.Add(stats);
     }
 
-    WriteLine($"✓ Running dotnet clean on: {Path.GetFileName(runfilePath)}");
-
-    CommandOutput result = await Shell.Builder("dotnet")
-      .WithArguments("clean", runfilePath)
-      .WithNoValidation()
-      .CaptureAsync();
-
-    if (!result.Success)
+    // Print grand total summary when multiple classes were run
+    if (allStats.Count > 1)
     {
-      // Log error but don't fail the test run - cleaning is best-effort
-      WriteLine($"  ⚠ Clean failed: {result.Stderr}");
+      int totalPassed = allStats.Sum(s => s.PassedCount);
+      int totalFailed = allStats.Sum(s => s.FailedCount);
+      int totalSkipped = allStats.Sum(s => s.SkippedCount);
+      int totalTests = totalPassed + totalFailed + totalSkipped;
+
+#pragma warning disable CA1849
+      TimeWarpTerminal terminal = TimeWarpTerminal.Default;
+
+      terminal
+        .WriteRule(rule => rule.Title("Grand Total").Style(LineStyle.Doubled))
+        .WriteTable(table =>
+        {
+          table
+            .AddColumn("Class")
+            .AddColumn("Passed", Alignment.Right)
+            .AddColumn("Failed", Alignment.Right)
+            .AddColumn("Skipped", Alignment.Right)
+            .AddColumn("Total", Alignment.Right)
+            .Border(BorderStyle.Rounded);
+
+          foreach (TestRunStats classStats in allStats)
+          {
+            table.AddRow
+            (
+              classStats.ClassName,
+              classStats.PassedCount.ToString(CultureInfo.InvariantCulture).Green(),
+              classStats.FailedCount > 0
+                ? classStats.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
+                : classStats.FailedCount.ToString(CultureInfo.InvariantCulture),
+              classStats.SkippedCount > 0
+                ? classStats.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
+                : classStats.SkippedCount.ToString(CultureInfo.InvariantCulture),
+              classStats.TotalTests.ToString(CultureInfo.InvariantCulture)
+            );
+          }
+        })
+        .WriteLine(string.Empty)
+        .WriteLine($"{"Total:".Bold()} {totalTests.ToString(CultureInfo.InvariantCulture)}")
+        .WriteLine($"{"Passed:".Green()} {totalPassed.ToString(CultureInfo.InvariantCulture)}");
+
+      if (totalFailed > 0)
+      {
+        terminal.WriteLine($"{"Failed:".Red()} {totalFailed.ToString(CultureInfo.InvariantCulture)}");
+      }
+
+      if (totalSkipped > 0)
+      {
+        terminal.WriteLine($"{"Skipped:".Yellow()} {totalSkipped.ToString(CultureInfo.InvariantCulture)}");
+      }
+#pragma warning restore CA1849
     }
 
-    WriteLine();
+    return allStats.Any(s => !s.Success) ? 1 : 0;
   }
 }

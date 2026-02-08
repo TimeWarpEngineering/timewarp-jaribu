@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Import the TestingPlatform props (auto-imported when using NuGet package) -->
+  <Import Project="../../Source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+  </ItemGroup>
+</Project>

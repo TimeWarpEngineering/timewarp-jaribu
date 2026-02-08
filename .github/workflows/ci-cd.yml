@@ -52,8 +52,8 @@ jobs:
           cd ..
 
           echo "Running CI tests..."
-          chmod +x Tests/TimeWarp.Jaribu.Tests/ci-tests/run-ci-tests.cs
-          cd Tests/TimeWarp.Jaribu.Tests/ci-tests && ./run-ci-tests.cs
+          chmod +x Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
+          cd Tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
 
       - name: Check if version already published (Releases only)
         if: github.event_name == 'release'
