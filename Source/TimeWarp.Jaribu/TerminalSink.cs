@@ -6,10 +6,11 @@ using TimeWarp.Terminal;
 /// <summary>
 /// Pretty console output sink using TimeWarp.Terminal for colored, formatted test results.
 /// </summary>
-public sealed class TerminalSink : ITestResultSink
+public sealed class TerminalSink : ITestResultSink, IDisposable
 {
   private readonly ITerminal Terminal;
   private readonly int MaxMessageWidth;
+  private bool IsDisposed;
 
   /// <summary>
   /// Creates a new TerminalSink with the specified terminal and message width.
@@ -27,6 +28,21 @@ public sealed class TerminalSink : ITestResultSink
   /// Creates a new TerminalSink using the default TimeWarpTerminal.
   /// </summary>
   public TerminalSink() : this(new TimeWarpTerminal()) { }
+
+  /// <summary>
+  /// Disposes the TerminalSink and its underlying terminal if disposable.
+  /// </summary>
+  public void Dispose()
+  {
+    if (!IsDisposed)
+    {
+      if (Terminal is IDisposable disposable)
+      {
+        disposable.Dispose();
+      }
+      IsDisposed = true;
+    }
+  }
 
   public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
 

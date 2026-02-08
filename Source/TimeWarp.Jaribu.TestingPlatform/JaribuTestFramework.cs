@@ -45,51 +45,30 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     {
       bool isDiscovery = context.Request is DiscoverTestExecutionRequest;
       ITestExecutionFilter? filter = GetFilter(context);
+      MtpSink sink = new(this, context.MessageBus, context.Request.Session.SessionUid);
 
       foreach (Type testClass in TestRunner.RegisteredTestClasses)
       {
-        foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
+        if (isDiscovery)
         {
-          string testNodeUid = $"{testClass.FullName}.{method.Name}";
-
-          if (filter != null && !MatchesFilter(testNodeUid, filter))
-            continue;
-
-          if (isDiscovery)
+          foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
           {
-            await PublishTestNode
-            (
-              context,
-              testNodeUid,
-              method.Name,
-              DiscoveredTestNodeStateProperty.CachedInstance
-            ).ConfigureAwait(false);
-          }
-          else
-          {
-            // Report in-progress
-            await PublishTestNode
-            (
-              context,
-              testNodeUid,
-              method.Name,
-              InProgressTestNodeStateProperty.CachedInstance
-            ).ConfigureAwait(false);
+            string testNodeUid = $"{testClass.FullName}.{method.Name}";
+            if (filter != null && !MatchesFilter(testNodeUid, filter))
+              continue;
 
-            // Execute test
-            MtpTestResult result = await TestRunner.RunSingleTestAsync(testClass, method).ConfigureAwait(false);
-
-            // Report result
-            TestNodeStateProperty stateProperty = MapStatusToProperty(result);
-            await PublishTestNode
+            TestNodeInfo node = new
             (
-              context,
-              testNodeUid,
-              method.Name,
-              stateProperty,
-              result.Duration
-            ).ConfigureAwait(false);
+              Uid: testNodeUid,
+              DisplayName: method.Name,
+              State: TestNodeState.Discovered
+            );
+            await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
           }
+        }
+        else
+        {
+          await TestRunner.RunTestsAsync(testClass, sink).ConfigureAwait(false);
         }
       }
     }
@@ -102,59 +81,6 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     {
       context.Complete();
     }
-  }
-
-  private static TestNodeStateProperty MapStatusToProperty(MtpTestResult result)
-    => result.Status switch
-    {
-      TestStatus.Passed => PassedTestNodeStateProperty.CachedInstance,
-      TestStatus.Skipped => new SkippedTestNodeStateProperty(result.SkipReason),
-      TestStatus.Failed => new FailedTestNodeStateProperty
-      (
-        result.Exception ?? new InvalidOperationException("Test failed without exception details")
-      ),
-      TestStatus.Timeout => new TimeoutTestNodeStateProperty
-      (
-        result.Exception ?? new TimeoutException("Test timed out")
-      ),
-      _ => new ErrorTestNodeStateProperty
-      (
-        result.Exception ?? new InvalidOperationException("Test error without exception details")
-      )
-    };
-
-  private async Task PublishTestNode
-  (
-    ExecuteRequestContext context,
-    string uid,
-    string displayName,
-    TestNodeStateProperty state,
-    TimeSpan? duration = null
-  )
-  {
-    PropertyBag properties = new(state);
-
-    if (duration.HasValue)
-    {
-      DateTimeOffset endTime = DateTimeOffset.UtcNow;
-      DateTimeOffset startTime = endTime - duration.Value;
-      properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, duration.Value)));
-    }
-
-    await context.MessageBus.PublishAsync
-    (
-      this,
-      new TestNodeUpdateMessage
-      (
-        sessionUid: context.Request.Session.SessionUid,
-        testNode: new TestNode
-        {
-          Uid = new TestNodeUid(uid),
-          DisplayName = displayName,
-          Properties = properties
-        }
-      )
-    ).ConfigureAwait(false);
   }
 
   private async Task ReportUnhandledException(ExecuteRequestContext context, Exception ex)

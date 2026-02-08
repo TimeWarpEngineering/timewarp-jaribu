@@ -9,7 +9,9 @@
     <Using Include="Microsoft.Testing.Platform.Extensions" />
     <Using Include="Microsoft.Testing.Platform.Extensions.Messages" />
     <Using Include="Microsoft.Testing.Platform.Extensions.TestFramework" />
+    <Using Include="Microsoft.Testing.Platform.Messages" />
     <Using Include="Microsoft.Testing.Platform.Requests" />
+    <Using Include="Microsoft.Testing.Platform.TestHost" />
   </ItemGroup>
 
   <ItemGroup>
