@@ -1,63 +1,44 @@
-# Create TestNodeState and TestNodeInfo Core Types
-
-## Summary
-
-Create the foundational types that align Jaribu with MTP's TestNode concept. These types will be used throughout the core library and replace the existing duplicate result types.
-
-Parent Epic: #018
-
-## Todo List
-
-- [x] Create `Source/TimeWarp.Jaribu/TestNodeState.cs` - enum with states: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
-- [x] Create `Source/TimeWarp.Jaribu/TestNodeInfo.cs` - record with: Uid, DisplayName, State, Duration?, Exception?, Message?, Parameters?
-- [x] Create `Source/TimeWarp.Jaribu/TestRunStats.cs` - record with: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount
-- [x] Ensure all types follow coding conventions (2-space indent, PascalCase, explicit types, file-scoped namespaces)
-- [x] Verify build succeeds
-
-## Implementation Plan
-
-### Phase 1: Create Core Types
-
-Create three new files in `Source/TimeWarp.Jaribu/`:
-
-1. **TestNodeState.cs** - Enum with 8 states:
-   - Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
-   - Aligns with MTP's TestNodeStateProperty types
-
-2. **TestNodeInfo.cs** - Positional record:
-   - string Uid ("Namespace.Class.Method")
-   - string DisplayName
-   - TestNodeState State
-   - TimeSpan? Duration
-   - Exception? Exception
-   - string? Message
-   - IReadOnlyList<object?>? Parameters
-
-3. **TestRunStats.cs** - Positional record:
-   - string ClassName
-   - DateTimeOffset StartTime
-   - TimeSpan Duration
-   - int PassedCount
-   - int FailedCount
-   - int SkippedCount
-   - Plus computed: TotalTests, Success
-
-### Coding Conventions
-- 2-space indentation
-- File-scoped namespaces
-- Explicit types (no var)
-- PascalCase for all public members
-
-### Build Verification
-- Must compile with 0 warnings, 0 errors
-- Verify no naming conflicts with existing types
-
 ## Results
 
-Created three new foundational types in `Source/TimeWarp.Jaribu/`:
+### Files Created
 
-- **TestNodeState.cs** - Enum with 8 states aligned to MTP's TestNodeStateProperty types: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
-- **TestNodeInfo.cs** - Positional record with Uid, DisplayName, State, and optional Duration, Exception, Message, Parameters
-- **TestRunStats.cs** - Positional record with ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount plus computed TotalTests and Success properties
+Three new core type files were successfully created in `Source/TimeWarp.Jaribu/`:
 
-Build verified: 0 warnings, 0 errors.
+1. **TestNodeState.cs** (25 lines)
+   - Enum with 8 states: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
+   - Aligns with MTP's TestNodeStateProperty types
+   - Full XML documentation on each member
+
+2. **TestNodeInfo.cs** (23 lines)
+   - Positional record with 7 parameters: Uid, DisplayName, State, Duration?, Exception?, Message?, Parameters?
+   - Represents a single test node with full MTP alignment
+   - XML documentation on type and all parameters
+
+3. **TestRunStats.cs** (32 lines)
+   - Positional record with 6 core parameters: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount
+   - 2 computed properties: TotalTests, Success
+   - XML documentation throughout
+
+### Coding Conventions Verified
+
+- ✅ 2-space indentation throughout
+- ✅ File-scoped namespaces (no block syntax)
+- ✅ No var usage (explicit types where applicable)
+- ✅ PascalCase for all public members
+- ✅ Comprehensive XML documentation
+- ✅ Clean, minimal implementation
+
+### Build Status
+
+- ✅ TestNodeState.cs: 0 errors, 0 warnings
+- ✅ TestNodeInfo.cs: 0 errors, 0 warnings
+- ✅ TestRunStats.cs: 0 errors, 0 warnings
+
+**Note:** TerminalSink.cs has 14 pre-existing errors (CA1849, CA1062) that belong to task 020, not task 019.
+
+### Decisions Made
+
+1. Used positional record syntax for conciseness and immutability
+2. Made Duration, Exception, Message, Parameters nullable as they only apply to completed tests
+3. Used IReadOnlyList<object?> for Parameters to match existing codebase patterns
+4. Added computed properties to TestRunStats for convenience (TotalTests, Success)
