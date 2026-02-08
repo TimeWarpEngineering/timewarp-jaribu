@@ -40,20 +40,43 @@ chmod +x Scripts/CheckVersion.cs
 
 ## Architecture
 
+### Sink-Based Architecture
+
+Test output flows through `ITestResultSink` implementations, enabling pluggable output destinations:
+
+```
+TestRunner.RunTestsAsync(sink)
+    ├── TerminalSink → Console output (dotnet run single-file)
+    ├── MtpSink → IMessageBus → VS/Rider/dotnet test
+    └── NullSink → Silent (testing/benchmarking)
+```
+
+### Core Types
+
+- **TestNodeState** — Enum with 8 states aligned to MTP: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
+- **TestNodeInfo** — Record representing a single test result with Uid, DisplayName, State, Duration, Exception, Message, Parameters
+- **TestRunStats** — Record with aggregated stats: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount
+- **ITestResultSink** — Interface for receiving test lifecycle events (discovered, started, completed, run started/completed)
+
 ### Core Components
 
 **TestRunner** ([Source/TimeWarp.Jaribu/TestRunner.cs](Source/TimeWarp.Jaribu/TestRunner.cs))
 - Convention-based test discovery: finds public static async Task methods via reflection
+- Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
+- Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
 - Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`
 - Supports parameterized tests via [Input] attributes
-
 - Invokes Setup/CleanUp methods if present
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
+
+**Sinks** ([Source/TimeWarp.Jaribu/](Source/TimeWarp.Jaribu/))
+- **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal
+- **NullSink** — Singleton silent sink for testing/benchmarking
+- **MtpSink** ([Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
 
 **TestHelpers** ([Source/TimeWarp.Jaribu/TestHelpers.cs](Source/TimeWarp.Jaribu/TestHelpers.cs))
 - FormatTestName: Converts PascalCase to readable format
 - TestPassed/TestFailed/TestSkipped: Formatted status logging
-
 - Uses Regex source generator for performance
 
 ### Test Attributes
@@ -95,10 +118,12 @@ Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Am
 - Manual workflow_dispatch
 
 Pipeline:
-1. Runs [Scripts/Build.cs](Scripts/Build.cs)
-2. Runs [Tests/Scripts/run-all-tests.cs](Tests/Scripts/run-all-tests.cs)
+1. Runs [Scripts/Build.cs](Scripts/Build.cs) — Builds TimeWarp.Jaribu in Release mode
+2. Runs [Tests/TimeWarp.Jaribu.Tests/ci-tests/run-ci-tests.cs](Tests/TimeWarp.Jaribu.Tests/ci-tests/run-ci-tests.cs) — CI-safe tests only (no intentional failures)
 3. On release: checks version not already published via [Scripts/CheckVersion.cs](Scripts/CheckVersion.cs)
 4. On release: publishes to NuGet.org
+
+CI-safe tests are configured in [Tests/TimeWarp.Jaribu.Tests/ci-tests/Directory.Build.props](Tests/TimeWarp.Jaribu.Tests/ci-tests/Directory.Build.props) — only test files with zero intentional failures are included.
 
 ## Version Management
 

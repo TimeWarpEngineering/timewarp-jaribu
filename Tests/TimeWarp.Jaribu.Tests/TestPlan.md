@@ -116,4 +116,25 @@ This plan will guide the creation of test classes under `Tests/TimeWarp.Jaribu.T
 3. Run plan and document results in `TestResults.md`.
 4. Iterate on TestRunner based on findings.
 
+## Architecture Changes (Epic 018)
+
+As of the MTP alignment refactoring (tasks 019-023), the following types were replaced:
+
+| Old Type | New Type |
+|----------|----------|
+| `TestOutcome` | `TestNodeState` |
+| `TestStatus` | `TestNodeState` |
+| `TestResult` | `TestNodeInfo` |
+| `MtpTestResult` | `TestNodeInfo` |
+| `TestRunSummary` | `TestRunStats` |
+| `TestSuiteSummary` | Collecting sinks aggregate per-class |
+
+The TestRunner uses a sink-based architecture (`ITestResultSink`) with pluggable output destinations:
+- `TerminalSink` for console output
+- `MtpSink` for `dotnet test` integration
+- `NullSink` for silent testing/benchmarking
+
+Test files `jaribu-08`, `jaribu-09`, and `jaribu-10` were rewritten to use the new API.
+
 *Document Version: 1.0 | Date: 2025-10-05*
+*Updated: 2026-02-09 — Epic 018 architectural changes*
