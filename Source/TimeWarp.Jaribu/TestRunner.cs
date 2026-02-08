@@ -1,7 +1,9 @@
 namespace TimeWarp.Jaribu;
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
+using TimeWarp.Terminal;
 
 #region Purpose
 // TestRunner - Main entry point for discovering and executing tests.
@@ -479,15 +481,51 @@ public static class TestRunner
       int totalSkipped = allStats.Sum(s => s.SkippedCount);
       int totalTests = totalPassed + totalFailed + totalSkipped;
 
-      Console.WriteLine();
-      Console.WriteLine("══════════════════════════════════════");
-      Console.WriteLine($"  Grand Total: {totalTests}");
-      Console.WriteLine($"  Passed: {totalPassed}");
+#pragma warning disable CA1849
+      TimeWarpTerminal terminal = TimeWarpTerminal.Default;
+
+      terminal
+        .WriteRule(rule => rule.Title("Grand Total").Style(LineStyle.Doubled))
+        .WriteTable(table =>
+        {
+          table
+            .AddColumn("Class")
+            .AddColumn("Passed", Alignment.Right)
+            .AddColumn("Failed", Alignment.Right)
+            .AddColumn("Skipped", Alignment.Right)
+            .AddColumn("Total", Alignment.Right)
+            .Border(BorderStyle.Rounded);
+
+          foreach (TestRunStats classStats in allStats)
+          {
+            table.AddRow
+            (
+              classStats.ClassName,
+              classStats.PassedCount.ToString(CultureInfo.InvariantCulture).Green(),
+              classStats.FailedCount > 0
+                ? classStats.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
+                : classStats.FailedCount.ToString(CultureInfo.InvariantCulture),
+              classStats.SkippedCount > 0
+                ? classStats.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
+                : classStats.SkippedCount.ToString(CultureInfo.InvariantCulture),
+              classStats.TotalTests.ToString(CultureInfo.InvariantCulture)
+            );
+          }
+        })
+        .WriteLine(string.Empty)
+        .WriteLine($"{"Total:".Bold()} {totalTests.ToString(CultureInfo.InvariantCulture)}")
+        .WriteLine($"{"Passed:".Green()} {totalPassed.ToString(CultureInfo.InvariantCulture)}");
+
       if (totalFailed > 0)
-        Console.WriteLine($"  Failed: {totalFailed}");
+      {
+        terminal.WriteLine($"{"Failed:".Red()} {totalFailed.ToString(CultureInfo.InvariantCulture)}");
+      }
+
       if (totalSkipped > 0)
-        Console.WriteLine($"  Skipped: {totalSkipped}");
-      Console.WriteLine("══════════════════════════════════════");
+      {
+        terminal.WriteLine($"{"Skipped:".Yellow()} {totalSkipped.ToString(CultureInfo.InvariantCulture)}");
+      }
+#pragma warning restore CA1849
     }
 
     return allStats.Any(s => !s.Success) ? 1 : 0;
