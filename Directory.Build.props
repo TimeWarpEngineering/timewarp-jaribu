@@ -27,7 +27,7 @@
     <RepositoryUrl>https://github.com/TimeWarpEngineering/timewarp-jaribu</RepositoryUrl>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <PackageIcon>Logo.png</PackageIcon>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
   </PropertyGroup>
   <!-- Default language and framework settings for all projects -->
   <PropertyGroup Label="Project Defaults">
