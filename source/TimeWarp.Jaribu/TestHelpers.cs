@@ -1,7 +1,7 @@
 namespace TimeWarp.Jaribu;
 
-using System;
 using System.Text.RegularExpressions;
+using TimeWarp.Terminal;
 
 /// <summary>
 /// Helper utilities for test formatting and common patterns.
@@ -19,19 +19,19 @@ public static partial class TestHelpers
   /// Logs a test pass status.
   /// </summary>
   public static void TestPassed() =>
-    Console.WriteLine("  ✓ PASSED");
+    Terminal.WriteLine("  ✓ PASSED");
 
   /// <summary>
   /// Logs a test failure status with reason.
   /// </summary>
   public static void TestFailed(string reason) =>
-    Console.WriteLine($"  ✗ FAILED: {reason}");
+    Terminal.WriteLine($"  ✗ FAILED: {reason}");
 
   /// <summary>
   /// Logs a test skipped status with reason.
   /// </summary>
   public static void TestSkipped(string reason) =>
-    Console.WriteLine($"  ⚠ SKIPPED: {reason}");
+    Terminal.WriteLine($"  ⚠ SKIPPED: {reason}");
 
   [GeneratedRegex("([A-Z])")]
   private static partial Regex PascalCaseRegex();

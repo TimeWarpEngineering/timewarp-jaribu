@@ -32,7 +32,7 @@ namespace TestRunner_
     public static async Task NoInput_Should_RunOnce()
     {
       // Verify no params passed (could check via reflection or log)
-      Console.WriteLine("NoInput_Should_RunOnce: No parameters received");
+      WriteLine("NoInput_Should_RunOnce: No parameters received");
       await Task.CompletedTask;
     }
 
@@ -46,7 +46,7 @@ namespace TestRunner_
       // Self-verify: log expected values
       if (param1 == "hello" && param2 == 42)
       {
-        Console.WriteLine($"SingleInput_Should_BindCorrectly: Passed with {param1}, {param2}");
+        WriteLine($"SingleInput_Should_BindCorrectly: Passed with {param1}, {param2}");
       }
       else
       {
@@ -64,7 +64,7 @@ namespace TestRunner_
     public static async Task MultipleInputs_Should_RunForEach(string param1, int param2)
     {
       // Will run twice; log to distinguish
-      Console.WriteLine($"MultipleInputs_Should_RunForEach: {param1}, {param2}");
+      WriteLine($"MultipleInputs_Should_RunForEach: {param1}, {param2}");
       await Task.CompletedTask;
     }
 
@@ -76,7 +76,7 @@ namespace TestRunner_
     public static async Task TypeMismatch_Should_FailInvocation(int _)
     {
       // This won't reach here due to conversion failure
-      Console.WriteLine("TypeMismatch_Should_FailInvocation: Unexpected success");
+      WriteLine("TypeMismatch_Should_FailInvocation: Unexpected success");
       await Task.CompletedTask;
     }
 
@@ -88,7 +88,7 @@ namespace TestRunner_
     {
       if (param1 is null && param2 is null)
       {
-        Console.WriteLine("NullParams_Should_HandleNullables: Null parameters handled");
+        WriteLine("NullParams_Should_HandleNullables: Null parameters handled");
       }
       else
       {
@@ -106,7 +106,7 @@ namespace TestRunner_
     public static async Task ZeroParamsForMultiParam_Should_FailOrDefault(string param1, int param2)
     {
       // Expect failure or null/defaults
-      Console.WriteLine($"ZeroParamsForMultiParam_Should_FailOrDefault: {param1 ?? "null"}, {param2}");
+      WriteLine($"ZeroParamsForMultiParam_Should_FailOrDefault: {param1 ?? "null"}, {param2}");
       await Task.CompletedTask;
     }
   }

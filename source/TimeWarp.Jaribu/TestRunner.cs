@@ -460,7 +460,9 @@ public static class TestRunner
   {
     if (RegisteredTestClasses.Count == 0)
     {
-      Console.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+#pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
+      Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+#pragma warning restore CA1849
       return 0;
     }
 
