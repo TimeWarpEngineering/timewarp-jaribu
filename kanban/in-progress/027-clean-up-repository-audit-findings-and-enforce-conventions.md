@@ -29,8 +29,8 @@ Clean up repository to match conventions used in other TimeWarp projects (timewa
 - [x] Re-run `ganda repo audit` to verify all 10 checks pass
 
 ### Build Verification
-- [ ] Run `dotnet build` - verify 0 warnings, 0 errors
-- [ ] Run tests - verify all pass
+- [x] Run `dotnet build` - verify 0 warnings, 0 errors ✅
+- [ ] Run tests - blocked by MTP/.NET 10 SDK compatibility issue
 
 ## Notes
 
@@ -42,3 +42,10 @@ Key files to modify:
 - `.gitignore` - Add LocalNuGetCache pattern
 
 The LocalNuGetCache pattern is inconsistent with other TimeWarp projects which use the global NuGet cache (`~/.nuget/packages/`).
+
+## Additional Changes
+
+- Renamed `README.md` to `readme.md` (kebab-case)
+- Replaced `System.Console` with `TimeWarp.Terminal.Terminal` in tests
+- Removed `<Using Include="System.Console" Static="true" />` from Tests/Directory.Build.props
+- Added `<Using Include="TimeWarp.Terminal.Terminal" Static="true" />` instead
