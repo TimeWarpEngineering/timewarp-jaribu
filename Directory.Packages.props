@@ -16,9 +16,9 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.5" />
     <PackageVersion Include="TimeWarp.Mediator" Version="13.0.0" />
-    <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0-beta.20" />
+    <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0-beta.21" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
-    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.61" />
+    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.63" />
 <PackageVersion Include="TimeWarp.Terminal" Version="1.0.0-beta.7" />
 
     <!-- Benchmark packages -->
