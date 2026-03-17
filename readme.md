@@ -229,8 +229,8 @@ This allows CI pipelines to run different subsets of tests by configuring separa
 
 Jaribu uses this pattern for its own test suite:
 
-- `Tests/TimeWarp.Jaribu.Tests/jaribu-*.cs` - Test files following the dual-mode pattern
-- `Tests/TimeWarp.Jaribu.Tests/ci-tests/` - CI orchestrator with curated test selection
+- `tests/TimeWarp.Jaribu.Tests/jaribu-*.cs` - Test files following the dual-mode pattern
+- `tests/TimeWarp.Jaribu.Tests/ci-tests/` - CI orchestrator with curated test selection
 
 ---
 
@@ -438,7 +438,7 @@ See the [developer documentation](documentation/) for advanced usage, attributes
 
 1. Clone the repository.
 2. Run `dotnet build`.
-3. Run tests with `dotnet run --project Tests/TimeWarp.Jaribu.Tests/TimeWarp.Jaribu.Tests.csproj`.
+3. Run tests with `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/`.
 
 ## Contributing
 

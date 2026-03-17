@@ -17,7 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Testing.Platform" />
     <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
-    <ProjectReference Include="../TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+    <ProjectReference Include="../timewarp-jaribu/timewarp-jaribu.csproj" />
   </ItemGroup>
 
   <!-- Pack build props/targets -->

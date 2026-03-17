@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
+#:project ../../../../source/timewarp-jaribu/timewarp-jaribu.csproj
 
 #region Purpose
 // Tests for the RegisterTests/RunAllTests multi-class registration API

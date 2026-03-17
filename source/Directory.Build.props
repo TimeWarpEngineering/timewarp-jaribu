@@ -15,13 +15,13 @@
     <RepositoryUrl>https://github.com/TimeWarpEngineering/timewarp-jaribu</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
-    <PackageIcon>Logo.png</PackageIcon>
+    <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
   </PropertyGroup>
 
   <!-- Shared assets for packages -->
   <ItemGroup Label="Package Assets">
-    <None Include="$(MSBuildThisFileDirectory)../Assets/Logo.png" Pack="true" PackagePath="" />
-    <None Include="$(MSBuildThisFileDirectory)../readme.md" Pack="true" PackagePath="" />
+    <None Include="$(RepositoryRoot)assets/logo.png" Pack="true" PackagePath="" />
+    <None Include="$(RepositoryRoot)readme.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
+#:project ../../../source/timewarp-jaribu/timewarp-jaribu.csproj
 
 // Multi-file test runner
 // Runs all test files compiled together via Directory.Build.props.

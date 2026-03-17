@@ -1,4 +1,4 @@
-name: NuGet Publish
+name: CI/CD Workflow
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - master
     paths:
       - 'source/**'
-      - 'Tests/**'
-      - 'Scripts/**'
+      - 'tests/**'
+      - 'tools/**'
       - '.github/workflows/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
@@ -16,71 +16,52 @@ on:
       - master
     paths:
       - 'source/**'
-      - 'Tests/**'
-      - 'Scripts/**'
+      - 'tests/**'
+      - 'tools/**'
       - '.github/workflows/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
   release:
-    types: [published] # Triggered when a release is published via GitHub Releases UI or gh CLI
+    types: [published]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (e.g., 2.1.0-beta.6)'
-        required: false
-        type: string
 
 jobs:
-  build-and-publish:
+  ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for NuGet Trusted Publishing (OIDC)
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for MinVer to read all tags
+          fetch-depth: 0  # Required for version detection
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build and Test
-        run: |
-          echo "Running build script..."
-          chmod +x Scripts/Build.cs
-          cd Scripts && ./Build.cs
-          cd ..
-
-          echo "Running CI tests..."
-          chmod +x Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
-          cd Tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
-
-      - name: Check if version already published (Releases only)
+      - name: NuGet login (OIDC Trusted Publishing)
         if: github.event_name == 'release'
-        run: dotnet Scripts/CheckVersion.cs
+        id: nuget-login
+        uses: nuget/login@v1
+        with:
+          user: TimeWarp.Enterprises
 
-      - name: Publish to NuGet.org (Releases only)
-        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.version != '')
+      - name: Run CI Pipeline
         run: |
-          # Get version from either release tag or manual input
           if [ "${{ github.event_name }}" == "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+            dotnet run tools/dev-cli/dev.cs -- workflow --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            dotnet run tools/dev-cli/dev.cs -- workflow
           fi
-          
-          echo "Publishing version: $VERSION"
-
-          dotnet nuget push artifacts/packages/TimeWarp.Jaribu.$VERSION.nupkg \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
-        env:
-          DOTNET_NUGET_SIGNATURE_VERIFICATION: false
 
       - name: Upload Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Packages-${{ github.run_number }}
           path: artifacts/packages/*.nupkg
+          if-no-files-found: ignore

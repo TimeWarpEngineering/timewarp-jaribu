@@ -1,10 +1,10 @@
 <Solution>
   <Folder Name="/source/">
-    <Project Path="source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
-    <Project Path="source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+    <Project Path="source/timewarp-jaribu/timewarp-jaribu.csproj" />
+    <Project Path="source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
   </Folder>
-  <Folder Name="/Tests/">
-    <Project Path="Tests/timewarp-jaribu/multi-file-runners/mtp-runner/TimeWarp.Jaribu.Tests.Mtp.csproj" />
-    <Project Path="Tests/TimeWarp.Jaribu.MtpValidation/TimeWarp.Jaribu.MtpValidation.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj" />
+    <Project Path="tests/timewarp-jaribu-mtp-validation/timewarp-jaribu-mtp-validation.csproj" />
   </Folder>
 </Solution>

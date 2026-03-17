@@ -12,7 +12,7 @@ The test runner supports:
 
 - Basic reporting and exit codes.
 
-This plan will guide the creation of test classes under `Tests/TimeWarp.Jaribu.Tests/` to self-validate the runner.
+This plan will guide the creation of test classes under `tests/TimeWarp.Jaribu.Tests/` to self-validate the runner.
 
 ## Scope
 - **In Scope**: Core functionality (discovery, execution, filtering, skipping, parameterization, cache management, reporting). Compatibility with .NET 10.0+ single-file scenarios.

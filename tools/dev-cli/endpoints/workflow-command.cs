@@ -1,23 +1,28 @@
 #region Purpose
-// Executes the full CI workflow
+// Orchestrates the full CI/CD pipeline
 #endregion
+
 #region Design
-// Runs clean, build, test sequentially by invoking ./bin/dev subcommands
-// Handler stores RepoRoot and DevBin as fields so private methods are zero-parameter
-// RunStepAsync DRYs up the identical shell-invoke/exit-code-check pattern
+// For PR: clean -> build -> test
+// For release: clean -> build -> check-version -> pack
+// Auto-detects mode from GITHUB_EVENT_NAME environment variable
+// Uses OIDC Trusted Publishing for NuGet authentication
 #endregion
 
 namespace DevCli.Commands;
 
-[NuruRoute("workflow", Description = "Execute full CI workflow")]
+/// <summary>
+/// Run full CI/CD pipeline
+/// </summary>
+[NuruRoute("workflow", Description = "Run full CI/CD pipeline")]
 internal sealed class WorkflowCommand : ICommand<Unit>
 {
+  [Option("api-key", Description = "NuGet API key for publishing (from OIDC Trusted Publishing)")]
+  public string? ApiKey { get; set; }
+
   internal sealed class Handler : ICommandHandler<WorkflowCommand, Unit>
   {
     private readonly ITerminal Terminal;
-    private CancellationToken Ct;
-    private string RepoRoot = null!;
-    private string DevBin = null!;
 
     public Handler(ITerminal terminal)
     {
@@ -26,46 +31,174 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
     public async ValueTask<Unit> Handle(WorkflowCommand command, CancellationToken ct)
     {
-      Ct = ct;
+      // Auto-detect from GitHub Actions environment
+      string? eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME");
+      bool isRelease = eventName == "release" || !string.IsNullOrEmpty(command.ApiKey);
 
-      if (!FindRepoRoot()) return Value;
-      if (!await RunStepAsync("clean", "Clean failed!")) return Value;
-      if (!await RunStepAsync("build", "Build failed!")) return Value;
-      if (!await RunStepAsync("test", "Tests failed!")) return Value;
-
-      Terminal.WriteLine("\nWorkflow completed successfully!".Green());
-      return Value;
-    }
-
-    private bool FindRepoRoot()
-    {
-      string? root = Git.FindRoot();
-      if (root is null)
+      string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+      if (!File.Exists(Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx")))
       {
-        Terminal.WriteErrorLine("Error: could not find repository root.");
-        Environment.ExitCode = 1;
-        return false;
+        repoRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
       }
-      RepoRoot = root;
-      DevBin = Path.Combine(RepoRoot, "bin", "dev");
-      Terminal.WriteLine("Starting CI workflow...");
-      return true;
+
+      if (isRelease)
+      {
+        await RunReleaseWorkflowAsync(repoRoot, command.ApiKey, ct);
+      }
+      else
+      {
+        await RunPrWorkflowAsync(repoRoot, ct);
+      }
+
+      return Unit.Value;
     }
 
-    private async Task<bool> RunStepAsync(string subcommand, string failureMessage)
+    private async Task RunPrWorkflowAsync(string repoRoot, CancellationToken cancellationToken)
     {
-      int exitCode = await Shell.Builder(DevBin)
-        .WithArguments(subcommand)
-        .WithNoValidation()
-        .RunAsync(Ct);
+      cancellationToken.ThrowIfCancellationRequested();
+      Terminal.WriteLine("CI Pipeline: clean -> build -> test");
+      Terminal.WriteLine("");
+
+      // Step 1: Clean
+      Terminal.WriteLine("Step 1/3: Clean");
+      int exitCode = await Shell.Builder("dotnet")
+        .WithArguments("clean", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-v", "q")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+      if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
+
+      // Step 2: Build
+      Terminal.WriteLine("\nStep 2/3: Build");
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("build", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-c", "Release")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+      if (exitCode != 0) throw new InvalidOperationException("Build failed!");
+
+      // Step 3: Test (run CI-safe tests)
+      Terminal.WriteLine("\nStep 3/3: Test");
+      string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("run", ciTestRunner)
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+      if (exitCode != 0) throw new InvalidOperationException("Tests failed!");
+
+      Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
+    }
+
+    private async Task RunReleaseWorkflowAsync(string repoRoot, string? apiKey, CancellationToken ct)
+    {
+      Terminal.WriteLine("Release Pipeline: clean -> build -> check-version -> pack");
+      Terminal.WriteLine("");
+
+      // Step 1: Clean
+      Terminal.WriteLine("Step 1/4: Clean");
+      int exitCode = await Shell.Builder("dotnet")
+        .WithArguments("clean", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-v", "q")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+      if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
+
+      // Step 2: Build
+      Terminal.WriteLine("\nStep 2/4: Build");
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("build", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-c", "Release")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+      if (exitCode != 0) throw new InvalidOperationException("Build failed!");
+
+      // Step 3: Check Version
+      Terminal.WriteLine("\nStep 3/4: Check Version");
+      string propsPath = Path.Combine(repoRoot, "source", "Directory.Build.props");
+      string? version = null;
+      if (File.Exists(propsPath))
+      {
+        string content = await File.ReadAllTextAsync(propsPath, ct);
+        int versionStart = content.IndexOf("<Version>");
+        if (versionStart > 0)
+        {
+          versionStart += "<Version>".Length;
+          int versionEnd = content.IndexOf("</Version>", versionStart);
+          if (versionEnd > versionStart)
+          {
+            version = content[versionStart..versionEnd];
+          }
+        }
+      }
+
+      if (string.IsNullOrEmpty(version))
+      {
+        throw new InvalidOperationException("Could not determine version from project files");
+      }
+
+      Terminal.WriteLine($"Current version: {version}");
+      Terminal.WriteLine("Checking NuGet.org...");
+
+      using HttpClient client = new();
+      string packageId = "TimeWarp.Jaribu";
+      string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLowerInvariant()}/{version}/{packageId.ToLowerInvariant()}.nuspec";
+
+      try
+      {
+        Uri uri = new(url);
+        HttpResponseMessage response = await client.GetAsync(uri, ct);
+        if (response.IsSuccessStatusCode)
+        {
+          Terminal.WriteLine($"\n✗ Version {version} already exists on NuGet.org");
+          Terminal.WriteLine("  Cannot publish - version must be incremented");
+          Environment.Exit(1);
+        }
+        else
+        {
+          Terminal.WriteLine($"\n✓ Version {version} is available for publishing");
+        }
+      }
+      catch (HttpRequestException ex)
+      {
+        Terminal.WriteLine($"\n⚠ Could not check NuGet: {ex.Message}");
+        Terminal.WriteLine("  Assuming version is available");
+      }
+
+      // Step 4: Pack
+      Terminal.WriteLine("\nStep 4/4: Pack");
+      string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
+      Directory.CreateDirectory(artifactsDir);
+
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("pack", Path.Combine(repoRoot, "source", "TimeWarp.Jaribu", "TimeWarp.Jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
 
       if (exitCode != 0)
       {
-        Terminal.WriteErrorLine(failureMessage.Red());
-        Environment.ExitCode = exitCode;
-        return false;
+        throw new InvalidOperationException("Pack failed!");
       }
-      return true;
+
+      Terminal.WriteLine("\n✓ Release Pipeline completed successfully");
+      Terminal.WriteLine($"  Packages created in: {artifactsDir}");
+
+      // Push if api-key provided
+      if (!string.IsNullOrEmpty(apiKey))
+      {
+        Terminal.WriteLine("\nPushing packages to NuGet...");
+        string[] packages = Directory.GetFiles(artifactsDir, "*.nupkg");
+        foreach (string package in packages)
+        {
+          string packageName = Path.GetFileName(package);
+          Terminal.WriteLine($"  Pushing {packageName}...");
+
+          exitCode = await DotNet.NuGet()
+            .Push(package)
+            .WithSource("https://api.nuget.org/v3/index.json")
+            .WithApiKey(apiKey)
+            .RunAsync(ct);
+
+          if (exitCode != 0) throw new InvalidOperationException($"NuGet push failed: {packageName}");
+        }
+
+        Terminal.WriteLine("✓ Packages pushed to NuGet.org");
+      }
     }
   }
 }
