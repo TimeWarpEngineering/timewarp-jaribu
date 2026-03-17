@@ -36,7 +36,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       bool isRelease = eventName == "release" || !string.IsNullOrEmpty(command.ApiKey);
 
       string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-      if (!File.Exists(Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx")))
+      if (!File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
       {
         repoRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
       }
@@ -62,7 +62,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       // Step 1: Clean
       Terminal.WriteLine("Step 1/3: Clean");
       int exitCode = await Shell.Builder("dotnet")
-        .WithArguments("clean", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-v", "q")
+        .WithArguments("clean", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-v", "q")
         .WithWorkingDirectory(repoRoot)
         .RunAsync();
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
@@ -70,7 +70,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       // Step 2: Build
       Terminal.WriteLine("\nStep 2/3: Build");
       exitCode = await Shell.Builder("dotnet")
-        .WithArguments("build", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-c", "Release")
+        .WithArguments("build", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-c", "Release")
         .WithWorkingDirectory(repoRoot)
         .RunAsync();
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
@@ -95,7 +95,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       // Step 1: Clean
       Terminal.WriteLine("Step 1/4: Clean");
       int exitCode = await Shell.Builder("dotnet")
-        .WithArguments("clean", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-v", "q")
+        .WithArguments("clean", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-v", "q")
         .WithWorkingDirectory(repoRoot)
         .RunAsync();
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
@@ -103,7 +103,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       // Step 2: Build
       Terminal.WriteLine("\nStep 2/4: Build");
       exitCode = await Shell.Builder("dotnet")
-        .WithArguments("build", Path.Combine(repoRoot, "TimeWarp.Jaribu.slnx"), "-c", "Release")
+        .WithArguments("build", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-c", "Release")
         .WithWorkingDirectory(repoRoot)
         .RunAsync();
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
@@ -165,10 +165,10 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
       Directory.CreateDirectory(artifactsDir);
 
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("pack", Path.Combine(repoRoot, "source", "TimeWarp.Jaribu", "TimeWarp.Jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        exitCode = await Shell.Builder("dotnet")
+          .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
+          .WithWorkingDirectory(repoRoot)
+          .RunAsync();
 
       if (exitCode != 0)
       {
