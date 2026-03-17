@@ -7,15 +7,15 @@ Clean up repository to match conventions used in other TimeWarp projects (timewa
 ## Checklist
 
 ### LocalNuGetCache Removal
-- [ ] Remove `<LocalNuGetCache>` property from `Directory.Build.props`
-- [ ] Remove `<RestorePackagesPath>` from `Directory.Build.props`
-- [ ] Add `LocalNuGetCache/` to `.gitignore`
-- [ ] Delete `LocalNuGetCache/` directory
+- [x] Remove `<LocalNuGetCache>` property from `Directory.Build.props`
+- [x] Remove `<RestorePackagesPath>` from `Directory.Build.props`
+- [x] Add `LocalNuGetCache/` to `.gitignore` (already present)
+- [x] Delete `LocalNuGetCache/` directory
 
 ### NuGet Package Updates
-- [ ] Run `dotnet list --outdated` to identify outdated packages
-- [ ] Update outdated packages in `Directory.Packages.props`
-- [ ] Remove any unused package references
+- [x] Run `dotnet list --outdated` to identify outdated packages
+- [x] Update outdated packages in `Directory.Packages.props` (all 41 packages already up to date)
+- [x] Remove any unused package references (none found)
 
 ### Repository Audit
 - [ ] Run `ganda repo audit` and capture all findings
