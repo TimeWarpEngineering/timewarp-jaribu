@@ -14,13 +14,19 @@ Clean up repository to match conventions used in other TimeWarp projects (timewa
 
 ### NuGet Package Updates
 - [x] Run `dotnet list --outdated` to identify outdated packages
-- [x] Update outdated packages in `Directory.Packages.props` (all 41 packages already up to date)
-- [x] Remove any unused package references (none found)
+- [x] Update outdated packages in `Directory.Packages.props` (all packages already up to date)
+- [x] Remove orphaned package references (removed 30 unused packages)
+
+### MSBuild Structure
+- [x] Move `IsPackable=false` to root `Directory.Build.props`
+- [x] Move `GeneratePackageOnBuild=true` to `source/Directory.Build.props`
+- [x] Move package metadata to `source/Directory.Build.props`
+- [x] Rename `Source/` to `source/` (kebab-case)
 
 ### Repository Audit
-- [ ] Run `ganda repo audit` and capture all findings
-- [ ] Fix all audit check failures
-- [ ] Re-run `ganda repo audit` to verify all 9 checks pass
+- [x] Run `ganda repo audit` and capture all findings
+- [x] Fix all audit check failures
+- [x] Re-run `ganda repo audit` to verify all 10 checks pass
 
 ### Build Verification
 - [ ] Run `dotnet build` - verify 0 warnings, 0 errors
