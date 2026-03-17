@@ -1,7 +1,7 @@
 <Solution>
-  <Folder Name="/Source/">
-    <Project Path="Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
-    <Project Path="Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+  <Folder Name="/source/">
+    <Project Path="source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+    <Project Path="source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/timewarp-jaribu/multi-file-runners/mtp-runner/TimeWarp.Jaribu.Tests.Mtp.csproj" />

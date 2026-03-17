@@ -118,7 +118,7 @@ Create a test project:
     <TargetFramework>net9.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+    <ProjectReference Include="../../source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
   </ItemGroup>
 </Project>
 ```
@@ -156,7 +156,7 @@ dotnet test --filter "Name~Passing"
 
 ### What was done:
 
-1. **Updated props file** (`Source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props`):
+1. **Updated props file** (`source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props`):
    - Added all required M.T.P. properties: `IsTestProject`, `IsTestingPlatformApplication`, `TestingPlatformDotnetTestSupport`, `OutputType=Exe`, `GenerateProgramFile=false`, `UseTestingPlatformProtocol`, `IsTestingPlatformEnabled`
    - Changed `TestingPlatformBuilderHook` from a simple property to an ItemGroup with proper `Include`, `DisplayName`, and `TypeFullName` attributes
 
@@ -186,5 +186,5 @@ $ dotnet run --project Tests/TimeWarp.Jaribu.MtpValidation/
 When consuming via NuGet package, the props file is automatically imported from `build/` or `buildTransitive/`. For local development with ProjectReference, projects must explicitly import the props file:
 
 ```xml
-<Import Project="../../Source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props" />
+<Import Project="../../source/TimeWarp.Jaribu.TestingPlatform/build/TimeWarp.Jaribu.TestingPlatform.props" />
 ```

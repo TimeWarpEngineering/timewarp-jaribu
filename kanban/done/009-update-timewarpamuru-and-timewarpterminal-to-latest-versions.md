@@ -18,7 +18,7 @@ Update package dependencies to their latest versions with breaking changes:
 ## Checklist
 
 - [x] Update package versions in `Directory.Packages.props`
-- [x] Fix `NuruTerminal` → `TimeWarpTerminal` in `Source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206)
+- [x] Fix `NuruTerminal` → `TimeWarpTerminal` in `source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206)
 - [x] Run `dotnet build` to verify no other compilation errors
 - [x] Run full test suite to verify all tests pass (2/7 pass - expected, as tests intentionally include failures)
 
@@ -36,13 +36,13 @@ Update package dependencies to their latest versions with breaking changes:
 
 | File | Change Required |
 |------|-----------------|
-| `Source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206) | Replace `NuruTerminal` with `TimeWarpTerminal` |
+| `source/TimeWarp.Jaribu/TestHelpers.cs` (lines 143, 206) | Replace `NuruTerminal` with `TimeWarpTerminal` |
 
 ### Files NOT Requiring Changes
 
 These files were investigated and confirmed compatible:
 
-- `Source/TimeWarp.Jaribu/TestRunner.cs` - Amuru API unchanged
+- `source/TimeWarp.Jaribu/TestRunner.cs` - Amuru API unchanged
 - `Tests/TimeWarp.Jaribu.Tests/jaribu-09-tabular-output.cs` - Uses `TestTerminal` (unchanged)
 - `work-thread-report.cs` - Amuru API unchanged
 - `Tests/Scripts/run-all-tests.cs` - Amuru API unchanged

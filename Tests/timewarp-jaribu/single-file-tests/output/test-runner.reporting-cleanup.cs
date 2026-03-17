@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
+#:project ../../../../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 #region Purpose
 // Tests for test runner reporting output and cleanup lifecycle hooks

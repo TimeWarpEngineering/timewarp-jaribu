@@ -169,7 +169,7 @@ This pattern uses `[ModuleInitializer]` for auto-registration and conditional co
 
 ```csharp
 #!/usr/bin/dotnet --
-#:project ../../Source/MyProject/MyProject.csproj
+#:project ../../source/MyProject/MyProject.csproj
 
 #if !JARIBU_MULTI
 return await RunAllTests();
@@ -201,7 +201,7 @@ Create a simple entry point that runs all auto-registered tests:
 
 ```csharp
 #!/usr/bin/dotnet --
-#:project ../Source/MyProject/MyProject.csproj
+#:project ../source/MyProject/MyProject.csproj
 
 // Tests auto-registered via [ModuleInitializer]
 return await RunAllTests();

@@ -103,9 +103,9 @@ RunTestsAsync(sink):
 
 ### Files Changed
 
-- `Source/TimeWarp.Jaribu/TestRunner.cs` - Major refactoring (194 insertions, 306 deletions)
-- `Source/TimeWarp.Jaribu/TerminalSink.cs` - Added IDisposable support
-- `Source/TimeWarp.Jaribu.TestingPlatform/JaribuTestFramework.cs` - Updated to use TestNodeInfo
+- `source/TimeWarp.Jaribu/TestRunner.cs` - Major refactoring (194 insertions, 306 deletions)
+- `source/TimeWarp.Jaribu/TerminalSink.cs` - Added IDisposable support
+- `source/TimeWarp.Jaribu.TestingPlatform/JaribuTestFramework.cs` - Updated to use TestNodeInfo
 
 ### Build Status
 

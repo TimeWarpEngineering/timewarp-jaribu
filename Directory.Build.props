@@ -4,7 +4,7 @@
   <PropertyGroup Label="Custom Repository Variables">
     <RepositoryName>timewarp-jaribu</RepositoryName>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
-    <SourceDirectory>$(RepositoryRoot)Source/</SourceDirectory>
+    <SourceDirectory>$(RepositoryRoot)source/</SourceDirectory>
     <TestsDirectory>$(RepositoryRoot)Tests/</TestsDirectory>
     <ArtifactsDirectory>$(RepositoryRoot)artifacts/</ArtifactsDirectory>
     <SolutionFile>$(RepositoryRoot)TimeWarp.Jaribu.slnx</SolutionFile>

@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
+#:project ../../../../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj
 
 #region Purpose
 // Tests that the test runner discovers, executes, and filters methods correctly

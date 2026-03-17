@@ -81,8 +81,8 @@ dotnet test Tests/TimeWarp.Jaribu.MtpValidation/
 
 | File | Change |
 |------|--------|
-| `Source/TimeWarp.Jaribu/TestRunner.cs` | Removed 6 old types + 1 helper (~135 lines deleted) |
-| `Source/TimeWarp.Jaribu/TestHelpers.cs` | Removed 2 print methods + unused usings (~137 lines deleted) |
+| `source/TimeWarp.Jaribu/TestRunner.cs` | Removed 6 old types + 1 helper (~135 lines deleted) |
+| `source/TimeWarp.Jaribu/TestHelpers.cs` | Removed 2 print methods + unused usings (~137 lines deleted) |
 | `Tests/.../jaribu-08-structured-results.cs` | Rewritten: CollectingSink + RunTestsAsync |
 | `Tests/.../jaribu-09-tabular-output.cs` | Rewritten: tests TerminalSink directly |
 | `Tests/.../jaribu-10-multi-class-registration.cs` | Rewritten: MultiClassCollectingSink |

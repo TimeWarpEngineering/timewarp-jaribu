@@ -11,7 +11,7 @@ WriteLine($"Working from: {Directory.GetCurrentDirectory()}");
 
 // Build each project individually to avoid framework resolution issues
 string[] projectsToBuild = [
-  "../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj"
+  "../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj"
 ];
 
 try

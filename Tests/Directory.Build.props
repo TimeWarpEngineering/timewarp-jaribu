@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <!-- Common project references for all test projects -->
-    <ProjectReference Include="$(MSBuildThisFileDirectory)../Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj" />
     <PackageReference Include="TimeWarp.Nuru" />
     <PackageReference Include="TimeWarp.Terminal" />
   </ItemGroup>

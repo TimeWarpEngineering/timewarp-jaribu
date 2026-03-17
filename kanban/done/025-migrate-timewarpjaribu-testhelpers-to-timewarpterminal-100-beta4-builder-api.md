@@ -15,10 +15,10 @@ The Table API in TimeWarp.Terminal 1.0.0-beta.4 has breaking changes. TestHelper
 ## Notes
 
 Build errors:
-- /Source/TimeWarp.Jaribu/TestHelpers.cs:52 - Table no longer has parameterless constructor
-- /Source/TimeWarp.Jaribu/TestHelpers.cs:86 - AddRow method no longer exists on Table
-- /Source/TimeWarp.Jaribu/TestHelpers.cs:118 - Table constructor issue
-- /Source/TimeWarp.Jaribu/TestHelpers.cs:139 - AddRow method issue
+- /source/TimeWarp.Jaribu/TestHelpers.cs:52 - Table no longer has parameterless constructor
+- /source/TimeWarp.Jaribu/TestHelpers.cs:86 - AddRow method no longer exists on Table
+- /source/TimeWarp.Jaribu/TestHelpers.cs:118 - Table constructor issue
+- /source/TimeWarp.Jaribu/TestHelpers.cs:139 - AddRow method issue
 
 ## Results
 
@@ -42,4 +42,4 @@ Build errors:
 ✅ Build succeeded with 0 warnings, 0 errors
 
 ### Files Changed
-- `/Source/TimeWarp.Jaribu/TestHelpers.cs` - Complete migration to TableBuilder pattern
+- `/source/TimeWarp.Jaribu/TestHelpers.cs` - Complete migration to TableBuilder pattern

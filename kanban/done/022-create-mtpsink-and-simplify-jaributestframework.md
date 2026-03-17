@@ -9,7 +9,7 @@ Depends On: #019, #020, #021
 
 ## Todo List
 
-- [ ] Create `Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs`
+- [ ] Create `source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs`
 - [ ] Implement state mapping: `TestNodeState` → `TestNodeStateProperty` subclasses
 - [ ] Implement `PublishNodeAsync` to create and publish `TestNodeUpdateMessage`
 - [ ] Refactor `JaribuTestFramework.ExecuteRequestAsync` to use `MtpSink`
@@ -51,7 +51,7 @@ Created MtpSink and simplified JaribuTestFramework by extracting all inline MTP 
 
 ### Files Created
 
-1. **MtpSink.cs** (108 lines) - `Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs`
+1. **MtpSink.cs** (108 lines) - `source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs`
    - Implements ITestResultSink for MTP IMessageBus integration
    - Translates all 8 TestNodeState values to MTP TestNodeStateProperty subtypes
    - Publishes TestNodeUpdateMessage for discovered, started, and completed events

@@ -63,7 +63,7 @@ TestRunner.RunTestsAsync(sink)
 
 ### Core Components
 
-**TestRunner** ([Source/TimeWarp.Jaribu/TestRunner.cs](Source/TimeWarp.Jaribu/TestRunner.cs))
+**TestRunner** ([source/TimeWarp.Jaribu/TestRunner.cs](source/TimeWarp.Jaribu/TestRunner.cs))
 - Convention-based test discovery: finds public static async Task methods via reflection
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
 - Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
@@ -72,12 +72,12 @@ TestRunner.RunTestsAsync(sink)
 - Invokes Setup/CleanUp methods if present
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
 
-**Sinks** ([Source/TimeWarp.Jaribu/](Source/TimeWarp.Jaribu/))
+**Sinks** ([source/TimeWarp.Jaribu/](source/TimeWarp.Jaribu/))
 - **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal
 - **NullSink** — Singleton silent sink for testing/benchmarking
-- **MtpSink** ([Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
+- **MtpSink** ([source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
 
-**TestHelpers** ([Source/TimeWarp.Jaribu/TestHelpers.cs](Source/TimeWarp.Jaribu/TestHelpers.cs))
+**TestHelpers** ([source/TimeWarp.Jaribu/TestHelpers.cs](source/TimeWarp.Jaribu/TestHelpers.cs))
 - FormatTestName: Converts PascalCase to readable format
 - TestPassed/TestFailed/TestSkipped: Formatted status logging
 - Uses Regex source generator for performance

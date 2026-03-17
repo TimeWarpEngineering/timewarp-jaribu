@@ -68,7 +68,7 @@ Tests/TimeWarp.Jaribu.TestingPlatform.Tests/
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
+    <ProjectReference Include="../../source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj" />
   </ItemGroup>
 </Project>
 ```
