@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <PackageId>TimeWarp.Jaribu.TestingPlatform</PackageId>
     <Description>Microsoft.Testing.Platform adapter for TimeWarp.Jaribu test framework</Description>
     <!-- This is a library, not a test project -->
     <IsTestProject>false</IsTestProject>
