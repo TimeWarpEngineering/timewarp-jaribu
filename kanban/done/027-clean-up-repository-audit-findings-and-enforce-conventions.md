@@ -30,7 +30,7 @@ Clean up repository to match conventions used in other TimeWarp projects (timewa
 
 ### Build Verification
 - [x] Run `dotnet build` - verify 0 warnings, 0 errors ✅
-- [ ] Run tests - blocked by MTP/.NET 10 SDK compatibility issue
+- [x] Run tests - CI-safe tests pass (16/16); full suite has intentional failures as designed
 
 ## Notes
 
