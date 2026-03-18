@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <PackageId>TimeWarp.Jaribu</PackageId>
     <Description>Lightweight testing helpers for single-file C# programs and scripts. Jaribu (Swahili: test/trial) provides TestRunner pattern and assertion helpers for executable .cs files.</Description>
     <PackageTags>testing;test-runner;single-file;csharp-scripts;test-helpers;assertions</PackageTags>
     <!-- Suppress analyzers that don't apply to test frameworks -->
