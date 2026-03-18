@@ -85,4 +85,4 @@ Assert.Contains("expected text", terminal.Output);
 
 ### Files Changed
 - `Directory.Packages.props` - Package version updated
-- `Source/TimeWarp.Jaribu/TestHelpers.cs` - Migrated to TableBuilder pattern
+- `source/TimeWarp.Jaribu/TestHelpers.cs` - Migrated to TableBuilder pattern

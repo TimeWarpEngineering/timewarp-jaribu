@@ -1,61 +1,25 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <!-- External packages -->
-    <PackageVersion Include="GlobalUsingsAnalyzer" Version="1.4.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageVersion>
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.5" />
-    <PackageVersion Include="TimeWarp.Mediator" Version="13.0.0" />
-    <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0-beta.20" />
-    <PackageVersion Include="Shouldly" Version="4.3.0" />
-    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.61" />
-<PackageVersion Include="TimeWarp.Terminal" Version="1.0.0-beta.7" />
+    <!-- TimeWarp packages -->
+    <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0-beta.21" />
+    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.63" />
+    <PackageVersion Include="TimeWarp.Terminal" Version="1.0.0-beta.7" />
 
-    <!-- Benchmark packages -->
-    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
-    <PackageVersion Include="CliFx" Version="2.3.6" />
-    <PackageVersion Include="Cocona" Version="2.2.0" />
-    <PackageVersion Include="Cocona.Lite" Version="2.2.0" />
-    <PackageVersion Include="CommandLineParser" Version="2.9.1" />
-    <PackageVersion Include="ConsoleAppFramework" Version="5.7.13" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
-    
-    <!-- Serilog packages -->
-    <PackageVersion Include="Serilog" Version="4.3.1" />
-    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
-    <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0" />
-    <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
-    <PackageVersion Include="McMaster.Extensions.CommandLineUtils" Version="5.0.1" />
-    <PackageVersion Include="PowerArgs" Version="4.0.3" />
-    <PackageVersion Include="Spectre.Console.Cli" Version="0.53.1" />
-    <PackageVersion Include="System.CommandLine" Version="3.0.0-preview.2.26159.112" />
-    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta5.25306.1" />
-    <!-- MCP Server packages -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.0.0-rc.1" />
-    <!-- Microsoft.Testing.Platform packages -->
+    <!-- Test packages -->
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Microsoft.Testing.Platform" Version="2.1.0" />
     <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.1.0" />
+
     <!-- Analyzers -->
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Roslynator.CodeAnalysis.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.201" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeStyle" Version="5.3.0" />
-    <!-- Roslyn Analyzer Dependencies -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
   </ItemGroup>
 </Project>

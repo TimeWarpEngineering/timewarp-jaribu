@@ -9,9 +9,9 @@ Depends On: #019
 
 ## Todo List
 
-- [ ] Create `Source/TimeWarp.Jaribu/ITestResultSink.cs` - interface with lifecycle methods
-- [ ] Create `Source/TimeWarp.Jaribu/TerminalSink.cs` - pretty console output using TimeWarp.Terminal
-- [ ] Create `Source/TimeWarp.Jaribu/NullSink.cs` - silent sink for testing/benchmarking
+- [ ] Create `source/TimeWarp.Jaribu/ITestResultSink.cs` - interface with lifecycle methods
+- [ ] Create `source/TimeWarp.Jaribu/TerminalSink.cs` - pretty console output using TimeWarp.Terminal
+- [ ] Create `source/TimeWarp.Jaribu/NullSink.cs` - silent sink for testing/benchmarking
 - [ ] Ensure `TerminalSink` produces output similar to current `TestHelpers.PrintResultsTable`
 - [ ] Verify build succeeds
 
@@ -45,7 +45,7 @@ Singleton pattern, all methods return `Task.CompletedTask`.
 
 ### Files Created/Updated
 
-Three files were created in `Source/TimeWarp.Jaribu/`:
+Three files were created in `source/TimeWarp.Jaribu/`:
 
 1. **ITestResultSink.cs** (34 lines)
    - Interface with 5 async lifecycle methods

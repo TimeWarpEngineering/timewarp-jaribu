@@ -96,7 +96,7 @@ public enum TestStatus
 ```
 
 ### File Location
-- `Source/TimeWarp.Jaribu/TestRunner.cs`
+- `source/TimeWarp.Jaribu/TestRunner.cs`
 
 ## Results
 

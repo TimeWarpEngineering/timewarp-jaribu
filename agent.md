@@ -12,33 +12,26 @@ Target framework: net10.0 (preview)
 
 ### Build the library
 ```bash
-chmod +x Scripts/Build.cs
-cd Scripts && ./Build.cs
+dev build
 ```
 
 ### Run tests
 ```bash
 # Run all tests (multi-file runner)
-chmod +x Tests/timewarp-jaribu/multi-file-runners/run-tests.cs
-cd Tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
+chmod +x tests/timewarp-jaribu/multi-file-runners/run-tests.cs
+cd tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
 
 # Run CI-safe tests only
-chmod +x Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
-cd Tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
+chmod +x tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
+cd tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
 
 # Run via dotnet test (MTP mode)
-dotnet test Tests/timewarp-jaribu/multi-file-runners/mtp-runner/
+dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/
 ```
 
 ### Run individual test file
 ```bash
-dotnet run Tests/timewarp-jaribu/single-file-tests/core/test-runner.discovery.cs
-```
-
-### Check version before publishing
-```bash
-chmod +x Scripts/CheckVersion.cs
-./Scripts/CheckVersion.cs
+dotnet run tests/timewarp-jaribu/single-file-tests/core/test-runner.discovery.cs
 ```
 
 ## Architecture
@@ -63,7 +56,7 @@ TestRunner.RunTestsAsync(sink)
 
 ### Core Components
 
-**TestRunner** ([Source/TimeWarp.Jaribu/TestRunner.cs](Source/TimeWarp.Jaribu/TestRunner.cs))
+**TestRunner** ([source/timewarp-jaribu/test-runner.cs](source/timewarp-jaribu/test-runner.cs))
 - Convention-based test discovery: finds public static async Task methods via reflection
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
 - Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
@@ -72,12 +65,12 @@ TestRunner.RunTestsAsync(sink)
 - Invokes Setup/CleanUp methods if present
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
 
-**Sinks** ([Source/TimeWarp.Jaribu/](Source/TimeWarp.Jaribu/))
+**Sinks** ([source/timewarp-jaribu/](source/timewarp-jaribu/))
 - **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal
 - **NullSink** — Singleton silent sink for testing/benchmarking
-- **MtpSink** ([Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](Source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
+- **MtpSink** ([source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
 
-**TestHelpers** ([Source/TimeWarp.Jaribu/TestHelpers.cs](Source/TimeWarp.Jaribu/TestHelpers.cs))
+**TestHelpers** ([source/timewarp-jaribu/test-helpers.cs](source/timewarp-jaribu/test-helpers.cs))
 - FormatTestName: Converts PascalCase to readable format
 - TestPassed/TestFailed/TestSkipped: Formatted status logging
 - Uses Regex source generator for performance
@@ -96,7 +89,7 @@ This project uses .NET 10 single-file C# app features. Scripts use the shebang `
 - `#:package PackageName@Version` for NuGet packages
 - `#:property PropertyName=Value` for MSBuild properties
 
-Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Amuru for shell commands and TimeWarp.Nuru for CLI routing.
+Scripts in [tests/](tests/) directories use TimeWarp.Amuru for shell commands and TimeWarp.Nuru for CLI routing.
 
 ## Repository Structure
 
@@ -104,14 +97,10 @@ Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Am
 
 **Build Configuration**: [Directory.Build.props](Directory.Build.props) sets:
 - ManagePackageVersionsCentrally=true
-- GeneratePackageOnBuild=true (outputs to artifacts/packages/)
-- RestorePackagesPath points to LocalNuGetCache/
 - TreatWarningsAsErrors=true
 - Roslynator and Microsoft analyzers enabled
 
-**Scripts have package generation disabled** via [Scripts/Directory.Build.props](Scripts/Directory.Build.props)
-
-**Tests** organized in [Tests/timewarp-jaribu/](Tests/timewarp-jaribu/):
+**Tests** organized in [tests/timewarp-jaribu/](tests/timewarp-jaribu/):
 - `single-file-tests/` — Individual test scripts named `sut.action.cs` (e.g., `test-runner.discovery.cs`)
 - `multi-file-runners/` — Aggregated runners (all tests, CI-safe subset, MTP integration)
 
@@ -123,12 +112,11 @@ Scripts in [Scripts/](Scripts/) and [Tests/](Tests/) directories use TimeWarp.Am
 - Manual workflow_dispatch
 
 Pipeline:
-1. Runs [Scripts/Build.cs](Scripts/Build.cs) — Builds TimeWarp.Jaribu in Release mode
-2. Runs [Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](Tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs) — CI-safe tests only (no intentional failures)
-3. On release: checks version not already published via [Scripts/CheckVersion.cs](Scripts/CheckVersion.cs)
-4. On release: publishes to NuGet.org
+1. Runs `dotnet build --configuration Release` — Builds TimeWarp.Jaribu
+2. Runs [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs) — CI-safe tests only (no intentional failures)
+3. On release: publishes to NuGet.org
 
-CI-safe tests are configured in [Tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props](Tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props) — only test files with zero intentional failures are included.
+CI-safe tests are configured in [tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props](tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props) — only test files with zero intentional failures are included.
 
 ## Version Management
 
@@ -174,4 +162,4 @@ namespace TestRunner_
 ```
 
 **File naming**: `sut.action.cs` (e.g., `test-runner.discovery.cs`)
-**Location**: `Tests/timewarp-jaribu/single-file-tests/{category}/`
+**Location**: `tests/timewarp-jaribu/single-file-tests/{category}/`

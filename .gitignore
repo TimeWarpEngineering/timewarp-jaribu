@@ -423,7 +423,7 @@ LocalNuGetCache/
 **/aot-output/
 
 # Test logs
-Tests/logs/
+tests/logs/
 
 # Agent workspace for temporary files
 .agent/workspace/

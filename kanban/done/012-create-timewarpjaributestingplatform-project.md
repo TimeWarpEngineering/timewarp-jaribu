@@ -9,7 +9,7 @@ Create a new project `TimeWarp.Jaribu.TestingPlatform` that provides the Microso
 ## Todo List
 
 ### Project Setup
-- [ ] Create `Source/TimeWarp.Jaribu.TestingPlatform/` directory
+- [ ] Create `source/TimeWarp.Jaribu.TestingPlatform/` directory
 - [ ] Create `TimeWarp.Jaribu.TestingPlatform.csproj`
 - [ ] Add to solution file (`TimeWarp.Jaribu.slnx`)
 - [ ] Configure NuGet package metadata
@@ -35,7 +35,7 @@ Create a new project `TimeWarp.Jaribu.TestingPlatform` that provides the Microso
 ### Project File
 
 ```xml
-<!-- Source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj -->
+<!-- source/TimeWarp.Jaribu.TestingPlatform/TimeWarp.Jaribu.TestingPlatform.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -113,7 +113,7 @@ public static class TestingPlatformBuilderHook
 ### Directory Structure
 
 ```
-Source/TimeWarp.Jaribu.TestingPlatform/
+source/TimeWarp.Jaribu.TestingPlatform/
 ├── build/
 │   └── TimeWarp.Jaribu.TestingPlatform.props
 ├── JaribuCapabilities.cs

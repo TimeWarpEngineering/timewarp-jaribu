@@ -2,7 +2,7 @@
 
 ### Files Created
 
-Three new core type files were successfully created in `Source/TimeWarp.Jaribu/`:
+Three new core type files were successfully created in `source/TimeWarp.Jaribu/`:
 
 1. **TestNodeState.cs** (25 lines)
    - Enum with 8 states: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled

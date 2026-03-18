@@ -8,9 +8,9 @@ Update TimeWarp.Jaribu to use the new TimeWarp.Terminal project/namespace instea
 
 ## Checklist
 
-- [x] Replace TimeWarp.Nuru PackageReference with TimeWarp.Terminal ProjectReference in `Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj`
+- [x] Replace TimeWarp.Nuru PackageReference with TimeWarp.Terminal ProjectReference in `source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj`
   - Path: `/home/steventcramer/worktrees/github.com/TimeWarpEngineering/timewarp-nuru/Cramer-2025-08-30-dev/source/timewarp-terminal/timewarp-terminal.csproj`
-- [x] Update namespace import in `Source/TimeWarp.Jaribu/TestHelpers.cs` from `TimeWarp.Nuru` to `TimeWarp.Terminal`
+- [x] Update namespace import in `source/TimeWarp.Jaribu/TestHelpers.cs` from `TimeWarp.Nuru` to `TimeWarp.Terminal`
 - [x] Verify build succeeds
 - [x] Verify all tests pass
 - [x] Once TimeWarp.Terminal is published to NuGet, convert ProjectReference to PackageReference
@@ -34,8 +34,8 @@ Update TimeWarp.Jaribu to use the new TimeWarp.Terminal project/namespace instea
 ```
 
 **Files to modify:**
-1. `Source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj` - replace PackageReference
-2. `Source/TimeWarp.Jaribu/TestHelpers.cs` - update using statement
+1. `source/TimeWarp.Jaribu/TimeWarp.Jaribu.csproj` - replace PackageReference
+2. `source/TimeWarp.Jaribu/TestHelpers.cs` - update using statement
 
 **Namespace Change:**
 - Old: `using TimeWarp.Nuru;`
