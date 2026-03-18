@@ -165,14 +165,28 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
       Directory.CreateDirectory(artifactsDir);
 
-        exitCode = await Shell.Builder("dotnet")
-          .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
-          .WithWorkingDirectory(repoRoot)
-          .RunAsync();
+      // Pack main package
+      Terminal.WriteLine("  Packing TimeWarp.Jaribu...");
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
 
       if (exitCode != 0)
       {
-        throw new InvalidOperationException("Pack failed!");
+        throw new InvalidOperationException("Pack TimeWarp.Jaribu failed!");
+      }
+
+      // Pack MTP adapter package
+      Terminal.WriteLine("  Packing TimeWarp.Jaribu.TestingPlatform...");
+      exitCode = await Shell.Builder("dotnet")
+        .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu-testing-platform", "timewarp-jaribu-testing-platform.csproj"), "-c", "Release", "-o", artifactsDir)
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync();
+
+      if (exitCode != 0)
+      {
+        throw new InvalidOperationException("Pack TimeWarp.Jaribu.TestingPlatform failed!");
       }
 
       Terminal.WriteLine("\n✓ Release Pipeline completed successfully");
