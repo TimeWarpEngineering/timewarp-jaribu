@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../../source/timewarp-jaribu/timewarp-jaribu.csproj
+#:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 
 #region Purpose
 // Tests that the test runner discovers, executes, and filters methods correctly

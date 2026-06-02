@@ -1,5 +1,5 @@
 #!/usr/bin/dotnet --
-#:project ../../../../source/timewarp-jaribu/timewarp-jaribu.csproj
+#:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 
 #region Purpose
 // Tests for TerminalSink tabular output formatting via TestTerminal
