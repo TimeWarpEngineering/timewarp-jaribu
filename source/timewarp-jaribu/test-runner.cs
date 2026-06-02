@@ -102,7 +102,7 @@ public static class TestRunner
       ? $"{method.Name}({string.Join(", ", parameters.Select(p => p?.ToString() ?? "null"))})"
       : method.Name;
 
-    var stopwatch = Stopwatch.StartNew();
+    Stopwatch stopwatch = Stopwatch.StartNew();
 
     // Check for [Skip] attribute
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
@@ -128,13 +128,13 @@ public static class TestRunner
       try
       {
         // Run the test
-        var testTask = method.Invoke(null, parameters) as Task;
+        Task? testTask = method.Invoke(null, parameters) as Task;
         if (testTask is not null)
         {
           TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
           if (timeoutAttr is not null)
           {
-            var timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
+            Task timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
             Task completedTask = await Task.WhenAny(testTask, timeoutTask);
             if (completedTask == timeoutTask)
             {
@@ -266,8 +266,8 @@ public static class TestRunner
   private static async Task<TestRunStats> RunTestsAsyncCore(Type testClass, ITestResultSink sink, string? filterTag = null)
   {
     DateTimeOffset startTime = DateTimeOffset.Now;
-    var overallStopwatch = Stopwatch.StartNew();
-    var results = new List<TestNodeInfo>();
+    Stopwatch overallStopwatch = Stopwatch.StartNew();
+    List<TestNodeInfo> results = new();
 
     // Check environment variable if filterTag not explicitly provided
     filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
@@ -282,7 +282,7 @@ public static class TestRunner
       {
         // Class has tags but none match the filter - skip entire class
         overallStopwatch.Stop();
-        var emptyStats = new TestRunStats(
+        TestRunStats emptyStats = new(
           className,
           startTime,
           overallStopwatch.Elapsed,
@@ -316,7 +316,7 @@ public static class TestRunner
     int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
     int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
 
-    var stats = new TestRunStats(
+    TestRunStats stats = new(
       className,
       startTime,
       overallStopwatch.Elapsed,
@@ -336,7 +336,7 @@ public static class TestRunner
   /// </summary>
   private static async Task<List<TestNodeInfo>> RunTestWithSinkAsync(Type testClass, MethodInfo method, ITestResultSink sink, string? filterTag)
   {
-    var results = new List<TestNodeInfo>();
+    List<TestNodeInfo> results = new();
 
     // Check for method tag filter if specified
     if (filterTag is not null)
@@ -346,7 +346,7 @@ public static class TestRunner
       {
         // Method has tags but none match - report as skipped
         string testNodeUid = $"{testClass.FullName}.{method.Name}";
-        var skipNode = new TestNodeInfo(
+        TestNodeInfo skipNode = new(
           testNodeUid,
           method.Name,
           TestNodeState.Skipped,
@@ -367,7 +367,7 @@ public static class TestRunner
     if (skipAttr is not null)
     {
       string testNodeUid = $"{testClass.FullName}.{method.Name}";
-      var skipNode = new TestNodeInfo(
+      TestNodeInfo skipNode = new(
         testNodeUid,
         method.Name,
         TestNodeState.Skipped,
@@ -395,7 +395,7 @@ public static class TestRunner
         string displayName = inputAttr.Parameters.Length > 0
           ? $"{method.Name}({string.Join(", ", inputAttr.Parameters.Select(p => p?.ToString() ?? "null"))})"
           : method.Name;
-        var inProgressNode = new TestNodeInfo(
+        TestNodeInfo inProgressNode = new(
           testNodeUid,
           displayName,
           TestNodeState.InProgress,
@@ -415,7 +415,7 @@ public static class TestRunner
     {
       // No [Input] attributes - run once with no parameters
       string testNodeUid = $"{testClass.FullName}.{method.Name}";
-      var inProgressNode = new TestNodeInfo(
+      TestNodeInfo inProgressNode = new(
         testNodeUid,
         method.Name,
         TestNodeState.InProgress,
@@ -444,7 +444,7 @@ public static class TestRunner
   /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
   public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
   {
-    using var sink = new TerminalSink();
+    using TerminalSink sink = new();
     TestRunStats stats = await RunTestsAsync<T>(sink, filterTag);
     return stats.Success ? 0 : 1;
   }

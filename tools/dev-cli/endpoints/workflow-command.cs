@@ -79,7 +79,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       Terminal.WriteLine("\nStep 3/3: Test");
       string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
       exitCode = await Shell.Builder("dotnet")
-        .WithArguments("run", ciTestRunner)
+        .WithArguments("run", ciTestRunner, "/p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true")
         .WithWorkingDirectory(repoRoot)
         .RunAsync();
       if (exitCode != 0) throw new InvalidOperationException("Tests failed!");

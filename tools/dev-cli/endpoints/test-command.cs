@@ -2,7 +2,8 @@
 // Run the test suite
 #endregion
 #region Design
-// Executes dotnet test for all tests in the repository
+// Executes the CI-safe runfile test runner because the MTP validation projects
+// intentionally contain failing tests for adapter behavior verification.
 // Handler stores Ct and RepoRoot as fields so private methods are zero-parameter
 #endregion
 
@@ -49,8 +50,15 @@ internal sealed class TestCommand : ICommand<Unit>
     private async Task<bool> TestAsync()
     {
       Terminal.WriteLine("Running test suite...");
+      string ciTestRunner = Path.Combine(RepoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
+
       CommandOutput result = await Shell.Builder("dotnet")
-        .WithArguments("test", "--configuration", "Release")
+        .WithArguments
+        (
+          "run",
+          ciTestRunner,
+          "/p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true"
+        )
         .WithWorkingDirectory(RepoRoot)
         .WithNoValidation()
         .RunAndCaptureAsync(Ct);

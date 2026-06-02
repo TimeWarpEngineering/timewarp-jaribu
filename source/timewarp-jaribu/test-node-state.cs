@@ -7,7 +7,7 @@ public enum TestNodeState
 {
   /// <summary>Test has been discovered but not yet executed.</summary>
   Discovered,
-  /// <summary>Test is currently executing.</summary>
+  /// <summary>Test is executing.</summary>
   InProgress,
   /// <summary>Test passed successfully.</summary>
   Passed,
