@@ -106,7 +106,7 @@ Scripts in [tests/](tests/) directories use TimeWarp.Amuru for shell commands an
 
 ## CI/CD
 
-[.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) triggers on:
+[.github/workflows/workflow.yml](.github/workflows/workflow.yml) triggers on:
 - Push/PR to master branch
 - Release published
 - Manual workflow_dispatch
