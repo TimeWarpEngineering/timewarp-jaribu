@@ -52,6 +52,8 @@ internal sealed class TestCommand : ICommand<Unit>
       Terminal.WriteLine("Running test suite...");
       string ciTestRunner = Path.Combine(RepoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
 
+      // DotNetRunBuilder lacks RunAndCaptureAsync; Shell.Builder is needed to stream
+      // live output and capture failure details in one call.
       CommandOutput result = await Shell.Builder("dotnet")
         .WithArguments
         (

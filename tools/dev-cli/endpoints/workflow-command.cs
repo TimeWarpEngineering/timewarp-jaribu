@@ -61,27 +61,28 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Step 1: Clean
       Terminal.WriteLine("Step 1/3: Clean");
-      int exitCode = await Shell.Builder("dotnet")
-        .WithArguments("clean", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-v", "q")
+      int exitCode = await DotNet.Clean(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
+        .WithVerbosity("q")
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(cancellationToken);
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
 
       // Step 2: Build
       Terminal.WriteLine("\nStep 2/3: Build");
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("build", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-c", "Release")
+      exitCode = await DotNet.Build(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
+        .WithConfiguration("Release")
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(cancellationToken);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
       // Step 3: Test (run CI-safe tests)
       Terminal.WriteLine("\nStep 3/3: Test");
       string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("run", ciTestRunner, "/p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true")
+      exitCode = await DotNet.Run()
+        .WithFile(ciTestRunner)
+        .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(cancellationToken);
       if (exitCode != 0) throw new InvalidOperationException("Tests failed!");
 
       Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
@@ -94,18 +95,18 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Step 1: Clean
       Terminal.WriteLine("Step 1/4: Clean");
-      int exitCode = await Shell.Builder("dotnet")
-        .WithArguments("clean", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-v", "q")
+      int exitCode = await DotNet.Clean(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
+        .WithVerbosity("q")
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(ct);
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
 
       // Step 2: Build
       Terminal.WriteLine("\nStep 2/4: Build");
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("build", Path.Combine(repoRoot, "timewarp-jaribu.slnx"), "-c", "Release")
+      exitCode = await DotNet.Build(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
+        .WithConfiguration("Release")
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(ct);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
       // Step 3: Check Version
@@ -167,10 +168,11 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Pack main package
       Terminal.WriteLine("  Packing TimeWarp.Jaribu...");
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"), "-c", "Release", "-o", artifactsDir)
+      exitCode = await DotNet.Pack(Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"))
+        .WithConfiguration("Release")
+        .WithOutput(artifactsDir)
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(ct);
 
       if (exitCode != 0)
       {
@@ -179,10 +181,11 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Pack MTP adapter package
       Terminal.WriteLine("  Packing TimeWarp.Jaribu.TestingPlatform...");
-      exitCode = await Shell.Builder("dotnet")
-        .WithArguments("pack", Path.Combine(repoRoot, "source", "timewarp-jaribu-testing-platform", "timewarp-jaribu-testing-platform.csproj"), "-c", "Release", "-o", artifactsDir)
+      exitCode = await DotNet.Pack(Path.Combine(repoRoot, "source", "timewarp-jaribu-testing-platform", "timewarp-jaribu-testing-platform.csproj"))
+        .WithConfiguration("Release")
+        .WithOutput(artifactsDir)
         .WithWorkingDirectory(repoRoot)
-        .RunAsync();
+        .RunAsync(ct);
 
       if (exitCode != 0)
       {
