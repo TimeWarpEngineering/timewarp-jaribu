@@ -8,10 +8,10 @@ This creates inconsistency — the workflow command mixes both approaches (Shell
 
 ## Checklist
 
-- [ ] Refactor `workflow-command.cs`: Replace `Shell.Builder("dotnet")` calls for clean, build, pack with `DotNet.Clean()`, `DotNet.Build()`, `DotNet.Pack()`
-- [ ] Evaluate `test-command.cs`: Check if `DotNet.Run()` supports runfile paths (not just .csproj); if not, keep `Shell.Builder` with a comment explaining why
-- [ ] Verify refactored commands still work with the CI pipeline
-- [ ] Only refactor where the typed API is a clean fit — don't force it where `Shell.Builder` is the right tool
+- [x] Refactor `workflow-command.cs`: Replace `Shell.Builder("dotnet")` calls for clean, build, pack with `DotNet.Clean()`, `DotNet.Build()`, `DotNet.Pack()`
+- [x] Evaluate `test-command.cs`: Check if `DotNet.Run()` supports runfile paths (not just .csproj); if not, keep `Shell.Builder` with a comment explaining why
+- [x] Verify refactored commands still work with the CI pipeline
+- [x] Only refactor where the typed API is a clean fit — don't force it where `Shell.Builder` is the right tool
 
 ## Notes
 
@@ -72,3 +72,35 @@ Critical finding: `DotNetRunBuilder` lacks `RunAndCaptureAsync()`. `CaptureAsync
 
 - `tools/dev-cli/endpoints/workflow-command.cs` (lines 64, 72, 81, 97, 105, 170, 182)
 - `tools/dev-cli/endpoints/test-command.cs` (line 55)
+
+## Results
+
+### What was implemented
+
+Refactored dev CLI workflow operations to use typed TimeWarp.Amuru `DotNet` builders instead of raw `Shell.Builder("dotnet")` calls where the typed API is a clean fit.
+
+### Files changed
+
+- `tools/dev-cli/endpoints/workflow-command.cs`
+  - Replaced PR workflow clean/build/test-runner calls with `DotNet.Clean(...)`, `DotNet.Build(...)`, and `DotNet.Run().WithFile(...)`.
+  - Replaced release workflow clean/build/pack calls with `DotNet.Clean(...)`, `DotNet.Build(...)`, and `DotNet.Pack(...)`.
+  - Passed `CancellationToken` into typed `RunAsync(...)` calls.
+- `tools/dev-cli/endpoints/test-command.cs`
+  - Kept `Shell.Builder("dotnet")` for the interactive test command.
+  - Added a concise comment explaining that `DotNetRunBuilder` lacks `RunAndCaptureAsync`, while the test command needs live output plus captured failure details.
+
+### Key decisions made
+
+- `workflow-command.cs` uses typed DotNet builders because its calls only need exit codes and map cleanly to the typed API.
+- `test-command.cs` intentionally stays on `Shell.Builder` because `DotNetRunBuilder` does not provide `RunAndCaptureAsync`; using `CaptureAsync` or `RunAsync` would lose either live streaming or captured failure output.
+- `DotNet.Run().WithFile(...)` is used for the CI runfile in workflow mode because `.cs` runfile execution is supported by the typed builder.
+
+### Test outcomes
+
+All verification commands passed:
+
+- `ganda runfile cache --clear` — cleared 4 entries.
+- `dotnet build timewarp-jaribu.slnx -c Release` — passed with 0 warnings and 0 errors.
+- `dotnet run tools/dev-cli/dev.cs -- test` — passed; 16/16 CI-safe tests succeeded.
+- `dotnet run tools/dev-cli/dev.cs -- workflow` — passed; clean, build, and test pipeline completed successfully.
+- Implementation review passed with no issues.
