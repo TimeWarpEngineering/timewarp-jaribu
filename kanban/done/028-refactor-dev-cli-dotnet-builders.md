@@ -1,4 +1,4 @@
-# Refactor dev CLI to use typed DotNet builders
+# Refactor dev CLI DotNet builder usage
 
 ## Description
 
