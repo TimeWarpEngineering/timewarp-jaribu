@@ -18,21 +18,28 @@ That pattern is **already documented** for one-time *setup* (README + skill: sta
 
 - Class-scoped hook pair recognized by the framework (preferred names: `SetupOnce` / `CleanUpOnce`)
 - Called once around all tests in a class (not per test)
-- Prefer `async`/`Task` signatures aligned with existing `Setup`/`CleanUp`
+- **Lazy invocation:** `SetupOnce` runs immediately before the *first test that actually executes* — not eagerly before the loop. A class whose tests are all `[Skip]`ped or tag-filtered out never pays the fixture cost. `CleanUpOnce` runs only if `SetupOnce` ran.
+- Prefer `async`/`Task` signatures aligned with existing `Setup`/`CleanUp` (`public static Task`)
 - Guaranteed cleanup even when individual tests fail (try/finally around the class loop)
+- **`SetupOnce` failure:** every remaining discovered test in the class is reported Failed through the sink with the `SetupOnce` exception (no test bodies run). Counts stay meaningful in stats and the Grand Total table; exit code is 1.
+- **`CleanUpOnce` failure:** tests keep their real results; emit one synthetic failed node (`{ClassFullName}.CleanUpOnce`) so the run fails with exit code 1.
+- **Signature validation — fail fast, never silent:** a method *named* `SetupOnce` or `CleanUpOnce` that doesn't match `public static Task` (non-public, instance, wrong return type, has parameters) is a class-level error, treated like a `SetupOnce` failure. Do not inherit the silent-ignore behavior of `InvokeSetupForType`.
 - Authors dispose shared fixtures explicitly in `CleanUpOnce` (clearer than magic `IAsyncDisposable` field scanning; optional auto-dispose can be a later enhancement)
 - No change to existing per-test `Setup`/`CleanUp` behavior
 - Exclude `SetupOnce` / `CleanUpOnce` from test discovery (same as `Setup` / `CleanUp`)
+- Class hooks apply only through the class-loop entry points (`RunTests`/`RunAllTests`/`RunTestsAsync`); document that direct `RunSingleTestAsync` calls bypass them
 - Assembly-scoped hooks: **defer** to a follow-up unless class-scoped lands cleanly with spare scope
 
 ## Checklist
 
 - [ ] Design API surface for class-scoped lifetime hooks (`SetupOnce` / `CleanUpOnce`)
-- [ ] Discover and invoke once per test class in `RunTestsAsyncCore` (after class-level tag filter skip; before first test / after last test)
-- [ ] Guarantee cleanup runs even when tests fail (try/finally semantics)
+- [ ] Discover and invoke once per test class in `RunTestsAsyncCore` (after class-level tag filter skip; **lazily** before the first test that actually executes; after last test)
+- [ ] Guarantee `CleanUpOnce` runs even when tests fail, but only if `SetupOnce` ran (try/finally semantics)
+- [ ] Implement failure-reporting semantics: `SetupOnce` failure → all remaining discovered tests reported Failed with the hook exception; `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; both drive exit code 1
+- [ ] Validate hook signatures: method named `SetupOnce`/`CleanUpOnce` with a non-conforming signature is a class-level error (no silent ignore)
 - [ ] Exclude `SetupOnce` / `CleanUpOnce` from `DiscoverTests`
-- [ ] Document usage (readme + skill): shared host pattern; contrast with per-test `Setup`/`CleanUp` and with static/`Lazy` stopgap
-- [ ] Add unit/integration tests covering: once-only invoke, cleanup after class on pass and fail, SetupOnce failure fails class before tests, CleanUpOnce runs after test failures
+- [ ] Document usage (readme + skill): shared host pattern; contrast with per-test `Setup`/`CleanUp` and with static/`Lazy` stopgap; note `RunSingleTestAsync` bypass; note timeout-abandoned-task caveat
+- [ ] Add unit/integration tests covering: once-only invoke; cleanup after class on pass and fail; lazy skip (all-`[Skip]` and all-tag-filtered class never invokes hooks); `SetupOnce` failure reports all tests Failed without running bodies; `CleanUpOnce` runs after test failures; `CleanUpOnce` failure fails an otherwise-green run; bad hook signature fails the class
 - [ ] Evaluate assembly-scoped hooks only if class-scoped lands cleanly (separate follow-up if deferred)
 - [ ] Close or update GitHub issue #19 when shipped
 
@@ -100,6 +107,23 @@ public static async Task CleanUpOnce()
 - Assembly-scoped hooks in the same change unless class-scoped is trivial
 - Instance constructors as the fixture model — fights static-test design
 - Magic “scan static fields for `IAsyncDisposable`” in v1 — prefer explicit `CleanUpOnce`
+
+### Design decisions (dev review, 2026-07-30)
+
+Resolved during task review against `test-runner.cs`; these are decisions, not open questions.
+
+**1. Hook-failure reporting through the sink.** The sink contract is per-test nodes, and `TestRunStats` are computed by counting node states — there is no class-level failure channel. Therefore:
+
+- `SetupOnce` throws → every remaining discovered test is reported through `OnTestStartedAsync`/`OnTestCompletedAsync` as Failed carrying the hook exception, and no test bodies run. This keeps per-class counts and the `RunAllTests` Grand Total honest, and any sink (terminal, MTP, future) renders it without special-casing.
+- `CleanUpOnce` throws → tests keep their real results (they genuinely ran) and one synthetic failed node `{ClassFullName}.CleanUpOnce` is emitted so `stats.Success` is false and the process exits 1. A leaked host/port must never look like a green run.
+
+**2. Lazy `SetupOnce`.** `[Skip]` and method-level tag filters are evaluated per-method inside `RunTestWithSinkAsync`, after the class loop starts. Invoking `SetupOnce` eagerly before the loop would spin up the expensive fixture for a class whose tests all skip — the exact cost this task exists to manage. So `SetupOnce` runs lazily, immediately before the first test that actually executes, and `CleanUpOnce` runs in the loop's finally only if `SetupOnce` ran.
+
+**3. Fail fast on signature near-misses.** `InvokeSetupForType` silently ignores a `Setup` with a non-conforming signature. Inheriting that for `SetupOnce` is unacceptable: `static void SetupOnce()` would silently never run, leaving `Host` null and every test failing with an unrelated NRE. A method *named* `SetupOnce`/`CleanUpOnce` that isn't `public static Task` (parameterless) is a class-level error, reported with the same semantics as a `SetupOnce` failure.
+
+**4. `RunSingleTestAsync` bypass is accepted, documented.** `RunSingleTestAsync` is public and runs per-test `Setup`/`CleanUp` only. Class hooks are a property of the class loop (`RunTestsAsyncCore`), not of single-test execution. Callers driving single tests directly own fixture lifetime themselves. Document; do not add hook logic there.
+
+**5. Timeout-abandoned tasks (known caveat, no v1 mitigation).** `[Timeout]` uses `Task.WhenAny` and abandons the still-running test task. That task may touch the shared fixture after `CleanUpOnce` disposes it, surfacing as unobserved exceptions. Same hazard exists today at process exit with the `Lazy` stopgap; document it in the readme/skill, revisit only if it bites in practice (cooperative cancellation would be the fix, and is out of scope here).
 
 ### Target migration (TWA, after ship)
 
