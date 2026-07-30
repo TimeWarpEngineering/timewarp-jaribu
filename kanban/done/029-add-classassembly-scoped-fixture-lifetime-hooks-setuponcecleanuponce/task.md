@@ -41,7 +41,7 @@ That pattern is **already documented** for one-time *setup* (README + skill: sta
 - [x] Document usage (readme + skill): shared host pattern; contrast with per-test `Setup`/`CleanUp` and with static/`Lazy` stopgap; note `RunSingleTestAsync` bypass; note timeout-abandoned-task caveat
 - [x] Add unit/integration tests covering: once-only invoke; cleanup after class on pass and fail; lazy skip (all-`[Skip]` and all-tag-filtered class never invokes hooks); `SetupOnce` failure reports all tests Failed without running bodies; `CleanUpOnce` runs after test failures; `CleanUpOnce` failure fails an otherwise-green run; bad hook signature fails the class
 - [x] Evaluate assembly-scoped hooks only if class-scoped lands cleanly (separate follow-up if deferred)
-- [ ] Close or update GitHub issue #19 when shipped
+- [x] Close or update GitHub issue #19 when shipped (commented with implement status; leave open until release if preferred)
 
 ## Notes
 
