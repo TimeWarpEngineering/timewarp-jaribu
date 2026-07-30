@@ -139,6 +139,92 @@ Replace SharedHost `Lazy` in `get-weather-forecasts-tests.cs` (and any similar c
 
 Hook naturally fits in `RunTestsAsyncCore` around the existing `foreach (MethodInfo method in testMethods)` loop — small addition, not a new architecture. Sink already has `OnRunStartedAsync` / `OnRunCompletedAsync`; user hooks should be independent of sinks.
 
+### Implementation Plan (Phase 2, 2026-07-30)
+
+#### Approach summary
+
+Add class-scoped fixture hooks as a **small, localized extension of `RunTestsAsyncCore`**, not a new architecture.
+
+- Recognize `public static Task SetupOnce()` / `public static Task CleanUpOnce()` via reflection (same convention style as per-test `Setup`/`CleanUp`).
+- **Exclude** those names from `DiscoverTests`.
+- **Lazily** invoke `SetupOnce` immediately before the first method that is about to execute (after method-level tag filter and `[Skip]` short-circuits).
+- Run `CleanUpOnce` in a **try/finally** around the class loop **only if `SetupOnce` was invoked** (success or failure).
+- Report hook failures **as ordinary sink nodes** so `TestRunStats` / exit codes / MTP stay honest without a class-level failure channel.
+- Do **not** touch `RunSingleTestAsync` lifecycle (document the bypass).
+- Defer assembly-scoped hooks.
+
+Primary file: `source/timewarp-jaribu/test-runner.cs`. MTP inherits via `DiscoverTests` + `RunTestsAsync`.
+
+#### Code changes (`test-runner.cs`)
+
+**DiscoverTests:** exclude `"SetupOnce"` and `"CleanUpOnce"`; update XML docs.
+
+**New private helpers** (do not reuse silent-ignore `InvokeSetupForType`):
+
+| Helper | Responsibility |
+|--------|----------------|
+| `ResolveOnceHook(Type, name)` | Find method(s); return valid `MethodInfo`, null, or validation exception |
+| `InvokeOnceHookAsync(MethodInfo)` | Invoke, await Task, unwrap TargetInvocationException |
+| `EnsureSetupOnceAsync(ClassOnceState)` | Idempotent first-call invoke |
+| `ReportMethodFailedDueToHookAsync` | Fan-out Failed nodes for remaining methods / Inputs |
+| `EmitSyntheticHookFailureAsync` | Synthetic `{ClassFullName}.CleanUpOnce` Failed node |
+
+**Signature resolution:** broad flags (`Public|NonPublic|Static|Instance|FlattenHierarchy`); 0 candidates = ok; overloads = error; valid iff public static Task parameterless non-generic. Near-misses fail-fast (never silent).
+
+**RunTestsAsyncCore algorithm:**
+
+1. Keep class-level tag early-return (no hooks).
+2. Materialize discovered methods list.
+3. Resolve hooks; if validation fails → fan-out all methods Failed, no CleanUpOnce, goto stats.
+4. try foreach method with lazy ensure inside `RunTestWithSinkAsync` execute path only; on SetupOnce failure, fan-out remaining.
+5. finally: if SetupOnceInvoked && CleanUpOnce present → invoke; on failure emit synthetic node.
+6. Set `SetupOnceInvoked = true` **before** await so throwing setup still gets teardown.
+
+**RunTestWithSinkAsync:** after tag-skip and `[Skip]` return paths, ensure SetupOnce once before first `[Input]`/body; per-test Setup/CleanUp unchanged.
+
+**Fan-out nodes:** State=Failed, Uid=`{FullName}.{Method}`, Exception=hook exception.  
+**Synthetic CleanUpOnce:** Uid=`{FullName}.CleanUpOnce`, State=Failed → FailedCount≥1.
+
+**Non-changes:** per-test silent-ignore; RunSingleTestAsync; MTP framework files; no IAsyncDisposable scanning; no assembly hooks.
+
+#### Test plan
+
+New file: `tests/timewarp-jaribu/single-file-tests/core/test-runner.setup-once.cs`  
+Pattern: multi-mode template + `CollectingSink` from structured-results + nested fixture classes (not registered) driven via `RunTestsAsync`.
+
+Cover: once-only; cleanup on pass/fail; all-Skip lazy; all-tag-filter lazy; SetupOnce failure fan-out; CleanUpOnce failure on green run; bad signature (void/private); discovery exclusion; coexist with per-test hooks; parameterized once; RunSingleTestAsync bypass.
+
+#### Docs
+
+- `readme.md` — SetupOnce/CleanUpOnce section after Setup/CleanUp (lazy, dispose, failure semantics, RunSingleTestAsync bypass, timeout caveat)
+- `skills/jaribu/SKILL.md` — same + best-practice DO/DON'T updates
+
+#### Out of scope
+
+Assembly-scoped hooks; IClassFixture DI; magic IAsyncDisposable scan; changing Setup silent-ignore; ValueTask hooks; TWA consumer migration; cooperative timeout cancellation.
+
+#### Verification
+
+```bash
+bin/dev build
+dotnet run tests/timewarp-jaribu/single-file-tests/core/test-runner.setup-once.cs
+bin/dev test
+# optional: ganda runfile cache --clear if stale
+```
+
+#### Sequence
+
+1. Discovery exclusion + helpers + discovery assert  
+2. Wire RunTestsAsyncCore try/finally + lazy ensure  
+3. Failure fan-out + CleanUpOnce synthetic node  
+4. Full meta-test file  
+5. readme + skill  
+6. `bin/dev test`; update/close issue #19
+
+## Session
+
+- Orchestration: grok (2026-07-30) — Phase 1–2; plan finalized without decision kitchen
+
 ## Results
 
 _Added after completion._
