@@ -125,7 +125,7 @@ namespace TestRunner_
       {
         node.State.ShouldBe(TestNodeState.Failed);
         node.Exception.ShouldNotBeNull();
-        node.Exception!.Message.ShouldContain("SetupOnce boom");
+        node.Exception.Message.ShouldContain("SetupOnce boom");
       }
     }
 
@@ -147,7 +147,7 @@ namespace TestRunner_
       synthetic.State.ShouldBe(TestNodeState.Failed);
       synthetic.Uid.ShouldBe($"{typeof(CleanUpOnceFailureFixture).FullName}.CleanUpOnce");
       synthetic.Exception.ShouldNotBeNull();
-      synthetic.Exception!.Message.ShouldContain("CleanUpOnce boom");
+      synthetic.Exception.Message.ShouldContain("CleanUpOnce boom");
     }
 
     public static async Task BadSignatureVoid_Should_FailClassWithoutCleanUpOnce()
@@ -182,9 +182,7 @@ namespace TestRunner_
 
     public static async Task Discovery_Should_ExcludeOnceHookNames()
     {
-      List<string> names = TestRunner.DiscoverTests(typeof(DiscoveryExclusionFixture))
-        .Select(m => m.Name)
-        .ToList();
+      List<string> names = [.. TestRunner.DiscoverTests(typeof(DiscoveryExclusionFixture)).Select(m => m.Name)];
 
       names.ShouldContain("RealTest");
       names.ShouldNotContain("SetupOnce");

@@ -277,6 +277,10 @@ Class-scoped **`SetupOnce` / `CleanUpOnce`** hooks for TimeWarp.Jaribu:
 - **Disposition:** `clean` — `review/disposition.md`
 - **Artifacts:** `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`
 
+### Post-completion cleanup (2026-07-30)
+
+Suppression audit narrowed the build-unblock NoWarns to sites that genuinely need them: removed `IDE0305;IDE0370;IDE0052` (tests) and `RCS1046;RCS1248` (MTP csproj — the RCS1046 site was a private method, not an MTP interface member as the comment claimed) and fixed the six underlying code sites instead, including asserting the previously-dead `CleanupCallCount` in mtp-validation. `.editorconfig` and `IDE0005`/`IDE0051`/`CA2211` suppressions verified as justified and kept.
+
 ### Follow-up
 
 - Assembly-scoped hooks (new task when needed)

@@ -49,6 +49,9 @@ public class SetupCleanupTests
     // After this test runs, SetupCallCount should be at least 2
     // (once for SetupWasCalledTest, once for this test)
     SetupCallCount.ShouldBeGreaterThan(0);
+    // Inside any test body, every prior test's CleanUp has run and ours is pending,
+    // so cleanups always trail setups by exactly one — regardless of test order.
+    CleanupCallCount.ShouldBe(SetupCallCount - 1);
     await Task.CompletedTask;
   }
 }
