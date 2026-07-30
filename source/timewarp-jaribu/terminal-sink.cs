@@ -40,6 +40,7 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
       {
         disposable.Dispose();
       }
+
       IsDisposed = true;
     }
   }
@@ -60,6 +61,8 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     ArgumentNullException.ThrowIfNull(node);
     string line = node.State switch
     {
+      TestNodeState.Discovered => "  · DISCOVERED",
+      TestNodeState.InProgress => "  … IN PROGRESS",
       TestNodeState.Passed => "  ✓ PASSED",
       TestNodeState.Failed => $"  ✗ FAILED: {node.Message ?? node.Exception?.Message ?? "Unknown"}",
       TestNodeState.Skipped => $"  ⚠ SKIPPED: {node.Message ?? "No reason"}",
@@ -83,6 +86,7 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     {
       Terminal.WriteLine($"   (filtered by tag: {filterTag})");
     }
+
     Terminal.WriteLine(string.Empty);
 #pragma warning restore CA1849
     return Task.CompletedTask;
@@ -105,6 +109,8 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
       {
         string status = node.State switch
         {
+          TestNodeState.Discovered => "· Disc",
+          TestNodeState.InProgress => "… Run",
           TestNodeState.Passed => "✓ Pass".Green(),
           TestNodeState.Failed => "X Fail".Red(),
           TestNodeState.Skipped => "⚠ Skip".Yellow(),
@@ -120,6 +126,8 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
 
         string message = node.State switch
         {
+          TestNodeState.Discovered => "Discovered",
+          TestNodeState.InProgress => "In progress",
           TestNodeState.Passed => "Completed successfully",
           TestNodeState.Skipped => node.Message ?? "Skipped",
           TestNodeState.Failed => node.Message ?? node.Exception?.Message ?? "Failed",
@@ -145,6 +153,7 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     {
       Terminal.WriteLine($"{"Failed:".Red()} {stats.FailedCount.ToString(CultureInfo.InvariantCulture)}");
     }
+
     if (stats.SkippedCount > 0)
     {
       Terminal.WriteLine($"{"Skipped:".Yellow()} {stats.SkippedCount.ToString(CultureInfo.InvariantCulture)}");

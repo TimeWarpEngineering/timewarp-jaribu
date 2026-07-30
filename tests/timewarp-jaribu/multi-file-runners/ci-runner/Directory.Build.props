@@ -5,8 +5,9 @@
     <!-- Override: remove wildcard includes from parent, only include CI-safe tests -->
     <Compile Remove="../single-file-tests/**/*.cs" />
 
-    <!-- CI-safe test files only (no intentional failures) -->
+    <!-- CI-safe test files only (no intentional failures in registered meta-tests) -->
     <Compile Include="../../single-file-tests/core/test-runner.tag-filtering.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.setup-once.cs" />
     <Compile Include="../../single-file-tests/output/terminal-sink.tabular-output.cs" />
     <Compile Include="../../single-file-tests/api/test-runner.structured-results.cs" />
     <Compile Include="../../single-file-tests/api/test-runner.multi-class-registration.cs" />

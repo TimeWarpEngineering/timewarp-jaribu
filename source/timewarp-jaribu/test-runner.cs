@@ -3,12 +3,14 @@ namespace TimeWarp.Jaribu;
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using TimeWarp.Terminal;
 
 #region Purpose
 // TestRunner - Main entry point for discovering and executing tests.
 // Provides both sink-based async API for extensibility and backward-compatible
 // synchronous-style methods that use TerminalSink internally.
+// Supports per-test Setup/CleanUp and class-scoped SetupOnce/CleanUpOnce hooks.
 #endregion
 
 #region Design
@@ -19,7 +21,14 @@ using TimeWarp.Terminal;
 // Execution flow:
 //   RunTestsAsync(sink) -> sink.OnRunStartedAsync -> foreach test:
 //     sink.OnTestStartedAsync -> RunSingleTestAsync -> sink.OnTestCompletedAsync
-//   -> sink.OnRunCompletedAsync -> return stats
+//   -> CleanUpOnce (if SetupOnce ran) -> sink.OnRunCompletedAsync -> return stats
+//
+// Class-scoped hooks (SetupOnce / CleanUpOnce):
+//   Resolved once per class with fail-fast signature validation (public static Task,
+//   parameterless). SetupOnce runs lazily before the first method that actually executes
+//   (after method tag-filter and [Skip] short-circuits). CleanUpOnce runs in a finally
+//   around the class loop only if SetupOnce was invoked. RunSingleTestAsync does not
+//   participate in class hooks.
 //
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
@@ -65,7 +74,8 @@ public static class TestRunner
 
   /// <summary>
   /// Discovers all test methods in the specified test class.
-  /// Test methods are public static methods that return Task, excluding Setup and CleanUp.
+  /// Test methods are public static methods that return Task, excluding lifecycle hooks
+  /// (Setup, CleanUp, SetupOnce, CleanUpOnce).
   /// </summary>
   /// <param name="testClass">The test class type to discover tests from.</param>
   /// <returns>Enumerable of test method infos.</returns>
@@ -79,7 +89,7 @@ public static class TestRunner
         method.IsPublic &&
         method.IsStatic &&
         method.ReturnType == typeof(Task) &&
-        method.Name is not "CleanUp" and not "Setup");
+        method.Name is not "CleanUp" and not "Setup" and not "SetupOnce" and not "CleanUpOnce");
   }
 
   /// <summary>
@@ -205,6 +215,7 @@ public static class TestRunner
 
   /// <summary>
   /// Invokes the Setup method for a given type if it exists.
+  /// Non-conforming signatures are silently ignored (legacy per-test behavior).
   /// </summary>
   private static async Task InvokeSetupForType(Type testClass)
   {
@@ -220,6 +231,7 @@ public static class TestRunner
 
   /// <summary>
   /// Invokes the CleanUp method for a given type if it exists.
+  /// Non-conforming signatures are silently ignored (legacy per-test behavior).
   /// </summary>
   private static async Task InvokeCleanupForType(Type testClass)
   {
@@ -231,6 +243,210 @@ public static class TestRunner
         await task;
       }
     }
+  }
+
+  /// <summary>
+  /// Mutable per-class state for lazy SetupOnce / CleanUpOnce invocation.
+  /// </summary>
+  private sealed class ClassOnceState
+  {
+    public required Type TestClass { get; init; }
+    public MethodInfo? SetupOnce { get; init; }
+    public MethodInfo? CleanUpOnce { get; init; }
+    public bool SetupOnceInvoked { get; set; }
+    public Exception? SetupOnceFailure { get; set; }
+  }
+
+  /// <summary>
+  /// Result of resolving a class-scoped once-hook by name.
+  /// Method set and ValidationError null means no hook. ValidationError set means fail-fast.
+  /// </summary>
+  private readonly record struct OnceHookResolveResult(MethodInfo? Method, Exception? ValidationError);
+
+  /// <summary>
+  /// Resolves a class-scoped once hook. Fail-fast on near-miss signatures; never silent-ignore.
+  /// Prefers the most-derived declaring type when base types also define the name.
+  /// </summary>
+  private static OnceHookResolveResult ResolveOnceHook(Type testClass, string name)
+  {
+    const BindingFlags Flags =
+      BindingFlags.Public |
+      BindingFlags.NonPublic |
+      BindingFlags.Static |
+      BindingFlags.Instance |
+      BindingFlags.DeclaredOnly;
+
+    // Walk from the registered test class toward object; first type that declares
+    // the name wins (most-derived preference). Overloads on that type are errors.
+    Type? current = testClass;
+    while (current is not null && current != typeof(object))
+    {
+      List<MethodInfo> candidates = [];
+      foreach (MethodInfo method in current.GetMethods(Flags))
+      {
+        if (method.Name == name)
+        {
+          candidates.Add(method);
+        }
+      }
+
+      if (candidates.Count > 1)
+      {
+        return new OnceHookResolveResult(
+          Method: null,
+          ValidationError: new InvalidOperationException(
+            $"Type '{current.FullName}' has multiple methods named '{name}'. " +
+            "Class-scoped hooks must have exactly one method."));
+      }
+
+      if (candidates.Count == 1)
+      {
+        MethodInfo candidate = candidates[0];
+        if (!IsValidOnceHookSignature(candidate))
+        {
+          return new OnceHookResolveResult(
+            Method: null,
+            ValidationError: new InvalidOperationException(
+              $"Type '{testClass.FullName}' method '{name}' must be 'public static Task {name}()' " +
+              "(parameterless, non-generic). Non-conforming signatures fail the class."));
+        }
+
+        return new OnceHookResolveResult(Method: candidate, ValidationError: null);
+      }
+
+      current = current.BaseType;
+    }
+
+    return new OnceHookResolveResult(Method: null, ValidationError: null);
+  }
+
+  private static bool IsValidOnceHookSignature(MethodInfo method)
+  {
+    return method.IsPublic &&
+      method.IsStatic &&
+      method.ReturnType == typeof(Task) &&
+      !method.IsGenericMethodDefinition &&
+      method.GetParameters().Length == 0;
+  }
+
+  /// <summary>
+  /// Invokes a resolved once-hook and awaits its Task, unwrapping TargetInvocationException.
+  /// </summary>
+  private static async Task InvokeOnceHookAsync(MethodInfo method)
+  {
+    try
+    {
+      object? result = method.Invoke(null, null);
+      if (result is Task task)
+      {
+        await task.ConfigureAwait(false);
+      }
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is not null)
+    {
+      ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+      throw; // unreachable; satisfies definite-assignment analysis
+    }
+  }
+
+  /// <summary>
+  /// Idempotent: invokes SetupOnce on first call. Sets SetupOnceInvoked before await
+  /// so a throwing SetupOnce still pairs with CleanUpOnce.
+  /// </summary>
+  private static async Task EnsureSetupOnceAsync(ClassOnceState state)
+  {
+    if (state.SetupOnceInvoked || state.SetupOnce is null)
+    {
+      return;
+    }
+
+    state.SetupOnceInvoked = true;
+    try
+    {
+      await InvokeOnceHookAsync(state.SetupOnce).ConfigureAwait(false);
+    }
+    catch (Exception ex)
+    {
+      state.SetupOnceFailure = ex;
+    }
+  }
+
+  /// <summary>
+  /// Reports every Input (or single node) for a method as Failed due to a class hook error.
+  /// </summary>
+  private static async Task ReportMethodFailedDueToHookAsync(
+    Type testClass,
+    MethodInfo method,
+    Exception hookException,
+    ITestResultSink sink,
+    List<TestNodeInfo> results)
+  {
+    string testNodeUid = $"{testClass.FullName}.{method.Name}";
+    string message = $"{hookException.GetType().Name}: {hookException.Message}";
+    InputAttribute[] inputAttrs = method.GetCustomAttributes<InputAttribute>().ToArray();
+
+    if (inputAttrs.Length > 0)
+    {
+      foreach (InputAttribute inputAttr in inputAttrs)
+      {
+        string displayName = inputAttr.Parameters.Length > 0
+          ? $"{method.Name}({string.Join(", ", inputAttr.Parameters.Select(p => p?.ToString() ?? "null"))})"
+          : method.Name;
+        TestNodeInfo failedNode = new(
+          testNodeUid,
+          displayName,
+          TestNodeState.Failed,
+          TimeSpan.Zero,
+          Exception: hookException,
+          Message: message,
+          Parameters: inputAttr.Parameters.Length > 0 ? inputAttr.Parameters.ToList() : null
+        );
+        await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
+        await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
+        results.Add(failedNode);
+      }
+    }
+    else
+    {
+      TestNodeInfo failedNode = new(
+        testNodeUid,
+        method.Name,
+        TestNodeState.Failed,
+        TimeSpan.Zero,
+        Exception: hookException,
+        Message: message,
+        Parameters: null
+      );
+      await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
+      await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
+      results.Add(failedNode);
+    }
+  }
+
+  /// <summary>
+  /// Emits a synthetic failed node for a class-hook failure (e.g. CleanUpOnce).
+  /// </summary>
+  private static async Task EmitSyntheticHookFailureAsync(
+    Type testClass,
+    string hookName,
+    Exception exception,
+    ITestResultSink sink,
+    List<TestNodeInfo> results)
+  {
+    string uid = $"{testClass.FullName}.{hookName}";
+    string message = $"{exception.GetType().Name}: {exception.Message}";
+    TestNodeInfo failedNode = new(
+      uid,
+      hookName,
+      TestNodeState.Failed,
+      TimeSpan.Zero,
+      Exception: exception,
+      Message: message,
+      Parameters: null
+    );
+    await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
+    await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
+    results.Add(failedNode);
   }
 
   /// <summary>
@@ -267,7 +483,7 @@ public static class TestRunner
   {
     DateTimeOffset startTime = DateTimeOffset.Now;
     Stopwatch overallStopwatch = Stopwatch.StartNew();
-    List<TestNodeInfo> results = new();
+    List<TestNodeInfo> results = [];
 
     // Check environment variable if filterTag not explicitly provided
     filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
@@ -299,14 +515,51 @@ public static class TestRunner
     // Notify sink that run is starting
     await sink.OnRunStartedAsync(className, filterTag);
 
-    // Get all test methods
-    IEnumerable<MethodInfo> testMethods = DiscoverTests(testClass);
+    List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
 
-    // Run each test
-    foreach (MethodInfo method in testMethods)
+    OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
+    OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
+    Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
+
+    if (resolutionError is not null)
     {
-      List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag);
-      results.AddRange(methodResults);
+      // Bad once-hook signature: fail the class without invoking CleanUpOnce.
+      foreach (MethodInfo method in testMethods)
+      {
+        await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
+      }
+    }
+    else
+    {
+      ClassOnceState onceState = new()
+      {
+        TestClass = testClass,
+        SetupOnce = setupOnceResolve.Method,
+        CleanUpOnce = cleanUpOnceResolve.Method
+      };
+
+      try
+      {
+        foreach (MethodInfo method in testMethods)
+        {
+          List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
+          results.AddRange(methodResults);
+        }
+      }
+      finally
+      {
+        if (onceState.SetupOnceInvoked && onceState.CleanUpOnce is not null)
+        {
+          try
+          {
+            await InvokeOnceHookAsync(onceState.CleanUpOnce);
+          }
+          catch (Exception cleanUpEx)
+          {
+            await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+          }
+        }
+      }
     }
 
     overallStopwatch.Stop();
@@ -333,10 +586,16 @@ public static class TestRunner
 
   /// <summary>
   /// Runs a single test method with sink notifications.
+  /// Lazy SetupOnce runs after tag-skip and [Skip] short-circuits, before body/[Input].
   /// </summary>
-  private static async Task<List<TestNodeInfo>> RunTestWithSinkAsync(Type testClass, MethodInfo method, ITestResultSink sink, string? filterTag)
+  private static async Task<List<TestNodeInfo>> RunTestWithSinkAsync(
+    Type testClass,
+    MethodInfo method,
+    ITestResultSink sink,
+    string? filterTag,
+    ClassOnceState onceState)
   {
-    List<TestNodeInfo> results = new();
+    List<TestNodeInfo> results = [];
 
     // Check for method tag filter if specified
     if (filterTag is not null)
@@ -379,6 +638,14 @@ public static class TestRunner
       await sink.OnTestStartedAsync(skipNode);
       await sink.OnTestCompletedAsync(skipNode);
       results.Add(skipNode);
+      return results;
+    }
+
+    // Lazy class-scoped SetupOnce immediately before first real execution path
+    await EnsureSetupOnceAsync(onceState);
+    if (onceState.SetupOnceFailure is not null)
+    {
+      await ReportMethodFailedDueToHookAsync(testClass, method, onceState.SetupOnceFailure, sink, results);
       return results;
     }
 
@@ -444,6 +711,8 @@ public static class TestRunner
   /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
   public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
   {
+    // clearCache retained for public API compatibility; runfile cache is managed externally.
+    _ = clearCache;
     using TerminalSink sink = new();
     TestRunStats stats = await RunTestsAsync<T>(sink, filterTag);
     return stats.Success ? 0 : 1;
@@ -458,6 +727,8 @@ public static class TestRunner
   /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
   public static async Task<int> RunAllTests(bool? clearCache = null, string? filterTag = null)
   {
+    // clearCache retained for public API compatibility; runfile cache is managed externally.
+    _ = clearCache;
     if (RegisteredTestClasses.Count == 0)
     {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context

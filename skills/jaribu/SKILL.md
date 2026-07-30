@@ -137,6 +137,42 @@ public static async Task CleanUp()
 }
 ```
 
+## SetupOnce and CleanUpOnce
+
+Class-scoped fixture hooks — once around all tests in a class (not per test):
+
+```csharp
+private static ApiTestServerApplication? Host;
+
+public static async Task SetupOnce()
+{
+    // Lazy: runs before the first test that actually executes
+    Host = new ApiTestServerApplication();
+    await Task.CompletedTask;
+}
+
+public static async Task CleanUpOnce()
+{
+    // Runs after the class only if SetupOnce ran
+    if (Host is IAsyncDisposable d)
+        await d.DisposeAsync();
+    Host = null;
+}
+```
+
+**Rules:**
+
+- Signature must be `public static Task` parameterless — near-misses fail the class (no silent ignore)
+- Lazy: all-`[Skip]` or all method-tag-filtered classes never pay the fixture cost
+- `CleanUpOnce` only if `SetupOnce` was invoked; guaranteed via try/finally even when tests fail
+- `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run
+- `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; test results kept
+- `RunSingleTestAsync` bypasses class hooks (per-test `Setup`/`CleanUp` only)
+- Dispose shared fixtures explicitly in `CleanUpOnce` (no auto field scan)
+- Timeout-abandoned tasks may touch the fixture after dispose; document/avoid if needed
+
+Use `Setup`/`CleanUp` for per-test state. Use `SetupOnce`/`CleanUpOnce` for shared hosts and other expensive fixtures that need deterministic teardown. Static/`Lazy` remains fine when no dispose is needed.
+
 ## Data-Driven Tests
 
 ```csharp
@@ -282,9 +318,13 @@ Tests exist to **expose bugs**. A failing test is doing its job.
 - Follow Arrange-Act-Assert pattern
 - One behavior per test
 - Use Setup/CleanUp for per-test state
-- Use static initializers for expensive one-time setup
+- Use SetupOnce/CleanUpOnce for shared fixtures that need dispose (hosts, ports)
+- Use static initializers / `Lazy` only when no dispose is needed
+- Dispose shared fixtures explicitly in CleanUpOnce
 
 **DON'T:**
 - Use xUnit/NUnit/MSTest
 - Make tests depend on each other
 - Put expensive operations in Setup (runs per test)
+- Rely on process exit to free fixed ports / shared hosts
+- Expect SetupOnce/CleanUpOnce when calling RunSingleTestAsync directly

@@ -5,6 +5,8 @@
     <!-- This is a library, not a test project -->
     <IsTestProject>false</IsTestProject>
     <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+    <!-- RCS1046: MTP interface method names cannot use Async suffix; RCS1248: style preference -->
+    <NoWarn>$(NoWarn);RCS1046;RCS1248</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
