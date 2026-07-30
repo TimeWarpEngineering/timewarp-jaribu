@@ -1,4 +1,4 @@
-#!/usr/bin/dotnet --
+#!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 
 // Multi-file test runner

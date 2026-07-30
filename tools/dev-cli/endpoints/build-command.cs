@@ -52,6 +52,7 @@ internal sealed class BuildCommand : ICommand<Unit>
         Environment.ExitCode = 1;
         return false;
       }
+
       RepoRoot = root;
       Terminal.WriteLine($"Building repository at {RepoRoot}...");
       return true;
@@ -95,6 +96,7 @@ internal sealed class BuildCommand : ICommand<Unit>
         Environment.ExitCode = 1;
         return false;
       }
+
       return true;
     }
   }

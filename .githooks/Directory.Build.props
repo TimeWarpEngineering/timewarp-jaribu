@@ -1,0 +1,11 @@
+<Project>
+  <!-- Import parent Directory.Build.props -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- The scaffolded hooks set '#:property NoWarn=CA2007', which replaces the inherited
+         NoWarn chain (including IDE0005). The repo references the CodeStyle analyzer package,
+         which then errors demanding doc generation (roslyn#41640) — so enable it here. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

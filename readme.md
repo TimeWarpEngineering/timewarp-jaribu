@@ -415,20 +415,47 @@ public static class MyTests
 }
 ```
 
-**Note**: For one-time initialization, use static constructors or static field initialization:
+**Note**: For one-time initialization that does not need dispose, static constructors or static field initialization still work. Prefer `SetupOnce` / `CleanUpOnce` when you need deterministic teardown (shared hosts, fixed ports, etc.).
+
+### SetupOnce and CleanUpOnce
+
+Class-scoped fixture hooks run once around a class's tests (not per test):
 
 ```csharp
 public static class MyTests
 {
-    private static readonly ExpensiveResource Resource = InitializeResource();
+    private static ApiTestServerApplication? Host;
 
-    private static ExpensiveResource InitializeResource()
+    public static async Task SetupOnce()
     {
-        // One-time initialization
-        return new ExpensiveResource();
+        // Runs once before the first test that actually executes
+        Host = new ApiTestServerApplication();
+        await Task.CompletedTask;
     }
+
+    public static async Task CleanUpOnce()
+    {
+        // Runs once after the last test, only if SetupOnce ran
+        if (Host is IAsyncDisposable disposable)
+            await disposable.DisposeAsync();
+        Host = null;
+    }
+
+    public static async Task Test1() { /* uses Host */ await Task.CompletedTask; }
+    public static async Task Test2() { /* uses Host */ await Task.CompletedTask; }
 }
 ```
+
+**Behavior:**
+
+- **Lazy:** `SetupOnce` runs immediately before the first method that actually executes. A class whose tests are all `[Skip]`ped or method-tag-filtered out never invokes the hooks.
+- **Dispose:** Authors dispose shared fixtures explicitly in `CleanUpOnce`. The framework does not auto-scan fields for `IAsyncDisposable`.
+- **Cleanup guarantee:** `CleanUpOnce` runs in a try/finally around the class loop only if `SetupOnce` was invoked (success or failure).
+- **`SetupOnce` failure:** remaining discovered tests are reported Failed with the hook exception; test bodies do not run. `CleanUpOnce` still runs if setup was attempted.
+- **`CleanUpOnce` failure:** tests keep their real results; a synthetic failed node `{ClassFullName}.CleanUpOnce` is emitted so the run fails (exit code 1).
+- **Signature:** hooks must be `public static Task` with no parameters. A method *named* `SetupOnce`/`CleanUpOnce` with a non-conforming signature fails the class (no silent ignore).
+- **`RunSingleTestAsync` bypass:** class hooks apply only through the class-loop entry points (`RunTests` / `RunAllTests` / `RunTestsAsync`). Direct `RunSingleTestAsync` calls run per-test `Setup`/`CleanUp` only; callers own fixture lifetime.
+- **Timeout caveat:** `[Timeout]` abandons the still-running test task via `Task.WhenAny`. That task may touch a shared fixture after `CleanUpOnce` disposes it. Prefer cooperative cancellation if this becomes an issue in practice.
 
 ## Documentation
 

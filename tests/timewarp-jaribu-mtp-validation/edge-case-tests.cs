@@ -38,6 +38,7 @@ public class EdgeCaseTests
     {
       sum += i;
     }
+
     sum.ShouldBe(4950); // Sum of 0..99
     await Task.CompletedTask;
   }

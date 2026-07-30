@@ -54,7 +54,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
           foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
           {
             string testNodeUid = $"{testClass.FullName}.{method.Name}";
-            if (filter != null && !MatchesFilter(testNodeUid, filter))
+            if (filter is not null && !MatchesFilter(testNodeUid, filter))
               continue;
 
             TestNodeInfo node = new
@@ -74,7 +74,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     }
     catch (Exception ex)
     {
-      await ReportUnhandledException(context, ex).ConfigureAwait(false);
+      await ReportUnhandledExceptionAsync(context, ex).ConfigureAwait(false);
       throw;
     }
     finally
@@ -83,7 +83,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     }
   }
 
-  private async Task ReportUnhandledException(ExecuteRequestContext context, Exception ex)
+  private async Task ReportUnhandledExceptionAsync(ExecuteRequestContext context, Exception ex)
   {
     await context.MessageBus.PublishAsync
     (
