@@ -94,7 +94,9 @@ public static class TestRunner
 
   /// <summary>
   /// Runs a single test method and returns TestNodeInfo.
-  /// Handles Setup, test execution, CleanUp, timeout, skip, and exceptions.
+  /// Handles per-test Setup, test execution, CleanUp, timeout, skip, and exceptions.
+  /// Does not invoke class-scoped SetupOnce/CleanUpOnce; those run only through
+  /// RunTests/RunAllTests/RunTestsAsync. Callers driving single tests own fixture lifetime.
   /// </summary>
   /// <param name="testClass">The test class containing the method.</param>
   /// <param name="method">The test method to run.</param>
@@ -250,7 +252,6 @@ public static class TestRunner
   /// </summary>
   private sealed class ClassOnceState
   {
-    public required Type TestClass { get; init; }
     public MethodInfo? SetupOnce { get; init; }
     public MethodInfo? CleanUpOnce { get; init; }
     public bool SetupOnceInvoked { get; set; }
@@ -533,7 +534,6 @@ public static class TestRunner
     {
       ClassOnceState onceState = new()
       {
-        TestClass = testClass,
         SetupOnce = setupOnceResolve.Method,
         CleanUpOnce = cleanUpOnceResolve.Method
       };

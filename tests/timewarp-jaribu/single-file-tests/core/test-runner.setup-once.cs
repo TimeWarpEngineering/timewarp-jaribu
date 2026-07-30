@@ -236,6 +236,45 @@ namespace TestRunner_
       BypassFixture.SetupCount.ShouldBe(1);
       BypassFixture.CleanUpCount.ShouldBe(1);
     }
+
+    public static async Task Inheritance_DerivedHook_Should_PreferMostDerived()
+    {
+      DerivedPreferFixture.Reset();
+      SetupOnceCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<DerivedPreferFixture>(sink);
+
+      stats.Success.ShouldBeTrue();
+      DerivedPreferFixture.DerivedSetupOnceCount.ShouldBe(1);
+      DerivedPreferFixture.BaseSetupOnceCount.ShouldBe(0);
+      DerivedPreferFixture.DerivedCleanUpOnceCount.ShouldBe(1);
+      DerivedPreferFixture.BaseCleanUpOnceCount.ShouldBe(0);
+      DerivedPreferFixture.BodyCount.ShouldBe(1);
+    }
+
+    public static async Task Inheritance_BaseOnlyHook_Should_InvokeOnDerived()
+    {
+      BaseOnlyHookFixture.Reset();
+      SetupOnceCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<BaseOnlyHookFixture>(sink);
+
+      stats.Success.ShouldBeTrue();
+      BaseOnlyHookFixture.BaseSetupOnceCount.ShouldBe(1);
+      BaseOnlyHookFixture.BaseCleanUpOnceCount.ShouldBe(1);
+      BaseOnlyHookFixture.BodyCount.ShouldBe(1);
+    }
+
+    public static async Task Inheritance_OverloadsOnSameType_Should_FailClass()
+    {
+      OverloadOnceFixture.Reset();
+      SetupOnceCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<OverloadOnceFixture>(sink);
+
+      stats.Success.ShouldBeFalse();
+      stats.FailedCount.ShouldBe(1);
+      OverloadOnceFixture.BodyCount.ShouldBe(0);
+      sink.Results[0].Exception.ShouldNotBeNull();
+      sink.Results[0].Exception!.Message.ShouldContain("multiple methods named");
+    }
   }
 
   // --- Fixtures (not registered) ---
@@ -663,6 +702,108 @@ namespace TestRunner_
     public static async Task CleanUp()
     {
       CleanUpCount++;
+      await Task.CompletedTask;
+    }
+
+    public static async Task OnlyTest()
+    {
+      BodyCount++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class OnceHookBase
+  {
+    public static int BaseSetupOnceCount;
+    public static int BaseCleanUpOnceCount;
+
+    public static void ResetBase()
+    {
+      BaseSetupOnceCount = 0;
+      BaseCleanUpOnceCount = 0;
+    }
+
+    public static async Task SetupOnce()
+    {
+      BaseSetupOnceCount++;
+      await Task.CompletedTask;
+    }
+
+    public static async Task CleanUpOnce()
+    {
+      BaseCleanUpOnceCount++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class DerivedPreferFixture : OnceHookBase
+  {
+    public static int DerivedSetupOnceCount;
+    public static int DerivedCleanUpOnceCount;
+    public static int BodyCount;
+
+    public static void Reset()
+    {
+      ResetBase();
+      DerivedSetupOnceCount = 0;
+      DerivedCleanUpOnceCount = 0;
+      BodyCount = 0;
+    }
+
+    public static new async Task SetupOnce()
+    {
+      DerivedSetupOnceCount++;
+      await Task.CompletedTask;
+    }
+
+    public static new async Task CleanUpOnce()
+    {
+      DerivedCleanUpOnceCount++;
+      await Task.CompletedTask;
+    }
+
+    public static async Task OnlyTest()
+    {
+      BodyCount++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class BaseOnlyHookFixture : OnceHookBase
+  {
+    public static int BodyCount;
+
+    public static void Reset()
+    {
+      ResetBase();
+      BodyCount = 0;
+    }
+
+    public static async Task OnlyTest()
+    {
+      BodyCount++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class OverloadOnceFixture
+  {
+    public static int BodyCount;
+
+    public static void Reset()
+    {
+      BodyCount = 0;
+    }
+
+    // Two methods named SetupOnce on the same type — fail-fast resolution error.
+    public static async Task SetupOnce()
+    {
+      await Task.CompletedTask;
+    }
+
+    public static async Task SetupOnce(int unused)
+    {
+      _ = unused;
       await Task.CompletedTask;
     }
 

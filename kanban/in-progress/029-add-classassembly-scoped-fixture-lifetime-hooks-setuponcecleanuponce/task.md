@@ -32,15 +32,15 @@ That pattern is **already documented** for one-time *setup* (README + skill: sta
 
 ## Checklist
 
-- [ ] Design API surface for class-scoped lifetime hooks (`SetupOnce` / `CleanUpOnce`)
-- [ ] Discover and invoke once per test class in `RunTestsAsyncCore` (after class-level tag filter skip; **lazily** before the first test that actually executes; after last test)
-- [ ] Guarantee `CleanUpOnce` runs even when tests fail, but only if `SetupOnce` ran (try/finally semantics)
-- [ ] Implement failure-reporting semantics: `SetupOnce` failure → all remaining discovered tests reported Failed with the hook exception; `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; both drive exit code 1
-- [ ] Validate hook signatures: method named `SetupOnce`/`CleanUpOnce` with a non-conforming signature is a class-level error (no silent ignore)
-- [ ] Exclude `SetupOnce` / `CleanUpOnce` from `DiscoverTests`
-- [ ] Document usage (readme + skill): shared host pattern; contrast with per-test `Setup`/`CleanUp` and with static/`Lazy` stopgap; note `RunSingleTestAsync` bypass; note timeout-abandoned-task caveat
-- [ ] Add unit/integration tests covering: once-only invoke; cleanup after class on pass and fail; lazy skip (all-`[Skip]` and all-tag-filtered class never invokes hooks); `SetupOnce` failure reports all tests Failed without running bodies; `CleanUpOnce` runs after test failures; `CleanUpOnce` failure fails an otherwise-green run; bad hook signature fails the class
-- [ ] Evaluate assembly-scoped hooks only if class-scoped lands cleanly (separate follow-up if deferred)
+- [x] Design API surface for class-scoped lifetime hooks (`SetupOnce` / `CleanUpOnce`)
+- [x] Discover and invoke once per test class in `RunTestsAsyncCore` (after class-level tag filter skip; **lazily** before the first test that actually executes; after last test)
+- [x] Guarantee `CleanUpOnce` runs even when tests fail, but only if `SetupOnce` ran (try/finally semantics)
+- [x] Implement failure-reporting semantics: `SetupOnce` failure → all remaining discovered tests reported Failed with the hook exception; `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; both drive exit code 1
+- [x] Validate hook signatures: method named `SetupOnce`/`CleanUpOnce` with a non-conforming signature is a class-level error (no silent ignore)
+- [x] Exclude `SetupOnce` / `CleanUpOnce` from `DiscoverTests`
+- [x] Document usage (readme + skill): shared host pattern; contrast with per-test `Setup`/`CleanUp` and with static/`Lazy` stopgap; note `RunSingleTestAsync` bypass; note timeout-abandoned-task caveat
+- [x] Add unit/integration tests covering: once-only invoke; cleanup after class on pass and fail; lazy skip (all-`[Skip]` and all-tag-filtered class never invokes hooks); `SetupOnce` failure reports all tests Failed without running bodies; `CleanUpOnce` runs after test failures; `CleanUpOnce` failure fails an otherwise-green run; bad hook signature fails the class
+- [x] Evaluate assembly-scoped hooks only if class-scoped lands cleanly (separate follow-up if deferred)
 - [ ] Close or update GitHub issue #19 when shipped
 
 ## Notes
@@ -223,8 +223,62 @@ bin/dev test
 
 ## Session
 
-- Orchestration: grok (2026-07-30) — Phase 1–2; plan finalized without decision kitchen
+- Orchestration: grok (2026-07-30) — Phases 1–5
+- Implementer: general-purpose subagent (2026-07-30)
+- Review: general effort-1 round 1 (2026-07-30) — disposition clean
 
 ## Results
 
-_Added after completion._
+### What was implemented
+
+Class-scoped **`SetupOnce` / `CleanUpOnce`** hooks for TimeWarp.Jaribu:
+
+- `public static Task SetupOnce()` / `CleanUpOnce()` discovered via reflection with **fail-fast** signature validation (never silent-ignore)
+- **Lazy** `SetupOnce` after method tag-filter and `[Skip]`, before first real execute / `[Input]`
+- `CleanUpOnce` in try/finally only if `SetupOnceInvoked` (set before await so throwing setup still pairs teardown)
+- SetupOnce failure → remaining execute-path methods Failed via sink with hook exception
+- Bad signature → all discovered methods Failed; CleanUpOnce not run
+- CleanUpOnce failure → synthetic node `{ClassFullName}.CleanUpOnce`, exit code 1
+- `DiscoverTests` excludes Once names; `RunSingleTestAsync` bypass documented and unchanged
+- Most-derived inheritance preference; overload-on-same-type is class error
+- Assembly-scoped hooks **deferred** (follow-up)
+
+### Files changed
+
+| Path | Role |
+|------|------|
+| `source/timewarp-jaribu/test-runner.cs` | Core Once hooks |
+| `source/timewarp-jaribu/terminal-sink.cs` | Exhaustive `TestNodeState` switches |
+| `tests/timewarp-jaribu/single-file-tests/core/test-runner.setup-once.cs` | 15 meta-tests |
+| `tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props` | CI include |
+| `readme.md`, `skills/jaribu/SKILL.md` | Docs |
+| `.editorconfig`, `Directory.Build.props`, `tests/Directory.Build.props`, MTP csproj | Build/style gate unblock under EnforceCodeStyleInBuild |
+
+### Key decisions / deviations
+
+- Explicit dispose in `CleanUpOnce` (no IAsyncDisposable field scan)
+- Fan-out uses `TestNodeState.Failed` through existing sink nodes
+- Inheritance: most-derived declaring type wins (post-review clarification + tests)
+- Build-unblock editorconfig/NoWarn required for green `bin/dev build` on this tree
+
+### Test outcomes
+
+| Command | Result |
+|---------|--------|
+| `bin/dev build` | success |
+| `dotnet run …/test-runner.setup-once.cs` | **15/15 passed** |
+| `bin/dev test` | **31/31 passed** (includes SetupOnce_Given_ in CI multi-runner) |
+
+### Phase 4b review
+
+- **Effort:** 1 (general only)
+- **Rounds:** 1
+- **Findings:** 0 bug, 1 suggestion, 2 nit — all **fixed**
+- **Disposition:** `clean` — `review/disposition.md`
+- **Artifacts:** `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`
+
+### Follow-up
+
+- Assembly-scoped hooks (new task when needed)
+- Close/update GitHub issue [#19](https://github.com/TimeWarpEngineering/timewarp-jaribu/issues/19) when this lands on the release branch / ships
+- TWA migration of SharedHost `Lazy` patterns to SetupOnce/CleanUpOnce
