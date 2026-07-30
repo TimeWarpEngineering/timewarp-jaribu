@@ -44,6 +44,7 @@ internal sealed class CleanCommand : ICommand<Unit>
         Environment.ExitCode = 1;
         return false;
       }
+
       RepoRoot = root;
       Terminal.WriteLine($"Cleaning repository at {RepoRoot}...");
       return true;
@@ -74,17 +75,19 @@ internal sealed class CleanCommand : ICommand<Unit>
     private void DeleteBinObjDirectories()
     {
       Terminal.WriteLine("\nDeleting obj and bin directories...");
-      string[] dirs = Directory.GetDirectories(RepoRoot, "*", SearchOption.AllDirectories)
-        .Where
-        (
-          d =>
-          {
-            string name = Path.GetFileName(d);
-            return StringComparer.OrdinalIgnoreCase.Equals(name, "bin")
-              || StringComparer.OrdinalIgnoreCase.Equals(name, "obj");
-          }
-        )
-        .ToArray();
+      string[] dirs =
+      [
+        .. Directory.GetDirectories(RepoRoot, "*", SearchOption.AllDirectories)
+          .Where
+          (
+            d =>
+            {
+              string name = Path.GetFileName(d);
+              return StringComparer.OrdinalIgnoreCase.Equals(name, "bin")
+                || StringComparer.OrdinalIgnoreCase.Equals(name, "obj");
+            }
+          )
+      ];
 
       foreach (string dir in dirs)
       {
@@ -110,6 +113,7 @@ internal sealed class CleanCommand : ICommand<Unit>
         Environment.ExitCode = 1;
         return false;
       }
+
       return true;
     }
   }
