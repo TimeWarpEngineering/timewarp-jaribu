@@ -33,7 +33,18 @@ internal sealed class MtpSink : ITestResultSink
   public Task OnTestStartedAsync(TestNodeInfo node)
   {
     ArgumentNullException.ThrowIfNull(node);
-    return PublishNodeAsync(node);
+    // Always publish InProgress on start so skip/fail short-circuits are not
+    // double-counted as terminal states (start + complete both Skipped → #22).
+    TestNodeInfo inProgress = new(
+      Uid: node.Uid,
+      DisplayName: node.DisplayName,
+      State: TestNodeState.InProgress,
+      Duration: null,
+      Exception: null,
+      Message: null,
+      Parameters: node.Parameters
+    );
+    return PublishNodeAsync(inProgress);
   }
 
   public Task OnTestCompletedAsync(TestNodeInfo node)

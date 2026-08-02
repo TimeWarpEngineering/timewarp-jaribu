@@ -42,7 +42,9 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
       await TestRunner.EndTestSessionAsync().ConfigureAwait(false);
       return new CloseTestSessionResult { IsSuccess = true };
     }
+#pragma warning disable CA1031 // Host boundary: any dispose failure must become IsSuccess=false
     catch (Exception ex)
+#pragma warning restore CA1031
     {
       return new CloseTestSessionResult
       {
