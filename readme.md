@@ -323,7 +323,7 @@ dotnet run
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
 
-Selection filters never emit Skipped nodes for omitted items. Tag filter keeps existing Skipped semantics. MTP uid/tree filters apply on both discovery and run.
+Selection filters never emit Skipped nodes for omitted items. Tag filter keeps existing Skipped semantics for method-level tags; a class whose class-level tags exist and none match is omitted entirely — from both discovery (`--list-tests`) and the run. MTP uid/tree filters apply on both discovery and run.
 
 ### IDE Integration
 

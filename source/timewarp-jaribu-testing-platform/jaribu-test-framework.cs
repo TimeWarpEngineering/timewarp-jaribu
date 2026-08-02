@@ -1,5 +1,6 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
+using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Services;
 
@@ -82,6 +83,15 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
         if (isDiscovery)
         {
+          // Mirror the run path: a class whose class-level tags exist and none
+          // match the tag filter is omitted entirely (run produces no nodes for
+          // it). Method-level tag mismatches stay listed — the run reports them
+          // as Skipped nodes, so they are part of the run.
+          if (filterTag is not null && ClassOmittedByTagFilter(testClass, filterTag))
+          {
+            continue;
+          }
+
           foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
           {
             if (filterMethod is not null &&
@@ -130,6 +140,13 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     {
       context.Complete();
     }
+  }
+
+  private static bool ClassOmittedByTagFilter(Type testClass, string filterTag)
+  {
+    TestTagAttribute[] classTags = [.. testClass.GetCustomAttributes<TestTagAttribute>()];
+    return classTags.Length > 0 &&
+      !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase));
   }
 
   private static string? ResolveFilterTag(ICommandLineOptions commandLine)

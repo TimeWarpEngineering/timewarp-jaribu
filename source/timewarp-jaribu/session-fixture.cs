@@ -18,6 +18,12 @@ using System.Runtime.ExceptionServices;
 // Failed CreateAsync is sticky for the rest of the session (rethrow same
 // exception; no second create attempt) so partial boots do not retry.
 //
+// A generation counter guards the create/end race: create holds only the
+// per-type gate, so a session can fully end while CreateAsync is in flight
+// (e.g. a [Timeout]-abandoned task). If the generation changed by store time,
+// the orphan instance is disposed and GetAsync throws instead of caching a
+// fixture that belongs to a dead session.
+//
 // Authors must not dispose session fixtures in CleanUpOnce — the session owns
 // dispose. CleanUpOnce may null local references only.
 //
@@ -35,6 +41,7 @@ public static class SessionFixture
   private static readonly Lock RegistryLock = new();
   private static readonly Dictionary<Type, FixtureEntry> Registry = [];
   private static int Nesting;
+  private static int Generation;
 
   /// <summary>
   /// True when at least one session has been begun and not yet fully ended.
@@ -63,9 +70,11 @@ public static class SessionFixture
   {
     Type fixtureType = typeof(T);
     FixtureEntry entry;
+    int generation;
 
     lock (RegistryLock)
     {
+      generation = Generation;
       if (Nesting <= 0)
       {
         throw new InvalidOperationException(
@@ -119,10 +128,25 @@ public static class SessionFixture
             $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}.");
         }
 
+        bool sessionStillCurrent;
         lock (RegistryLock)
         {
-          entry.Instance = typed;
-          entry.CreateFailure = null;
+          sessionStillCurrent = Nesting > 0 && Generation == generation;
+          if (sessionStillCurrent)
+          {
+            entry.Instance = typed;
+            entry.CreateFailure = null;
+          }
+        }
+
+        if (!sessionStillCurrent)
+        {
+          // The session ended (or a new one began) while CreateAsync was in
+          // flight; the instance belongs to a dead session — dispose the orphan.
+          await typed.DisposeAsync().ConfigureAwait(false);
+          throw new InvalidOperationException(
+            $"Test session ended while session fixture '{fixtureType.Name}' was being created. " +
+            "The orphaned instance was disposed.");
         }
 
         return typed;
@@ -131,7 +155,12 @@ public static class SessionFixture
       {
         lock (RegistryLock)
         {
-          entry.CreateFailure = ex;
+          // Sticky failures are per-session; never record one against a session
+          // that ended (or was replaced) while create was in flight.
+          if (Nesting > 0 && Generation == generation)
+          {
+            entry.CreateFailure = ex;
+          }
         }
 
         throw;
@@ -178,21 +207,34 @@ public static class SessionFixture
   }
 
   /// <summary>
-  /// Clears all registrations and live instance references (does not dispose).
-  /// Intended for meta-tests; prefer ending the session first when instances exist.
+  /// Clears all registrations and resets session nesting to zero — a full
+  /// reset-the-world escape hatch for meta-tests. Throws when any fixture
+  /// instance is still live (that would silently leak an undisposed fixture);
+  /// end the session first so instances are disposed.
   /// </summary>
+  /// <exception cref="InvalidOperationException">A created fixture instance is still live.</exception>
   internal static void Clear()
   {
     lock (RegistryLock)
     {
+      foreach (KeyValuePair<Type, FixtureEntry> pair in Registry)
+      {
+        if (pair.Value.Instance is not null)
+        {
+          throw new InvalidOperationException(
+            $"Cannot clear session fixtures: '{pair.Key.FullName}' has a live instance. " +
+            "End the session first (EndTestSessionAsync) so it is disposed.");
+        }
+      }
+
       foreach (FixtureEntry entry in Registry.Values)
       {
-        entry.Instance = null;
         entry.CreateFailure = null;
       }
 
       Registry.Clear();
       Nesting = 0;
+      Generation++;
     }
   }
 
@@ -227,6 +269,8 @@ public static class SessionFixture
       {
         return;
       }
+
+      Generation++;
 
       foreach (KeyValuePair<Type, FixtureEntry> pair in Registry)
       {
@@ -348,14 +392,7 @@ public static class SessionFixture
         $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return a Task.");
     }
 
-    try
-    {
-      await task.ConfigureAwait(false);
-    }
-    catch (Exception)
-    {
-      throw;
-    }
+    await task.ConfigureAwait(false);
 
     PropertyInfo? resultProperty = task.GetType().GetProperty("Result");
     if (resultProperty is null)

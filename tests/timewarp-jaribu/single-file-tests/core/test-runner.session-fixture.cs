@@ -352,6 +352,57 @@ namespace TestRunner_
       }
     }
 
+    /// <summary>
+    /// A CreateAsync completing after the session fully ended must not cache the
+    /// instance for a later session — the orphan is disposed and GetAsync throws.
+    /// </summary>
+    public static async Task SessionEndDuringCreate_Should_DisposeOrphanAndThrow()
+    {
+      BlockedCreateSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<BlockedCreateSessionFixture>();
+      try
+      {
+        TestRunner.BeginTestSession();
+        Task<BlockedCreateSessionFixture> getTask = SessionFixture.GetAsync<BlockedCreateSessionFixture>();
+        await BlockedCreateSessionFixture.CreateStarted.Task;
+
+        await TestRunner.EndTestSessionAsync();
+        BlockedCreateSessionFixture.ReleaseCreate.SetResult();
+
+        InvalidOperationException ex = await Should.ThrowAsync<InvalidOperationException>(async () => await getTask);
+        ex.Message.ShouldContain("ended while");
+        BlockedCreateSessionFixture.DisposeCount.ShouldBe(1);
+      }
+      finally
+      {
+        TestRunner.ClearRegisteredSessionFixtures();
+        BlockedCreateSessionFixture.Reset();
+      }
+    }
+
+    public static async Task ClearWithLiveInstance_Should_Throw()
+    {
+      CountingSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<CountingSessionFixture>();
+      TestRunner.BeginTestSession();
+      try
+      {
+        _ = await SessionFixture.GetAsync<CountingSessionFixture>();
+
+        InvalidOperationException ex = Should.Throw<InvalidOperationException>(
+          TestRunner.ClearRegisteredSessionFixtures);
+        ex.Message.ShouldContain("live instance");
+      }
+      finally
+      {
+        await TestRunner.EndTestSessionAsync();
+        TestRunner.ClearRegisteredSessionFixtures();
+        CountingSessionFixture.Reset();
+      }
+    }
+
     public static async Task Clear_Should_AllowReRegister()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -440,6 +491,33 @@ namespace TestRunner_
     {
       CreateCount++;
       return Task.FromResult(new OtherSessionFixture());
+    }
+
+    public ValueTask DisposeAsync()
+    {
+      DisposeCount++;
+      return ValueTask.CompletedTask;
+    }
+  }
+
+  public sealed class BlockedCreateSessionFixture : IAsyncDisposable
+  {
+    public static TaskCompletionSource CreateStarted = new();
+    public static TaskCompletionSource ReleaseCreate = new();
+    public static int DisposeCount;
+
+    public static void Reset()
+    {
+      CreateStarted = new TaskCompletionSource();
+      ReleaseCreate = new TaskCompletionSource();
+      DisposeCount = 0;
+    }
+
+    public static async Task<BlockedCreateSessionFixture> CreateAsync()
+    {
+      CreateStarted.SetResult();
+      await ReleaseCreate.Task;
+      return new BlockedCreateSessionFixture();
     }
 
     public ValueTask DisposeAsync()
