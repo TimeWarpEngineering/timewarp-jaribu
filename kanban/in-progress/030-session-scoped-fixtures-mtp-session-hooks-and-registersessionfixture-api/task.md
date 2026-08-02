@@ -50,13 +50,13 @@ its timewarp-testing composing with C-create. TWA pins forward to the new versio
 
 ## Checklist
 
-- [ ] API design note (this folder) — shapes, rejected alternatives, mode-parity semantics
-- [ ] Session hooks implementation + RegisterSessionFixture
-- [ ] Standalone-path parity implementation
-- [ ] #22 skip double-count fix
-- [ ] #23 filter fixes (env var under MTP + selection options)
-- [ ] Jaribu test suite coverage for all of the above
-- [ ] README/docs updated
+- [x] API design note (this folder) — shapes, rejected alternatives, mode-parity semantics
+- [x] Session hooks implementation + RegisterSessionFixture
+- [x] Standalone-path parity implementation
+- [x] #22 skip double-count fix
+- [x] #23 filter fixes (env var under MTP + selection options)
+- [x] Jaribu test suite coverage for all of the above
+- [x] README/docs updated
 - [ ] Release published; TWA 145-008 consumer work unblocked
 
 ## Notes
@@ -120,3 +120,4 @@ Full design note: `api-design.md` in this folder (checklist item 1). Summary:
 ## Session
 
 - Orchestrator: grok session (2026-08-02) — Phase 1–3 start
+- Implementer: commits A–E (session fixtures, #22, #23, docs, checklist); release still orchestrator
