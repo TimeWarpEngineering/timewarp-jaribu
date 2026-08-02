@@ -12,6 +12,8 @@ public static class TestingPlatformBuilderHook
 
     JaribuExtension extension = new();
 
+    builder.CommandLine.AddProvider(() => new JaribuCommandLineOptionsProvider(extension));
+
     builder.RegisterTestFramework
     (
       _ => new JaribuCapabilities(),

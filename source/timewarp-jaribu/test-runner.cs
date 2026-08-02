@@ -506,12 +506,22 @@ public static class TestRunner
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// </param>
+  /// <param name="methodPredicate">
+  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync<T>(ITestResultSink sink, string? filterTag = null) where T : class
+  public static Task<TestRunStats> RunTestsAsync<T>(
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(typeof(T), sink, filterTag);
+    return RunTestsAsyncCore(typeof(T), sink, filterTag, methodNameContains, methodPredicate);
   }
 
   /// <summary>
@@ -519,20 +529,36 @@ public static class TestRunner
   /// </summary>
   /// <param name="testClass">The test class type.</param>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// </param>
+  /// <param name="methodPredicate">
+  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync(Type testClass, ITestResultSink sink, string? filterTag = null)
+  public static Task<TestRunStats> RunTestsAsync(
+    Type testClass,
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(testClass, sink, filterTag);
+    return RunTestsAsyncCore(testClass, sink, filterTag, methodNameContains, methodPredicate);
   }
 
   /// <summary>
   /// Core implementation for running tests with a sink.
   /// Owns a session-of-one when no outer session is active.
   /// </summary>
-  private static async Task<TestRunStats> RunTestsAsyncCore(Type testClass, ITestResultSink sink, string? filterTag = null)
+  private static async Task<TestRunStats> RunTestsAsyncCore(
+    Type testClass,
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null)
   {
     bool ownsSession = false;
     if (!SessionFixture.IsSessionActive)
@@ -578,6 +604,18 @@ public static class TestRunner
       await sink.OnRunStartedAsync(className, filterTag);
 
       List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
+
+      // Selection filters: omit methods (no Skipped nodes) before execution.
+      if (methodNameContains is not null)
+      {
+        testMethods = [.. testMethods.Where(m =>
+          m.Name.Contains(methodNameContains, StringComparison.OrdinalIgnoreCase))];
+      }
+
+      if (methodPredicate is not null)
+      {
+        testMethods = [.. testMethods.Where(methodPredicate)];
+      }
 
       OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
       OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
