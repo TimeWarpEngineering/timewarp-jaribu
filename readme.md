@@ -300,12 +300,30 @@ dotnet test --logger "console;verbosity=detailed"
 # List discovered tests
 dotnet run -- --list-tests
 
-# Filter by test name
+# Filter by test name (MTP platform filter)
 dotnet run -- --filter "Name~Addition"
+
+# Jaribu selection / tag filters (M.T.P. adapter options)
+dotnet run -- --filter-tag Integration
+dotnet run -- --filter-class SpaSuite
+dotnet run -- --filter-method Login
+
+# Env fallback for tag (CLI --filter-tag wins when both set)
+JARIBU_FILTER_TAG=Integration dotnet test
 
 # Run directly (also works)
 dotnet run
 ```
+
+**Jaribu filter options under M.T.P.:**
+
+| Option | Match | Semantics |
+|--------|-------|-----------|
+| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG` | Non-matching tagged methods reported **Skipped** |
+| `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
+| `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
+
+Selection filters never emit Skipped nodes for omitted items. Tag filter keeps existing Skipped semantics. MTP uid/tree filters apply on both discovery and run.
 
 ### IDE Integration
 
@@ -456,6 +474,67 @@ public static class MyTests
 - **Signature:** hooks must be `public static Task` with no parameters. A method *named* `SetupOnce`/`CleanUpOnce` with a non-conforming signature fails the class (no silent ignore).
 - **`RunSingleTestAsync` bypass:** class hooks apply only through the class-loop entry points (`RunTests` / `RunAllTests` / `RunTestsAsync`). Direct `RunSingleTestAsync` calls run per-test `Setup`/`CleanUp` only; callers own fixture lifetime.
 - **Timeout caveat:** `[Timeout]` abandons the still-running test task via `Task.WhenAny`. That task may touch a shared fixture after `CleanUpOnce` disposes it. Prefer cooperative cancellation if this becomes an issue in practice.
+
+### Session fixtures (cross-class)
+
+When multiple test classes need the same expensive resource (e.g. a shared Aspire
+`DistributedApplication`), register a **session fixture** once and resolve it from each class.
+Session scope amortizes create cost across classes under M.T.P. or `RunAllTests`.
+
+```csharp
+public sealed class AppHostFixture : IAsyncDisposable
+{
+    public static async Task<AppHostFixture> CreateAsync()
+    {
+        // boot host
+        return new AppHostFixture();
+    }
+
+    public async ValueTask DisposeAsync() { /* tear down */ }
+}
+
+[ModuleInitializer]
+internal static void Register()
+{
+    RegisterTests<SpaSuiteA>();
+    RegisterTests<SpaSuiteB>();
+    RegisterSessionFixture<AppHostFixture>();
+}
+
+// In each class that needs the host
+public static async Task SetupOnce()
+{
+    Host = await SessionFixture.GetAsync<AppHostFixture>();
+}
+
+public static async Task CleanUpOnce()
+{
+    // Do NOT dispose the session fixture — the session owns dispose.
+    Host = null;
+}
+```
+
+**Contract:**
+
+| API | Role |
+|-----|------|
+| `RegisterSessionFixture<T>()` | Explicit registration (ModuleInitializer); requires `public static Task<T> CreateAsync()` and `IAsyncDisposable` |
+| `SessionFixture.GetAsync<T>()` | Lazy resolve within an active session |
+| Session end | Disposes all created instances |
+
+**Lifetime:**
+
+| Host | Boundary | Create | Dispose |
+|------|----------|--------|---------|
+| **M.T.P. run** | CreateTestSession → CloseTestSession | Lazy on first `GetAsync` | All created in CloseTestSession |
+| **M.T.P. discovery** | Session still opens/closes | Never (no `GetAsync`) | No-op |
+| **`RunAllTests`** | Synthetic session wrap | Lazy across classes | After last registered class |
+| **Lone `RunTestsAsync`** | Session-of-one if none active | Lazy within that class | End of that call |
+
+- Double-registration of the same `T` fails fast.
+- Unregistered `GetAsync` throws a teaching error (not null).
+- Classes that never call `GetAsync` never create the fixture.
+- Prefer class `SetupOnce`/`CleanUpOnce` when the fixture is per-class only; use session fixtures only when sharing across classes pays off.
 
 ## Documentation
 
