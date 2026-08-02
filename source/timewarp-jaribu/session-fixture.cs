@@ -15,6 +15,8 @@ using System.Runtime.ExceptionServices;
 //
 // Create is lazy on first GetAsync per type within a session (single-flight via
 // per-type SemaphoreSlim). Classes that never call GetAsync never create.
+// Failed CreateAsync is sticky for the rest of the session (rethrow same
+// exception; no second create attempt) so partial boots do not retry.
 //
 // Authors must not dispose session fixtures in CleanUpOnce — the session owns
 // dispose. CleanUpOnce may null local references only.
@@ -84,6 +86,11 @@ public static class SessionFixture
       {
         return existing;
       }
+
+      if (entry.CreateFailure is not null)
+      {
+        ExceptionDispatchInfo.Capture(entry.CreateFailure).Throw();
+      }
     }
 
     await entry.CreateGate.WaitAsync().ConfigureAwait(false);
@@ -95,22 +102,40 @@ public static class SessionFixture
         {
           return existing;
         }
+
+        if (entry.CreateFailure is not null)
+        {
+          ExceptionDispatchInfo.Capture(entry.CreateFailure).Throw();
+        }
       }
 
-      object created = await InvokeCreateAsync(entry.Factory).ConfigureAwait(false);
-      if (created is not T typed)
+      try
       {
-        throw new InvalidOperationException(
-          $"Session fixture '{fixtureType.Name}' CreateAsync returned " +
-          $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}.");
-      }
+        object created = await InvokeCreateAsync(entry.Factory).ConfigureAwait(false);
+        if (created is not T typed)
+        {
+          throw new InvalidOperationException(
+            $"Session fixture '{fixtureType.Name}' CreateAsync returned " +
+            $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}.");
+        }
 
-      lock (RegistryLock)
+        lock (RegistryLock)
+        {
+          entry.Instance = typed;
+          entry.CreateFailure = null;
+        }
+
+        return typed;
+      }
+      catch (Exception ex)
       {
-        entry.Instance = typed;
-      }
+        lock (RegistryLock)
+        {
+          entry.CreateFailure = ex;
+        }
 
-      return typed;
+        throw;
+      }
     }
     finally
     {
@@ -163,6 +188,7 @@ public static class SessionFixture
       foreach (FixtureEntry entry in Registry.Values)
       {
         entry.Instance = null;
+        entry.CreateFailure = null;
       }
 
       Registry.Clear();
@@ -209,6 +235,9 @@ public static class SessionFixture
           toDispose.Add((pair.Key, disposable));
           pair.Value.Instance = null;
         }
+
+        // Sticky create failures are session-scoped; clear when session fully ends.
+        pair.Value.CreateFailure = null;
       }
     }
 
@@ -354,6 +383,7 @@ public static class SessionFixture
 
     public MethodInfo Factory { get; }
     public object? Instance { get; set; }
+    public Exception? CreateFailure { get; set; }
     public SemaphoreSlim CreateGate { get; } = new(1, 1);
   }
 }

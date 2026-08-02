@@ -122,6 +122,27 @@ namespace TestRunner_
       MethodFilterFixture.AlphaCount.ShouldBe(0);
       MethodFilterFixture.BetaCount.ShouldBe(1);
     }
+
+    /// <summary>
+    /// methodPredicate omits non-matching methods (selection; no Skipped nodes).
+    /// Used by MTP uid/tree filter on the run path.
+    /// </summary>
+    public static async Task MethodPredicate_Should_OmitNonMatchesWithoutSkippedNodes()
+    {
+      MethodFilterFixture.Reset();
+      MethodFilterCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<MethodFilterFixture>(
+        sink,
+        methodPredicate: method => method.Name == nameof(MethodFilterFixture.AlphaTest));
+
+      stats.Success.ShouldBeTrue();
+      stats.PassedCount.ShouldBe(1);
+      stats.SkippedCount.ShouldBe(0);
+      MethodFilterFixture.AlphaCount.ShouldBe(1);
+      MethodFilterFixture.BetaCount.ShouldBe(0);
+      sink.Results.Count.ShouldBe(1);
+      sink.Results[0].DisplayName.ShouldBe(nameof(MethodFilterFixture.AlphaTest));
+    }
   }
 
   sealed class MethodFilterCollectingSink : ITestResultSink

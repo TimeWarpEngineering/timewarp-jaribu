@@ -230,6 +230,7 @@ namespace TestRunner_
     public static async Task AllSkip_Should_NotCreate()
     {
       CountingSessionFixture.Reset();
+      AllSkipSessionFixtureUser.SetupOnceCount = 0;
       TestRunner.ClearRegisteredSessionFixtures();
       TestRunner.RegisterSessionFixture<CountingSessionFixture>();
       try
@@ -247,6 +248,7 @@ namespace TestRunner_
       {
         TestRunner.ClearRegisteredSessionFixtures();
         CountingSessionFixture.Reset();
+        AllSkipSessionFixtureUser.SetupOnceCount = 0;
       }
     }
 
@@ -266,6 +268,39 @@ namespace TestRunner_
         sink.Results.Any(r =>
           r.State == TestNodeState.Failed &&
           r.Exception?.Message.Contains("create boom", StringComparison.Ordinal) == true).ShouldBeTrue();
+      }
+      finally
+      {
+        TestRunner.ClearRegisteredSessionFixtures();
+        FailingCreateSessionFixture.Reset();
+      }
+    }
+
+    /// <summary>
+    /// Failed CreateAsync must not be retried on a later GetAsync in the same session.
+    /// </summary>
+    public static async Task CreateFailure_Should_BeStickyAcrossClassesInSession()
+    {
+      FailingCreateSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<FailingCreateSessionFixture>();
+      try
+      {
+        SessionFixtureCollectingSink sink = new();
+        TestRunner.BeginTestSession();
+        try
+        {
+          TestRunStats first = await TestRunner.RunTestsAsync<UsesFailingCreateFixture>(sink);
+          TestRunStats second = await TestRunner.RunTestsAsync<UsesFailingCreateFixtureB>(sink);
+
+          first.Success.ShouldBeFalse();
+          second.Success.ShouldBeFalse();
+          FailingCreateSessionFixture.CreateCount.ShouldBe(1);
+        }
+        finally
+        {
+          await TestRunner.EndTestSessionAsync();
+        }
       }
       finally
       {
@@ -560,6 +595,19 @@ namespace TestRunner_
   }
 
   public class UsesFailingCreateFixture
+  {
+    public static async Task SetupOnce()
+    {
+      _ = await SessionFixture.GetAsync<FailingCreateSessionFixture>();
+    }
+
+    public static async Task OnlyTest()
+    {
+      await Task.CompletedTask;
+    }
+  }
+
+  public class UsesFailingCreateFixtureB
   {
     public static async Task SetupOnce()
     {
