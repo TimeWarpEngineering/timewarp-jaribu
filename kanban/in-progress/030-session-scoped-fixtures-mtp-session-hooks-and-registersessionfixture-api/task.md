@@ -64,3 +64,59 @@ its timewarp-testing composing with C-create. TWA pins forward to the new versio
 - Origin: timewarp-architecture kanban/in-progress/145-008 (full spec + wall-clock data) and
   its task 143 findings §3 (options B/D/E analysis — E chosen: this seam). Issues: #19
   (shipped class hooks), #22, #23.
+
+### Implementation plan (Phase 2, 2026-08-02)
+
+Full design note: `api-design.md` in this folder (checklist item 1). Summary:
+
+#### Goals
+1. Cross-class session fixtures: explicit `RegisterSessionFixture<T>` + `SessionFixture.GetAsync<T>`, lazy create, dispose at session end.
+2. Mode parity: MTP session hooks + standalone `RunAllTests` wrap share one instance; lone `RunTestsAsync` is session-of-one.
+3. Ride-alongs (separate commits): #22 MTP skip double-count; #23 MTP filter-tag/class/method + selection.
+
+#### API (decided)
+- `TestRunner.RegisterSessionFixture<T>() where T : class, IAsyncDisposable` — fail-fast double-reg; requires `public static Task<T> CreateAsync()`.
+- `SessionFixture.GetAsync<T>()` — lazy; unregistered → teaching error.
+- Authors do **not** dispose session fixtures in `CleanUpOnce` (session owns dispose).
+- New file: `source/timewarp-jaribu/session-fixture.cs`; public wrappers on `TestRunner`.
+
+#### Session nesting
+- `BeginSession` / `EndSessionAsync` with nesting counter; dispose only when nesting hits 0.
+- MTP: `CreateTestSessionAsync` → begin; `CloseTestSessionAsync` → end.
+- `RunAllTests`: begin/end wrap; inner `RunTestsAsync` does not dispose.
+- `RunTestsAsync` alone: owns session if none active.
+- Discovery never calls GetAsync → no create.
+
+#### #22
+- Root: `MtpSink` publishes terminal Skipped on both start+complete for skip path.
+- Fix: `OnTestStartedAsync` always InProgress; complete publishes real terminal state.
+
+#### #23
+- Honor env + CLI `--filter-tag` / `--filter-class` / `--filter-method` under MTP.
+- Selection filters omit (not Skipped); tag filter keeps existing Skipped semantics.
+- Also honor MTP uid/tree filter on **run** path (not only discover).
+
+#### Commits (order)
+1. docs(kanban): api-design.md
+2. feat: session fixtures + MTP hooks + tests
+3. fix: MTP skip double-count (#22)
+4. feat: MTP filters (#23)
+5. docs: README + skill
+6. chore: version bump beta.15 (release — may be orchestrator)
+
+#### Out of scope
+- TWA 145-008 consumer migration (unblocked by release, not this repo).
+- IClassFixture / attribute discovery / field scan.
+
+#### Critical files
+- `source/timewarp-jaribu/test-runner.cs`
+- `source/timewarp-jaribu/session-fixture.cs` (new)
+- `source/timewarp-jaribu-testing-platform/jaribu-test-framework.cs`
+- `source/timewarp-jaribu-testing-platform/mtp-sink.cs`
+- `source/timewarp-jaribu-testing-platform/testing-platform-builder-hook.cs`
+- `tests/.../core/test-runner.session-fixture.cs` (new)
+- `readme.md`, `skills/jaribu/SKILL.md`
+
+## Session
+
+- Orchestrator: grok session (2026-08-02) — Phase 1–3 start
