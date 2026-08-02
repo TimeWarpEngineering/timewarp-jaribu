@@ -119,5 +119,65 @@ Full design note: `api-design.md` in this folder (checklist item 1). Summary:
 
 ## Session
 
-- Orchestrator: grok session (2026-08-02) — Phase 1–3 start
-- Implementer: commits A–E (session fixtures, #22, #23, docs, checklist); release still orchestrator
+- Orchestrator: grok session (2026-08-02) — Phases 1–5
+- Implementer: subagent 019fc354-9062 — session fixtures, #22, #23, docs
+- Review: general round-1 (019fc35e-1ff6); disposition accepted-exceptions
+
+## Results
+
+### What was implemented
+
+1. **Session-scoped fixtures**
+   - `TestRunner.RegisterSessionFixture<T>()`, `SessionFixture.GetAsync<T>()`, `ClearRegisteredSessionFixtures()`
+   - Lazy create via `public static Task<T> CreateAsync()`; double-reg and signature fail-fast
+   - Session nesting: MTP `CreateTestSessionAsync`/`CloseTestSessionAsync`; `RunAllTests` wrap; lone `RunTestsAsync` session-of-one
+   - Sticky `CreateAsync` failure for remainder of session (review fix)
+   - Authors must not dispose session fixtures in `CleanUpOnce`
+
+2. **#22** — `MtpSink.OnTestStartedAsync` always publishes InProgress (fixes skip double-count)
+
+3. **#23** — MTP `--filter-tag` / `--filter-class` / `--filter-method`; CLI tag over env; selection omit vs tag Skipped; MTP uid/tree filter on run path; core `methodNameContains` + `methodPredicate`
+
+4. **Docs** — README session fixtures + MTP filtering; skill updates; `api-design.md`
+
+5. **Version** — bumped to `1.0.0-beta.15` (pack-ready; NuGet push not performed in this session)
+
+### Files changed
+
+| Path | Role |
+|------|------|
+| `source/timewarp-jaribu/session-fixture.cs` | NEW registry + GetAsync |
+| `source/timewarp-jaribu/test-runner.cs` | Register APIs, session ownership, method filters |
+| `source/timewarp-jaribu-testing-platform/jaribu-test-framework.cs` | Session hooks + filter dispatch |
+| `source/timewarp-jaribu-testing-platform/mtp-sink.cs` | #22 |
+| `source/timewarp-jaribu-testing-platform/jaribu-command-line-options.cs` | NEW CLI provider |
+| `source/timewarp-jaribu-testing-platform/testing-platform-builder-hook.cs` | Register CLI |
+| `tests/.../core/test-runner.session-fixture.cs` | NEW meta-tests |
+| `tests/.../core/test-runner.tag-filtering.cs` | method filter + predicate tests |
+| `readme.md`, `skills/jaribu/SKILL.md` | Docs |
+| `source/Directory.Build.props` | 1.0.0-beta.15 |
+| `kanban/.../api-design.md`, `review/` | Design + Phase 4b trail |
+
+### Key decisions / deviations
+
+- Public `BeginTestSession` / `EndTestSessionAsync` (not InternalsVisibleTo)
+- Sticky create failure after review (M1)
+- M2 (#22 MtpSink unit test) **wontfix** — internal type; mechanical fix; no InternalsVisibleTo this release
+- TWA 145-008 consumer migration remains out of repo (unblocked after NuGet publish)
+
+### Test outcomes
+
+- `./bin/dev test`: **48 passed** (14 session fixture, 9 tag/method filter, 15 SetupOnce, rest existing)
+- MTP package + mtp-runner: build green (implementer)
+
+### Phase 4b review
+
+- Effort 1, roster: general; 1 round
+- Final counts: bug 0 open; suggestion 2 fixed + 1 wontfix; nit 1 fixed
+- Disposition: **accepted-exceptions** (`review/disposition.md`)
+- Paths: `review/review-framework.md`, `review/round-1/merged.md`, `review/disposition.md`
+
+### Remaining (owner)
+
+- [ ] NuGet publish of 1.0.0-beta.15 (and close/comment #22/#23)
+- [ ] TWA 145-008 consumer pin + SPA session-fixture wrapper (other repo)
