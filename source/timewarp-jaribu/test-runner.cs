@@ -10,7 +10,8 @@ using TimeWarp.Terminal;
 // TestRunner - Main entry point for discovering and executing tests.
 // Provides both sink-based async API for extensibility and backward-compatible
 // synchronous-style methods that use TerminalSink internally.
-// Supports per-test Setup/CleanUp and class-scoped SetupOnce/CleanUpOnce hooks.
+// Supports per-test Setup/CleanUp, class-scoped SetupOnce/CleanUpOnce hooks,
+// and session-scoped fixtures (RegisterSessionFixture + SessionFixture.GetAsync).
 #endregion
 
 #region Design
@@ -29,6 +30,14 @@ using TimeWarp.Terminal;
 //   (after method tag-filter and [Skip] short-circuits). CleanUpOnce runs in a finally
 //   around the class loop only if SetupOnce was invoked. RunSingleTestAsync does not
 //   participate in class hooks.
+//
+// Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
+//   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
+//   active session; disposed when the outermost session ends. Nesting:
+//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync
+//     RunAllTests → begin/end wrap (inner RunTestsAsync does not dispose)
+//     Lone RunTestsAsync → owns session-of-one if none active
+//   Authors must NOT dispose session fixtures in CleanUpOnce.
 //
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
@@ -70,6 +79,48 @@ public static class TestRunner
   public static void ClearRegisteredTests()
   {
     InternalRegisteredTestClasses.Clear();
+  }
+
+  /// <summary>
+  /// Registers a session-scoped fixture type. Call from a <c>[ModuleInitializer]</c>
+  /// alongside <see cref="RegisterTests{T}"/>. Fail-fast on double-registration or when
+  /// <typeparamref name="T"/> lacks <c>public static Task&lt;T&gt; CreateAsync()</c>.
+  /// </summary>
+  /// <typeparam name="T">
+  /// Fixture type implementing <see cref="IAsyncDisposable"/> with
+  /// <c>public static Task&lt;T&gt; CreateAsync()</c>.
+  /// </typeparam>
+  public static void RegisterSessionFixture<T>() where T : class, IAsyncDisposable
+  {
+    SessionFixture.Register(typeof(T));
+  }
+
+  /// <summary>
+  /// Clears all session fixture registrations and live instance references.
+  /// Intended for meta-tests; end the session first when instances may exist.
+  /// </summary>
+  public static void ClearRegisteredSessionFixtures()
+  {
+    SessionFixture.Clear();
+  }
+
+  /// <summary>
+  /// Begins a host-owned test session (nesting-aware). Prefer for MTP adapters and
+  /// multi-class drivers that share session fixtures; pair with
+  /// <see cref="EndTestSessionAsync"/>.
+  /// </summary>
+  public static void BeginTestSession()
+  {
+    SessionFixture.BeginSession();
+  }
+
+  /// <summary>
+  /// Ends a host-owned test session. When the outermost session ends, disposes all
+  /// created session fixtures (registrations are kept).
+  /// </summary>
+  public static Task EndTestSessionAsync()
+  {
+    return SessionFixture.EndSessionAsync();
   }
 
   /// <summary>
@@ -479,109 +530,127 @@ public static class TestRunner
 
   /// <summary>
   /// Core implementation for running tests with a sink.
+  /// Owns a session-of-one when no outer session is active.
   /// </summary>
   private static async Task<TestRunStats> RunTestsAsyncCore(Type testClass, ITestResultSink sink, string? filterTag = null)
   {
-    DateTimeOffset startTime = DateTimeOffset.Now;
-    Stopwatch overallStopwatch = Stopwatch.StartNew();
-    List<TestNodeInfo> results = [];
-
-    // Check environment variable if filterTag not explicitly provided
-    filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
-
-    string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
-
-    // Check if test class matches filter tag (if specified)
-    if (filterTag is not null)
+    bool ownsSession = false;
+    if (!SessionFixture.IsSessionActive)
     {
-      TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
-      if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
-      {
-        // Class has tags but none match the filter - skip entire class
-        overallStopwatch.Stop();
-        TestRunStats emptyStats = new(
-          className,
-          startTime,
-          overallStopwatch.Elapsed,
-          PassedCount: 0,
-          FailedCount: 0,
-          SkippedCount: 0
-        );
-        await sink.OnRunStartedAsync(className, filterTag);
-        await sink.OnRunCompletedAsync(emptyStats, results);
-        return emptyStats;
-      }
+      SessionFixture.BeginSession();
+      ownsSession = true;
     }
 
-    // Notify sink that run is starting
-    await sink.OnRunStartedAsync(className, filterTag);
-
-    List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
-
-    OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
-    OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
-    Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
-
-    if (resolutionError is not null)
+    try
     {
-      // Bad once-hook signature: fail the class without invoking CleanUpOnce.
-      foreach (MethodInfo method in testMethods)
+      DateTimeOffset startTime = DateTimeOffset.Now;
+      Stopwatch overallStopwatch = Stopwatch.StartNew();
+      List<TestNodeInfo> results = [];
+
+      // Check environment variable if filterTag not explicitly provided
+      filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
+
+      string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
+
+      // Check if test class matches filter tag (if specified)
+      if (filterTag is not null)
       {
-        await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
+        TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
+        if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
+        {
+          // Class has tags but none match the filter - skip entire class
+          overallStopwatch.Stop();
+          TestRunStats emptyStats = new(
+            className,
+            startTime,
+            overallStopwatch.Elapsed,
+            PassedCount: 0,
+            FailedCount: 0,
+            SkippedCount: 0
+          );
+          await sink.OnRunStartedAsync(className, filterTag);
+          await sink.OnRunCompletedAsync(emptyStats, results);
+          return emptyStats;
+        }
       }
-    }
-    else
-    {
-      ClassOnceState onceState = new()
-      {
-        SetupOnce = setupOnceResolve.Method,
-        CleanUpOnce = cleanUpOnceResolve.Method
-      };
 
-      try
+      // Notify sink that run is starting
+      await sink.OnRunStartedAsync(className, filterTag);
+
+      List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
+
+      OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
+      OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
+      Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
+
+      if (resolutionError is not null)
       {
+        // Bad once-hook signature: fail the class without invoking CleanUpOnce.
         foreach (MethodInfo method in testMethods)
         {
-          List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
-          results.AddRange(methodResults);
+          await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
         }
       }
-      finally
+      else
       {
-        if (onceState.SetupOnceInvoked && onceState.CleanUpOnce is not null)
+        ClassOnceState onceState = new()
         {
-          try
+          SetupOnce = setupOnceResolve.Method,
+          CleanUpOnce = cleanUpOnceResolve.Method
+        };
+
+        try
+        {
+          foreach (MethodInfo method in testMethods)
           {
-            await InvokeOnceHookAsync(onceState.CleanUpOnce);
-          }
-          catch (Exception cleanUpEx)
-          {
-            await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+            List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
+            results.AddRange(methodResults);
           }
         }
+        finally
+        {
+          if (onceState.SetupOnceInvoked && onceState.CleanUpOnce is not null)
+          {
+            try
+            {
+              await InvokeOnceHookAsync(onceState.CleanUpOnce);
+            }
+            catch (Exception cleanUpEx)
+            {
+              await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+            }
+          }
+        }
+      }
+
+      overallStopwatch.Stop();
+
+      // Calculate stats
+      int passedCount = results.Count(r => r.State == TestNodeState.Passed);
+      int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
+      int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
+
+      TestRunStats stats = new(
+        className,
+        startTime,
+        overallStopwatch.Elapsed,
+        passedCount,
+        failedCount,
+        skippedCount
+      );
+
+      // Notify sink that run is completed
+      await sink.OnRunCompletedAsync(stats, results);
+
+      return stats;
+    }
+    finally
+    {
+      if (ownsSession)
+      {
+        await SessionFixture.EndSessionAsync().ConfigureAwait(false);
       }
     }
-
-    overallStopwatch.Stop();
-
-    // Calculate stats
-    int passedCount = results.Count(r => r.State == TestNodeState.Passed);
-    int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
-    int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
-
-    TestRunStats stats = new(
-      className,
-      startTime,
-      overallStopwatch.Elapsed,
-      passedCount,
-      failedCount,
-      skippedCount
-    );
-
-    // Notify sink that run is completed
-    await sink.OnRunCompletedAsync(stats, results);
-
-    return stats;
   }
 
   /// <summary>
@@ -729,78 +798,88 @@ public static class TestRunner
   {
     // clearCache retained for public API compatibility; runfile cache is managed externally.
     _ = clearCache;
-    if (RegisteredTestClasses.Count == 0)
+
+    // Synthetic session so multi-class suites share session fixtures once.
+    SessionFixture.BeginSession();
+    try
     {
+      if (RegisteredTestClasses.Count == 0)
+      {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
-      Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+        Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
 #pragma warning restore CA1849
-      return 0;
-    }
+        return 0;
+      }
 
-    List<TestRunStats> allStats = [];
+      List<TestRunStats> allStats = [];
 
-    foreach (Type testClass in RegisteredTestClasses)
-    {
-      using TerminalSink sink = new();
-      TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
-      allStats.Add(stats);
-    }
+      foreach (Type testClass in RegisteredTestClasses)
+      {
+        using TerminalSink sink = new();
+        TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
+        allStats.Add(stats);
+      }
 
-    // Print grand total summary when multiple classes were run
-    if (allStats.Count > 1)
-    {
-      int totalPassed = allStats.Sum(s => s.PassedCount);
-      int totalFailed = allStats.Sum(s => s.FailedCount);
-      int totalSkipped = allStats.Sum(s => s.SkippedCount);
-      int totalTests = totalPassed + totalFailed + totalSkipped;
+      // Print grand total summary when multiple classes were run
+      if (allStats.Count > 1)
+      {
+        int totalPassed = allStats.Sum(s => s.PassedCount);
+        int totalFailed = allStats.Sum(s => s.FailedCount);
+        int totalSkipped = allStats.Sum(s => s.SkippedCount);
+        int totalTests = totalPassed + totalFailed + totalSkipped;
 
 #pragma warning disable CA1849
-      TimeWarpTerminal terminal = TimeWarpTerminal.Default;
+        TimeWarpTerminal terminal = TimeWarpTerminal.Default;
 
-      terminal
-        .WriteRule(rule => rule.Title("Grand Total").Style(LineStyle.Doubled))
-        .WriteTable(table =>
-        {
-          table
-            .AddColumn("Class")
-            .AddColumn("Passed", Alignment.Right)
-            .AddColumn("Failed", Alignment.Right)
-            .AddColumn("Skipped", Alignment.Right)
-            .AddColumn("Total", Alignment.Right)
-            .Border(BorderStyle.Rounded);
-
-          foreach (TestRunStats classStats in allStats)
+        terminal
+          .WriteRule(rule => rule.Title("Grand Total").Style(LineStyle.Doubled))
+          .WriteTable(table =>
           {
-            table.AddRow
-            (
-              classStats.ClassName,
-              classStats.PassedCount.ToString(CultureInfo.InvariantCulture).Green(),
-              classStats.FailedCount > 0
-                ? classStats.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
-                : classStats.FailedCount.ToString(CultureInfo.InvariantCulture),
-              classStats.SkippedCount > 0
-                ? classStats.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
-                : classStats.SkippedCount.ToString(CultureInfo.InvariantCulture),
-              classStats.TotalTests.ToString(CultureInfo.InvariantCulture)
-            );
-          }
-        })
-        .WriteLine(string.Empty)
-        .WriteLine($"{"Total:".Bold()} {totalTests.ToString(CultureInfo.InvariantCulture)}")
-        .WriteLine($"{"Passed:".Green()} {totalPassed.ToString(CultureInfo.InvariantCulture)}");
+            table
+              .AddColumn("Class")
+              .AddColumn("Passed", Alignment.Right)
+              .AddColumn("Failed", Alignment.Right)
+              .AddColumn("Skipped", Alignment.Right)
+              .AddColumn("Total", Alignment.Right)
+              .Border(BorderStyle.Rounded);
 
-      if (totalFailed > 0)
-      {
-        terminal.WriteLine($"{"Failed:".Red()} {totalFailed.ToString(CultureInfo.InvariantCulture)}");
-      }
+            foreach (TestRunStats classStats in allStats)
+            {
+              table.AddRow
+              (
+                classStats.ClassName,
+                classStats.PassedCount.ToString(CultureInfo.InvariantCulture).Green(),
+                classStats.FailedCount > 0
+                  ? classStats.FailedCount.ToString(CultureInfo.InvariantCulture).Red()
+                  : classStats.FailedCount.ToString(CultureInfo.InvariantCulture),
+                classStats.SkippedCount > 0
+                  ? classStats.SkippedCount.ToString(CultureInfo.InvariantCulture).Yellow()
+                  : classStats.SkippedCount.ToString(CultureInfo.InvariantCulture),
+                classStats.TotalTests.ToString(CultureInfo.InvariantCulture)
+              );
+            }
+          })
+          .WriteLine(string.Empty)
+          .WriteLine($"{"Total:".Bold()} {totalTests.ToString(CultureInfo.InvariantCulture)}")
+          .WriteLine($"{"Passed:".Green()} {totalPassed.ToString(CultureInfo.InvariantCulture)}");
 
-      if (totalSkipped > 0)
-      {
-        terminal.WriteLine($"{"Skipped:".Yellow()} {totalSkipped.ToString(CultureInfo.InvariantCulture)}");
-      }
+        if (totalFailed > 0)
+        {
+          terminal.WriteLine($"{"Failed:".Red()} {totalFailed.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        if (totalSkipped > 0)
+        {
+          terminal.WriteLine($"{"Skipped:".Yellow()} {totalSkipped.ToString(CultureInfo.InvariantCulture)}");
+        }
 #pragma warning restore CA1849
-    }
+      }
 
-    return allStats.Any(s => !s.Success) ? 1 : 0;
+      return allStats.Any(s => !s.Success) ? 1 : 0;
+    }
+    finally
+    {
+      await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+    }
   }
 }

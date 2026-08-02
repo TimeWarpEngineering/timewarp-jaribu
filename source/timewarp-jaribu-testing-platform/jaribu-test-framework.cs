@@ -31,12 +31,25 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
   public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
   {
+    TestRunner.BeginTestSession();
     return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
   }
 
-  public Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
+  public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
   {
-    return Task.FromResult(new CloseTestSessionResult { IsSuccess = true });
+    try
+    {
+      await TestRunner.EndTestSessionAsync().ConfigureAwait(false);
+      return new CloseTestSessionResult { IsSuccess = true };
+    }
+    catch (Exception ex)
+    {
+      return new CloseTestSessionResult
+      {
+        IsSuccess = false,
+        ErrorMessage = $"Session fixture dispose failed: {ex.Message}"
+      };
+    }
   }
 
   public async Task ExecuteRequestAsync(ExecuteRequestContext context)
