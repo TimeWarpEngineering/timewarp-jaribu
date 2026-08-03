@@ -57,7 +57,7 @@ its timewarp-testing composing with C-create. TWA pins forward to the new versio
 - [x] #23 filter fixes (env var under MTP + selection options)
 - [x] Jaribu test suite coverage for all of the above
 - [x] README/docs updated
-- [ ] Release published; TWA 145-008 consumer work unblocked
+- [x] Release published; TWA 145-008 consumer work unblocked (v1.0.0-beta.15, 2026-08-03)
 
 ## Notes
 
@@ -179,5 +179,5 @@ Full design note: `api-design.md` in this folder (checklist item 1). Summary:
 
 ### Remaining (owner)
 
-- [ ] NuGet publish of 1.0.0-beta.15 (and close/comment #22/#23)
+- [x] NuGet publish of 1.0.0-beta.15 (release v1.0.0-beta.15 published 2026-08-03; #22/#23 closed + commented)
 - [ ] TWA 145-008 consumer pin + SPA session-fixture wrapper (other repo)
