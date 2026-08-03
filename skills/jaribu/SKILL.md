@@ -173,6 +173,45 @@ public static async Task CleanUpOnce()
 
 Use `Setup`/`CleanUp` for per-test state. Use `SetupOnce`/`CleanUpOnce` for shared hosts and other expensive fixtures that need deterministic teardown. Static/`Lazy` remains fine when no dispose is needed.
 
+## Session fixtures (cross-class)
+
+Share one expensive fixture across multiple test classes (e.g. one Aspire host for a suite).
+
+```csharp
+public sealed class AppHostFixture : IAsyncDisposable
+{
+    public static async Task<AppHostFixture> CreateAsync() => new();
+    public async ValueTask DisposeAsync() { /* tear down */ }
+}
+
+[ModuleInitializer]
+internal static void Register()
+{
+    RegisterTests<SuiteA>();
+    RegisterTests<SuiteB>();
+    RegisterSessionFixture<AppHostFixture>();
+}
+
+public static async Task SetupOnce()
+{
+    Host = await SessionFixture.GetAsync<AppHostFixture>();
+}
+
+public static async Task CleanUpOnce()
+{
+    // Do NOT dispose session fixtures — session owns dispose.
+    Host = null;
+}
+```
+
+**Rules:**
+
+- Register with `RegisterSessionFixture<T>()` — `T` needs `public static Task<T> CreateAsync()` + `IAsyncDisposable`
+- Resolve with `SessionFixture.GetAsync<T>()` (lazy; unregistered → teaching error)
+- Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / lone RunTestsAsync)
+- Double-register fails fast; never create if no class calls GetAsync
+- Prefer class SetupOnce when the fixture is per-class only
+
 ## Data-Driven Tests
 
 ```csharp
@@ -243,7 +282,7 @@ chmod +x my-test.cs
 # Or with dotnet
 dotnet run my-test.cs
 
-# Filter by tag
+# Filter by tag (standalone / env)
 JARIBU_FILTER_TAG=Lexer ./my-test.cs
 
 # M.T.P. Mode (IDE integration, dotnet test)
@@ -251,7 +290,20 @@ dotnet test
 
 # List discovered tests
 dotnet run -- --list-tests
+
+# Jaribu M.T.P. filters
+dotnet run -- --filter-tag Integration
+dotnet run -- --filter-class SpaSuite
+dotnet run -- --filter-method Login
 ```
+
+| Option | Match | Semantics |
+|--------|-------|-----------|
+| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Non-match → **Skipped** |
+| `--filter-class` | Class FullName substring | Non-match → **omitted** |
+| `--filter-method` | Method name substring | Non-match → **omitted** |
+
+Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit), tag is Skipped.
 
 ## Sink-Based API
 
@@ -319,8 +371,9 @@ Tests exist to **expose bugs**. A failing test is doing its job.
 - One behavior per test
 - Use Setup/CleanUp for per-test state
 - Use SetupOnce/CleanUpOnce for shared fixtures that need dispose (hosts, ports)
+- Use RegisterSessionFixture + SessionFixture.GetAsync when one fixture spans classes
 - Use static initializers / `Lazy` only when no dispose is needed
-- Dispose shared fixtures explicitly in CleanUpOnce
+- Dispose **class** fixtures explicitly in CleanUpOnce; never dispose session fixtures there
 
 **DON'T:**
 - Use xUnit/NUnit/MSTest
@@ -328,3 +381,4 @@ Tests exist to **expose bugs**. A failing test is doing its job.
 - Put expensive operations in Setup (runs per test)
 - Rely on process exit to free fixed ports / shared hosts
 - Expect SetupOnce/CleanUpOnce when calling RunSingleTestAsync directly
+- Dispose session fixtures in CleanUpOnce (session owns dispose)

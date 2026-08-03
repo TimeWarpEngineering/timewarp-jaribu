@@ -10,7 +10,8 @@ using TimeWarp.Terminal;
 // TestRunner - Main entry point for discovering and executing tests.
 // Provides both sink-based async API for extensibility and backward-compatible
 // synchronous-style methods that use TerminalSink internally.
-// Supports per-test Setup/CleanUp and class-scoped SetupOnce/CleanUpOnce hooks.
+// Supports per-test Setup/CleanUp, class-scoped SetupOnce/CleanUpOnce hooks,
+// and session-scoped fixtures (RegisterSessionFixture + SessionFixture.GetAsync).
 #endregion
 
 #region Design
@@ -29,6 +30,14 @@ using TimeWarp.Terminal;
 //   (after method tag-filter and [Skip] short-circuits). CleanUpOnce runs in a finally
 //   around the class loop only if SetupOnce was invoked. RunSingleTestAsync does not
 //   participate in class hooks.
+//
+// Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
+//   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
+//   active session; disposed when the outermost session ends. Nesting:
+//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync
+//     RunAllTests → begin/end wrap (inner RunTestsAsync does not dispose)
+//     Lone RunTestsAsync → owns session-of-one if none active
+//   Authors must NOT dispose session fixtures in CleanUpOnce.
 //
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
@@ -70,6 +79,52 @@ public static class TestRunner
   public static void ClearRegisteredTests()
   {
     InternalRegisteredTestClasses.Clear();
+  }
+
+  /// <summary>
+  /// Registers a session-scoped fixture type. Call from a <c>[ModuleInitializer]</c>
+  /// alongside <see cref="RegisterTests{T}"/>. Fail-fast on double-registration or when
+  /// <typeparamref name="T"/> lacks <c>public static Task&lt;T&gt; CreateAsync()</c>.
+  /// </summary>
+  /// <typeparam name="T">
+  /// Fixture type implementing <see cref="IAsyncDisposable"/> with
+  /// <c>public static Task&lt;T&gt; CreateAsync()</c>.
+  /// </typeparam>
+  public static void RegisterSessionFixture<T>() where T : class, IAsyncDisposable
+  {
+    SessionFixture.Register(typeof(T));
+  }
+
+  /// <summary>
+  /// Clears all session fixture registrations and resets session nesting to zero —
+  /// a reset-the-world escape hatch for meta-tests only. Throws when a created
+  /// fixture instance is still live; end the session first so it is disposed.
+  /// Do not call from ordinary test code: resetting nesting silently unbalances
+  /// any outer session (MTP or RunAllTests).
+  /// </summary>
+  /// <exception cref="InvalidOperationException">A created fixture instance is still live.</exception>
+  public static void ClearRegisteredSessionFixtures()
+  {
+    SessionFixture.Clear();
+  }
+
+  /// <summary>
+  /// Begins a host-owned test session (nesting-aware). Prefer for MTP adapters and
+  /// multi-class drivers that share session fixtures; pair with
+  /// <see cref="EndTestSessionAsync"/>.
+  /// </summary>
+  public static void BeginTestSession()
+  {
+    SessionFixture.BeginSession();
+  }
+
+  /// <summary>
+  /// Ends a host-owned test session. When the outermost session ends, disposes all
+  /// created session fixtures (registrations are kept).
+  /// </summary>
+  public static Task EndTestSessionAsync()
+  {
+    return SessionFixture.EndSessionAsync();
   }
 
   /// <summary>
@@ -455,12 +510,22 @@ public static class TestRunner
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// </param>
+  /// <param name="methodPredicate">
+  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync<T>(ITestResultSink sink, string? filterTag = null) where T : class
+  public static Task<TestRunStats> RunTestsAsync<T>(
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(typeof(T), sink, filterTag);
+    return RunTestsAsyncCore(typeof(T), sink, filterTag, methodNameContains, methodPredicate);
   }
 
   /// <summary>
@@ -468,120 +533,166 @@ public static class TestRunner
   /// </summary>
   /// <param name="testClass">The test class type.</param>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// </param>
+  /// <param name="methodPredicate">
+  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync(Type testClass, ITestResultSink sink, string? filterTag = null)
+  public static Task<TestRunStats> RunTestsAsync(
+    Type testClass,
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(testClass, sink, filterTag);
+    return RunTestsAsyncCore(testClass, sink, filterTag, methodNameContains, methodPredicate);
   }
 
   /// <summary>
   /// Core implementation for running tests with a sink.
+  /// Owns a session-of-one when no outer session is active.
   /// </summary>
-  private static async Task<TestRunStats> RunTestsAsyncCore(Type testClass, ITestResultSink sink, string? filterTag = null)
+  private static async Task<TestRunStats> RunTestsAsyncCore(
+    Type testClass,
+    ITestResultSink sink,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null)
   {
-    DateTimeOffset startTime = DateTimeOffset.Now;
-    Stopwatch overallStopwatch = Stopwatch.StartNew();
-    List<TestNodeInfo> results = [];
-
-    // Check environment variable if filterTag not explicitly provided
-    filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
-
-    string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
-
-    // Check if test class matches filter tag (if specified)
-    if (filterTag is not null)
+    bool ownsSession = false;
+    if (!SessionFixture.IsSessionActive)
     {
-      TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
-      if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
-      {
-        // Class has tags but none match the filter - skip entire class
-        overallStopwatch.Stop();
-        TestRunStats emptyStats = new(
-          className,
-          startTime,
-          overallStopwatch.Elapsed,
-          PassedCount: 0,
-          FailedCount: 0,
-          SkippedCount: 0
-        );
-        await sink.OnRunStartedAsync(className, filterTag);
-        await sink.OnRunCompletedAsync(emptyStats, results);
-        return emptyStats;
-      }
+      SessionFixture.BeginSession();
+      ownsSession = true;
     }
 
-    // Notify sink that run is starting
-    await sink.OnRunStartedAsync(className, filterTag);
-
-    List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
-
-    OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
-    OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
-    Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
-
-    if (resolutionError is not null)
+    try
     {
-      // Bad once-hook signature: fail the class without invoking CleanUpOnce.
-      foreach (MethodInfo method in testMethods)
+      DateTimeOffset startTime = DateTimeOffset.Now;
+      Stopwatch overallStopwatch = Stopwatch.StartNew();
+      List<TestNodeInfo> results = [];
+
+      // Check environment variable if filterTag not explicitly provided
+      filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
+
+      string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
+
+      // Check if test class matches filter tag (if specified)
+      if (filterTag is not null)
       {
-        await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
+        TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
+        if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
+        {
+          // Class has tags but none match the filter - skip entire class
+          overallStopwatch.Stop();
+          TestRunStats emptyStats = new(
+            className,
+            startTime,
+            overallStopwatch.Elapsed,
+            PassedCount: 0,
+            FailedCount: 0,
+            SkippedCount: 0
+          );
+          await sink.OnRunStartedAsync(className, filterTag);
+          await sink.OnRunCompletedAsync(emptyStats, results);
+          return emptyStats;
+        }
       }
-    }
-    else
-    {
-      ClassOnceState onceState = new()
-      {
-        SetupOnce = setupOnceResolve.Method,
-        CleanUpOnce = cleanUpOnceResolve.Method
-      };
 
-      try
+      // Notify sink that run is starting
+      await sink.OnRunStartedAsync(className, filterTag);
+
+      List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
+
+      // Selection filters: omit methods (no Skipped nodes) before execution.
+      if (methodNameContains is not null)
       {
+        testMethods = [.. testMethods.Where(m =>
+          m.Name.Contains(methodNameContains, StringComparison.OrdinalIgnoreCase))];
+      }
+
+      if (methodPredicate is not null)
+      {
+        testMethods = [.. testMethods.Where(methodPredicate)];
+      }
+
+      OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
+      OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
+      Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
+
+      if (resolutionError is not null)
+      {
+        // Bad once-hook signature: fail the class without invoking CleanUpOnce.
         foreach (MethodInfo method in testMethods)
         {
-          List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
-          results.AddRange(methodResults);
+          await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
         }
       }
-      finally
+      else
       {
-        if (onceState.SetupOnceInvoked && onceState.CleanUpOnce is not null)
+        ClassOnceState onceState = new()
         {
-          try
+          SetupOnce = setupOnceResolve.Method,
+          CleanUpOnce = cleanUpOnceResolve.Method
+        };
+
+        try
+        {
+          foreach (MethodInfo method in testMethods)
           {
-            await InvokeOnceHookAsync(onceState.CleanUpOnce);
-          }
-          catch (Exception cleanUpEx)
-          {
-            await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+            List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
+            results.AddRange(methodResults);
           }
         }
+        finally
+        {
+          if (onceState.SetupOnceInvoked && onceState.CleanUpOnce is not null)
+          {
+            try
+            {
+              await InvokeOnceHookAsync(onceState.CleanUpOnce);
+            }
+            catch (Exception cleanUpEx)
+            {
+              await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+            }
+          }
+        }
+      }
+
+      overallStopwatch.Stop();
+
+      // Calculate stats
+      int passedCount = results.Count(r => r.State == TestNodeState.Passed);
+      int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
+      int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
+
+      TestRunStats stats = new(
+        className,
+        startTime,
+        overallStopwatch.Elapsed,
+        passedCount,
+        failedCount,
+        skippedCount
+      );
+
+      // Notify sink that run is completed
+      await sink.OnRunCompletedAsync(stats, results);
+
+      return stats;
+    }
+    finally
+    {
+      if (ownsSession)
+      {
+        await SessionFixture.EndSessionAsync().ConfigureAwait(false);
       }
     }
-
-    overallStopwatch.Stop();
-
-    // Calculate stats
-    int passedCount = results.Count(r => r.State == TestNodeState.Passed);
-    int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
-    int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
-
-    TestRunStats stats = new(
-      className,
-      startTime,
-      overallStopwatch.Elapsed,
-      passedCount,
-      failedCount,
-      skippedCount
-    );
-
-    // Notify sink that run is completed
-    await sink.OnRunCompletedAsync(stats, results);
-
-    return stats;
   }
 
   /// <summary>
@@ -729,6 +840,42 @@ public static class TestRunner
   {
     // clearCache retained for public API compatibility; runfile cache is managed externally.
     _ = clearCache;
+
+    // Synthetic session so multi-class suites share session fixtures once.
+    SessionFixture.BeginSession();
+    bool disposeFailed = false;
+    int exitCode = 1;
+    try
+    {
+      exitCode = await RunAllTestsCore(filterTag);
+    }
+    finally
+    {
+      try
+      {
+        await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+      }
+#pragma warning disable CA1031 // Host boundary: dispose failure must fail the run, not crash it
+      catch (Exception ex)
+#pragma warning restore CA1031
+      {
+        // On a body exception this logs instead of masking it; on the normal
+        // path it folds into a failing exit code.
+        disposeFailed = true;
+#pragma warning disable CA1849
+        Terminal.WriteLine($"✗ Session fixture dispose failed: {ex.Message}");
+#pragma warning restore CA1849
+      }
+    }
+
+    return disposeFailed ? 1 : exitCode;
+  }
+
+  /// <summary>
+  /// Runs all registered test classes within the ambient session and returns the exit code.
+  /// </summary>
+  private static async Task<int> RunAllTestsCore(string? filterTag)
+  {
     if (RegisteredTestClasses.Count == 0)
     {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
