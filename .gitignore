@@ -427,3 +427,6 @@ tests/logs/
 
 # Agent workspace for temporary files
 .agent/workspace/
+
+# MemSearch local memory (config .memsearch.toml is tracked)
+.memsearch/
