@@ -6,7 +6,8 @@
   <ItemGroup>
     <!-- TimeWarp packages -->
     <PackageVersion Include="TimeWarp.Amuru" Version="1.0.0" />
-    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.71" />
+    <PackageVersion Include="TimeWarp.Nuru" Version="3.0.0-beta.72" />
+    <PackageVersion Include="TimeWarp.Nuru.DevCli" Version="3.0.0-beta.72" />
     <PackageVersion Include="TimeWarp.Terminal" Version="1.0.0" />
 
     <!-- Test packages -->

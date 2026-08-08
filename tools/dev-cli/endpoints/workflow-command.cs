@@ -23,10 +23,23 @@ internal sealed class WorkflowCommand : ICommand<Unit>
   internal sealed class Handler : ICommandHandler<WorkflowCommand, Unit>
   {
     private readonly ITerminal Terminal;
+    private readonly IRepoCleanService RepoCleanService;
+    private readonly NuGetVersionService NuGetVersionService;
+    private readonly IRepoConfigService ConfigService;
+    private readonly IPackableProjectService PackableProjectService;
 
-    public Handler(ITerminal terminal)
+    public Handler(
+      ITerminal terminal,
+      IRepoCleanService repoCleanService,
+      NuGetVersionService nuGetVersionService,
+      IRepoConfigService configService,
+      IPackableProjectService packableProjectService)
     {
       Terminal = terminal;
+      RepoCleanService = repoCleanService;
+      NuGetVersionService = nuGetVersionService;
+      ConfigService = configService;
+      PackableProjectService = packableProjectService;
     }
 
     public async ValueTask<Unit> Handle(WorkflowCommand command, CancellationToken ct)
