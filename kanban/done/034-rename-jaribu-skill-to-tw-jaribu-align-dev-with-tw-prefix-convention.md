@@ -14,9 +14,9 @@ master worktree's local commit becomes redundant (it drops out as empty on the n
 
 ## Checklist
 
-- [ ] `git mv skills/jaribu skills/tw-jaribu`; frontmatter `name: jaribu` → `tw-jaribu`
-- [ ] `ganda repo audit` green
-- [ ] Push dev; PR to master
+- [x] `git mv skills/jaribu skills/tw-jaribu`; frontmatter `name: jaribu` → `tw-jaribu`
+- [x] `ganda repo audit` green (incl. fixing new nuget-package-urls check: PackageProjectUrl added)
+- [x] Push dev; PR to master
 
 ## Notes
 
