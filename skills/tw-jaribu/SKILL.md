@@ -1,5 +1,5 @@
 ---
-name: jaribu
+name: tw-jaribu
 description: Write tests using the Jaribu framework for .NET 10 file-based apps (runfiles)
 ---
 
