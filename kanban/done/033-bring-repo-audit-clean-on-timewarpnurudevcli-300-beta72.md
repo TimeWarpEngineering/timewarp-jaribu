@@ -56,3 +56,7 @@ grep Nuru Directory.Packages.props
 ./bin/dev check-version
 dotnet build tools/dev-cli/dev.cs
 ```
+
+### Follow-up (2026-08-14)
+
+- nuget.org packaging of Nuru 3.0.0-beta.72 was broken (build/net10.0 task DLLs missing → MSB4062 on clean CI restore; local cache masked it). Pinned forward to 3.0.0-beta.75 (packaging verified: DLLs present in nupkg). Build + 50/50 tests green.
