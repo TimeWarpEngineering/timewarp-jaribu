@@ -13,12 +13,19 @@
     "statusBar.background": "#5a7622",
     "statusBar.foreground": "#e7e7e7",
     "statusBarItem.hoverBackground": "#789e2d",
-    "statusBarItem.remoteBackground": "#5a7622",
+    "statusBarItem.remoteBackground": "#6bb1d4",
     "statusBarItem.remoteForeground": "#e7e7e7",
     "titleBar.activeBackground": "#5a7622",
     "titleBar.activeForeground": "#e7e7e7",
     "titleBar.inactiveBackground": "#5a762299",
-    "titleBar.inactiveForeground": "#e7e7e799"
+    "titleBar.inactiveForeground": "#e7e7e799",
+    "activityBarTop.activeBackground": "#789e2d",
+    "activityBarTop.background": "#789e2d",
+    "activityBarTop.foreground": "#15202b",
+    "activityBarTop.inactiveForeground": "#15202b99",
+    "commandCenter.foreground": "#e7e7e7",
+    "statusBar.debuggingBackground": "#5a7622",
+    "statusBar.debuggingForeground": "#e7e7e7"
   },
   "window.title": "timewarp-jaribu · ${rootName}${separator}${activeEditorShort}"
 }
