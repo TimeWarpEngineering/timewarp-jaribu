@@ -1,0 +1,174 @@
+# Ignore routine journals so worktree gc is not dirty
+
+## Description
+
+`ganda task work` writes `task-work.journal.json` beside the kitchen. Unless
+root `.gitignore` lists that basename, `git status --porcelain` shows `??`
+and `ganda pr merge` / `worktree gc` **refuses** a dirty worktree.
+
+This is a **consumer sweep**. Ganda **262** added audit check
+`routine-journals-gitignore` and `--fix`, then left “sweep every org repo”
+out of scope. That was wrong: we have hit this on merge at least six times
+(Taratibu 252/253/254, mediator 004-001/004-002, architecture 207/208,
+timewarp-software **033**). Each origin that never ran `--fix` is another
+dirty-gc.
+
+This origin (`timewarp-jaribu`) is missing the ignore. Org SSOT: `ganda repo audit`
+check `routine-journals-gitignore`. `--fix` appends the missing basename
+lines. Tracked journals are **Failed / not fixable** — `git rm --cached`
+is required (gitignore does not hide tracked files).
+
+Do **not** commit journal contents.
+
+## Requirements
+
+Root `.gitignore` must contain this glob (comments/blanks ok):
+
+```
+*.journal.json
+```
+
+One line covers every routine journal (`task-work`, stacked-task-set, planning,
+rfc, debate, advisor, and the next one). Ganda **268** updates the audit check
+to PASS on this glob; do not add the six 262 exact names.
+
+Prefer `ganda repo audit --fix --checks routine-journals-gitignore` (this
+CLI requires `--fix` when `--checks` is set) so the commented block matches
+other origins:
+
+```gitignore
+# Routine journals beside kitchens (local; not product)
+*.journal.json
+```
+
+Then:
+
+- `git rm --cached` any `*.journal.json` that `git ls-files` still lists.
+  Delete empty leftover dirs if they exist only because of the journal.
+- Do **not** `git rm` product `task.md` files.
+- `git ls-files '*.journal.json'` must be empty.
+- Audit check `routine-journals-gitignore` PASSes.
+- `git check-ignore -v` on a journal basename path hits the new line.
+
+## Checklist
+
+- [x] Root `.gitignore` has `*.journal.json`
+- [x] `git ls-files '*.journal.json'` is empty
+- [x] Audit `routine-journals-gitignore` PASSes
+- [x] `git check-ignore -v` confirms ignore; porcelain does not list journals
+- [x] Do not implement on `master`
+- [x] Implementation review disposition (`clean`) under `review/`
+
+## Notes
+
+- Predecessor: ganda `kanban/done/262-audit-gitignore-for-task-work-journal-so-worktree-gc-is-not-dirty/`
+- Consumer precedent: architecture **208**, timewarp-software **034**
+- Host hole (ganda kitchen, separate): unstage **any** `kanban/**/*.journal.json`
+  on kitchen commits; consider a hook that runs `repo audit --fix`.
+- 262 out-of-scope (“do not sweep every org repo”) is why this kitchen exists.
+
+### How to validate
+
+**Automated**
+```bash
+git check-ignore -v kanban/to-do/task-work.journal.json || true
+# expect: .gitignore:…:*.journal.json (path may be untracked)
+
+git ls-files '*.journal.json'
+# expect: empty
+
+ganda repo audit --fix --checks routine-journals-gitignore
+# expect: routine-journals-gitignore PASS (fix is a no-op once present)
+```
+
+**Not in scope:** changing `WorktreeGcService` to treat untracked journals as
+clean; host unstage-all (ganda).
+
+## Session
+
+- Created: grok `01a06304-cbf6-7d83-b5a2-4a99e9d09d40` (2026-09-03) cockpit timewarp-flow
+- Trigger: `/tw-merge` software 033 — GC refused, then leftover journal
+  committed; 262 left consumer sweep out of scope
+- Pattern: `*.journal.json` (cockpit, 2026-09-03) — one glob, not six names
+- Implementer: grok `01a06b84-248a-7b71-b898-9081d7492748` (2026-09-04)
+- Review oracle: grok `01a06b86-9834-7f62-8aca-7e9b7671fe02` (2026-09-04)
+- Reviewer (general, effort 1): grok `01a06b87-b54d-7b92-a1ff-13092afba4c6` (2026-09-04)
+
+## Review
+
+- Effort 1, roster: general
+- Round 1: 0 open / 0 fixed / 0 wontfix (bug 0, suggestion 0, nit 0)
+- Disposition: **clean** (no issues raised)
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`
+
+## Results
+
+Consumer sweep on this origin: ignore routine journals so `worktree gc` is not dirty.
+
+**What was implemented**
+
+- `ganda repo audit --fix --checks routine-journals-gitignore` appended the org glob to root `.gitignore`.
+- `git ls-files '*.journal.json'` was already empty; no `git rm --cached`.
+- Kitchen moved to `kanban/in-progress/` on `task/035-ignore-routine-journals-so-worktree-gc-is-not-dirt`.
+
+**Files changed**
+
+- `.gitignore` — `# Routine journals beside kitchens (local; not product)` + `*.journal.json`
+- `kanban/in-progress/035-ignore-routine-journals-so-worktree-gc-is-not-dirty/task.md`
+
+**Key decisions / deviations**
+
+- One glob (`*.journal.json`), not the six 262 exact names.
+- Did **not** add `.memsearch/memory/` (separate `memsearch-memory-gitignore` audit fail; out of scope).
+- Did **not** `git rm` product `task.md` files. Did **not** commit journal contents.
+- No tracked leftover journal on this origin (unlike software 034).
+
+**Test outcomes**
+
+- `git ls-files '*.journal.json'` — empty
+- `git check-ignore -v kanban/to-do/task-work.journal.json` — `.gitignore:435:*.journal.json`
+- `ganda repo audit --fix --checks routine-journals-gitignore` — `routine-journals-gitignore` **PASS** (fix is a no-op once present)
+- Full `ganda repo audit` still has unrelated fails (`bin-dev`, `dev-cli-capabilities`, `memsearch-memory-gitignore`, `memsearch-scaffold`); not this task.
+
+### How to validate
+
+**Smoke**
+
+```bash
+git check-ignore -v kanban/to-do/task-work.journal.json
+git ls-files '*.journal.json'
+git status --porcelain | grep -E 'journal\.json' || true
+ganda repo audit --fix --checks routine-journals-gitignore
+git rev-parse --abbrev-ref HEAD
+```
+
+**Expect**
+
+- `git check-ignore -v` prints `.gitignore:435:*.journal.json` and `kanban/to-do/task-work.journal.json`
+- `git ls-files '*.journal.json'` is empty
+- porcelain grep for `journal.json` prints nothing
+- audit table line `routine-journals-gitignore` is **PASS** (other unrelated checks may still fail)
+- branch is `task/035-ignore-routine-journals-so-worktree-gc-is-not-dirt`, not `master`
+
+**Automated gate**
+
+```bash
+git check-ignore -v kanban/to-do/task-work.journal.json
+# expect: .gitignore:435:*.journal.json	kanban/to-do/task-work.journal.json
+
+git ls-files '*.journal.json'
+# expect: empty
+
+ganda repo audit --fix --checks routine-journals-gitignore
+# expect: routine-journals-gitignore PASS (fix is a no-op once present)
+```
+
+**Not in scope:** changing `WorktreeGcService` to treat untracked journals as clean; host unstage-all (ganda); committing journals; memsearch gitignore; `bin/dev` worktree symlink.
+
+**Review disposition**
+
+- Rounds: 1
+- Roster / effort: general, effort 1
+- Counts: bug 0/0/0, suggestion 0/0/0, nit 0/0/0 (open/fixed/wontfix)
+- Disposition: **clean** — no findings; no wontfix; no escalations
+- Artifacts: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`
