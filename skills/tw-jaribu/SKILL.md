@@ -299,11 +299,11 @@ dotnet run -- --filter-method Login
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Non-match → **Skipped** |
+| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Method-level non-match → **Skipped**; a class whose class-level tags exist and none match is **omitted** from discovery and run |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
 
-Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit), tag is Skipped.
+Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit). Tag filter keeps Skipped semantics for method-level tags; class-level tag mismatch omits the class.
 
 ## Sink-Based API
 
