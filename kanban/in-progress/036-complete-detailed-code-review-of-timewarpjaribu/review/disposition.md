@@ -1,10 +1,10 @@
 # Disposition — task 036
 
 **Date:** 2026-09-04
-**Outcome:** children-filed (not `clean`; not `accepted-exceptions`)
-**Rounds:** 1
-**Final open count on this task:** 16 (all filed as children; parent stays in-progress until those land)
-**Same-branch fixed:** 2 (M15, M16)
+**Outcome:** children-filed (product round-1; not `clean`) + clean (review-oracle implementer-delta, rounds 2–3)
+**Rounds:** 3
+**Final open count on this task:** 16 product findings filed as children; 0 open on the implementer delta
+**Same-branch fixed:** 3 (M15, M16, M19)
 
 ## Summary
 
@@ -20,7 +20,9 @@ Independent product work is three children on origin-home `kanban/to-do/`:
 
 Same-branch docs nits on 036: `readme.md` test paths (M15) and `skills/tw-jaribu/SKILL.md` filter table (M16). No `wontfix`. Timeout abandonment stays the documented caveat, not a finding.
 
-This parent is **not done**. Re-open disposition to `clean` (or `accepted-exceptions`) after 036-001/002/003 land and remaining opens are 0.
+Rounds 2–3 are the task-work **review oracle** (effort 1, general) of the implementer delta, not a second whole-repo pass. Spot-check confirmed M1–M5 citations, children mapping, and M15/M16. One nit (M19): How to validate `ganda kanban show 036-00N` failed from this claim worktree without `--repo`. Fixed on this branch; round-3 re-verified the commands. Implementer-delta disposition is **clean**.
+
+This parent is **not done**. Re-open the product half to `clean` (or `accepted-exceptions`) after 036-001/002/003 land and remaining product opens are 0.
 
 ## Exception log (if accepted-exceptions)
 
@@ -28,4 +30,4 @@ None.
 
 ## Escalations
 
-- None. Child-file vs same-branch split is per kitchen evaluate step (implementer, 2026-09-04).
+- None. Child-file vs same-branch split is per kitchen evaluate step (implementer, 2026-09-04). M19 How to validate nit fixed by review oracle (2026-09-04).

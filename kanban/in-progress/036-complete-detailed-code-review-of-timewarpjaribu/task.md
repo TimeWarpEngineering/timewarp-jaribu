@@ -74,10 +74,15 @@ Severity: `bug` · `suggestion` · `nit`. Status starts `open`. Prefer strongest
 - [x] Area reviewers write `review/round-1/<area>.md` (6 files)
 - [x] Merge → `review/round-1/merged.md` (counts + stable `M#`)
 
+### Rounds 2–3 (review oracle, effort 1)
+
+- [x] `review/round-2/` general + merged (implementer delta; M19 How to validate `--repo`)
+- [x] Same-branch fix for M19; `review/round-3/` re-verify (0 new issues)
+
 ### Disposition / follow-through
 
-- [x] Child tasks for independent product fixes (`--parent 036`), or same-task nits committed here (`036-001` / `036-002` / `036-003`; M15/M16 docs on this branch)
-- [x] `review/disposition.md` (children-filed; parent stays in-progress)
+- [x] Child tasks for independent product fixes (`--parent 036`), or same-task nits committed here (`036-001` / `036-002` / `036-003`; M15/M16 docs on this branch; M19 How to validate)
+- [x] `review/disposition.md` (product: children-filed; implementer-delta: clean)
 - [x] `## Results` + `### How to validate`
 - [ ] Do not `kanban done` from the implementer; host lifecycle / human gate
 
@@ -114,14 +119,17 @@ ganda task work 036 --repo timewarp-jaribu --host herdr
 - Created: Grok cockpit `01a06a77-1631-7543-b181-07ddc524f9fe` (2026-09-04) — reserved/claimed 036, wrote inbound brief
 - Ganda claim: cramer@TWE-001 session 3400298 (2026-09-04)
 - Implementer: Grok session `01a06b00-2c05-75a0-8bc5-e69768bb0d5a` / ganda claim 3482281 (2026-09-04) — moved in-progress, re-pinned SHA, round-1 area reviewers, merged M1–M18, children 036-001/002/003 published, M15/M16 docs nits
+- Review oracle: Grok session `01a06b1c-f298-74a1-b630-3838a7323489` / ganda claim 3482281 (2026-09-04) — effort-1 general of implementer delta; M19 How to validate `--repo`; round-3 re-verify. General subagent `01a06b23-4d01-7493-b7f5-c8da5b135a79`.
 
 ## Results
 
 Whole-repo review of TimeWarp.Jaribu at origin-home `e5ef3209e54b6eb0102075e8593c37b9ce571b56` (`publish kanban 036`; package still `1.0.0-beta.15`). Kitchen SHA at create (`2c06c70`) was re-pinned before round 1; origin had moved only by publishing this kitchen.
 
-**Rounds:** 1 (no round-2; product bugs went to children, not a same-branch fix delta).
+**Rounds:** 3. Round 1 is the whole-repo product review. Rounds 2–3 are the task-work review-oracle pass (effort 1) of the implementer delta (docs nits + artifacts + children).
 
-**Roster / effort:** elevated — six area specialists, not default effort-1.
+**Roster / effort:**
+- Round 1: elevated — six area specialists
+- Rounds 2–3: effort 1 — `general` only
 
 | File | Area |
 |------|------|
@@ -132,7 +140,7 @@ Whole-repo review of TimeWarp.Jaribu at origin-home `e5ef3209e54b6eb0102075e8593
 | `review/round-1/tests-infra.md` | CI inclusion, MTP validation, packaging, dual-mode drift |
 | `review/round-1/security.md` | Timeout abandonment, fixture leak, untrusted filter/CLI, process isolation (zero issues) |
 
-**Counts (live ledger `review/round-1/merged.md`):**
+**Counts (product ledger `review/round-1/merged.md`):**
 
 | Severity | open | fixed | wontfix |
 |----------|------|-------|---------|
@@ -142,7 +150,17 @@ Whole-repo review of TimeWarp.Jaribu at origin-home `e5ef3209e54b6eb0102075e8593
 
 Eighteen merged IDs (M1–M18). Duplicates collapsed: core-runner Issue 1 + mtp Issue 1 → **M1**. **031** items were re-checked and not re-opened. Timeout abandonment remains the documented caveat.
 
-**Disposition:** `children-filed` (`review/disposition.md`). Parent stays in-progress until children land. Not `clean` (16 opens remain). No `wontfix`.
+**Counts (review-oracle ledger `review/round-3/merged.md`):**
+
+| Severity | open | fixed | wontfix |
+|----------|------|-------|---------|
+| bug | 0 | 0 | 0 |
+| suggestion | 0 | 0 | 0 |
+| nit | 0 | 1 | 0 |
+
+M19 How to validate `--repo` is `fixed`. 0 open on the implementer delta.
+
+**Disposition:** `children-filed` (product round-1) + `clean` (review-oracle implementer-delta, rounds 2–3) — `review/disposition.md`. Parent stays in-progress until children land. Product not `clean` (16 opens remain on 036-001/002/003). No `wontfix`. Review-oracle M19 (How to validate `--repo`) is `fixed`.
 
 | Child | Findings | Published |
 |-------|----------|-----------|
@@ -150,11 +168,13 @@ Eighteen merged IDs (M1–M18). Duplicates collapsed: core-runner Issue 1 + mtp 
 | **036-002** | M2, M3, M6–M9, M17 — dispose/CleanUp folding + runner/sink follow-ups | origin-home `kanban/to-do/` |
 | **036-003** | M4, M5, M12–M14, M18 — CI/MTP dual-mode inclusion | origin-home `kanban/to-do/` |
 
-**Same-branch nits:** M15 (`readme.md` test paths + Building-from-Source → `./bin/dev test`), M16 (`skills/tw-jaribu/SKILL.md` filter table class-omit vs method-Skipped).
+**Same-branch nits:** M15 (`readme.md` test paths + Building-from-Source → `./bin/dev test`), M16 (`skills/tw-jaribu/SKILL.md` filter table class-omit vs method-Skipped), M19 (How to validate child `show` needs `--repo timewarp-jaribu`).
+
+**Review paths:** `review/review-framework.md`; `review/round-1/` (area files + `merged.md`); `review/round-2/` (`general.md`, `merged.md`); `review/round-3/` (`general.md`, `merged.md`); `review/disposition.md`.
 
 **Files changed (this branch):** review artifacts under `kanban/in-progress/036-…/review/`; `readme.md`; `skills/tw-jaribu/SKILL.md`; this `task.md`.
 
-**Test outcomes:** `dotnet run tools/dev-cli/dev.cs -- test` — **50 passed** (tag-filtering 9, setup-once 15, session-fixture 16, tabular-output 5, structured-results 5). Multi-class registration is compiled into ci-runner but not executed (M4 / **036-003**).
+**Test outcomes:** `dotnet run tools/dev-cli/dev.cs -- test` — **50 passed** (tag-filtering 9, setup-once 15, session-fixture 16, tabular-output 5, structured-results 5). Re-run on review-oracle pass: same 50/50. Multi-class registration is compiled into ci-runner but not executed (M4 / **036-003**).
 
 **Key decisions:** Independent product fixes as children (not a sibling “apply 036 findings” task). Docs that contradicted code were fixed here. Fixtures/security zero-issue reports accepted after independent re-check of 031 guards.
 
@@ -166,20 +186,24 @@ Eighteen merged IDs (M1–M18). Duplicates collapsed: core-runner Issue 1 + mtp 
 cd /home/steve/worktrees/github.com/TimeWarpEngineering/timewarp-jaribu/task-036-complete-detailed-code-review-of-timewarpjaribu
 git rev-parse HEAD
 ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/round-1/
+ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/round-2/
+ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/round-3/
 ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/disposition.md
-ganda kanban show 036-001
-ganda kanban show 036-002
-ganda kanban show 036-003
+ganda kanban show 036-001 --repo timewarp-jaribu
+ganda kanban show 036-002 --repo timewarp-jaribu
+ganda kanban show 036-003 --repo timewarp-jaribu
 rg -n "single-file-tests" readme.md
 rg -n "class-level tags" skills/tw-jaribu/SKILL.md
 ```
 
 **Expect**
 
-- Review dir contains `core-runner.md`, `fixtures.md`, `sinks.md`, `mtp.md`, `tests-infra.md`, `security.md`, `merged.md`
+- Round-1 dir contains `core-runner.md`, `fixtures.md`, `sinks.md`, `mtp.md`, `tests-infra.md`, `security.md`, `merged.md`
+- Round-2 and round-3 dirs contain `general.md` and `merged.md`
 - `review/review-framework.md` pins SHA `e5ef3209e54b6eb0102075e8593c37b9ce571b56`
-- `merged.md` has M1–M18, counts table (bug 5 open / suggestion 9 open 1 fixed / nit 2 open 1 fixed), child IDs in disposition notes
-- `disposition.md` outcome `children-filed`; 036-001/002/003 exist in `kanban/to-do/` on origin-home
+- `review/round-1/merged.md` has M1–M18, counts table (bug 5 open / suggestion 9 open 1 fixed / nit 2 open 1 fixed), child IDs in disposition notes
+- `review/round-3/merged.md` has M19 `fixed` and 0 open on the implementer delta
+- `disposition.md` outcome `children-filed` (product) + `clean` (review-oracle); `ganda kanban show 036-001 --repo timewarp-jaribu` (and 002/003) prints the origin-home to-do kitchens
 - `readme.md` cites `tests/timewarp-jaribu/single-file-tests/` (not `TimeWarp.Jaribu.Tests`)
 - Skill `--filter-tag` row mentions class-level omit
 

@@ -32,4 +32,14 @@ After all six reviewers finish, write `review/round-N/merged.md` with counts tab
 
 ## Disposition
 
-Exit bar: 0 `open` findings on this task *or* remaining opens filed as `--parent 036` children with IDs listed in `review/disposition.md`. Outcome is `clean` or `accepted-exceptions`.
+Exit bar: 0 `open` findings on this task *or* remaining opens filed as `--parent 036` children with IDs listed in `review/disposition.md`. Outcome is `clean` or `accepted-exceptions`. The kitchen also allows `children-filed` while those children remain open (parent stays in-progress).
+
+## Round 2 — review-oracle pass (effort 1)
+
+**Date:** 2026-09-04
+**Diff scope:** implementer delta on `task/036-complete-detailed-code-review-of-timewarpjaribu` (`7750866`) vs origin-home product tree — docs nits M15/M16, round-1 artifacts, children 036-001/002/003, disposition. Does **not** re-do the whole-repo Jaribu review.
+**Effort:** 1 (general only)
+**Reviewer roster:** general
+**Session IDs:** review oracle Grok `01a06b1c-f298-74a1-b630-3838a7323489`; general subagent `01a06b23-4d01-7493-b7f5-c8da5b135a79`
+
+Round-1 remains frozen. New work is `review/round-2/` (implementer delta) and `review/round-3/` (re-verify of M19 How to validate `--repo`).
