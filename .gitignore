@@ -430,3 +430,6 @@ tests/logs/
 
 # MemSearch local memory (config .memsearch.toml is tracked)
 .memsearch/
+
+# Routine journals beside kitchens (local; not product)
+*.journal.json
