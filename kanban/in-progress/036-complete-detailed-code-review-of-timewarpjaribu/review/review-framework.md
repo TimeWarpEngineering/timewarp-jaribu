@@ -1,16 +1,15 @@
 # Review framework — task 036
 
 **Date:** 2026-09-04
-**Host task:** `kanban/to-do/036-complete-detailed-code-review-of-timewarpjaribu/`
+**Host task:** `kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/`
 **Diff scope:** whole-repo review of origin-home `master` (not a PR delta)
-**Pinned SHA at kitchen create:** `2c06c70954be3137831392b4f88cf77770926a46`
+**Pinned SHA at kitchen create:** `2c06c70954be3137831392b4f88cf77770926a46` (`publish kanban 035`)
+**Pinned SHA actually reviewed:** `e5ef3209e54b6eb0102075e8593c37b9ce571b56` (`e5ef320 publish kanban 036`) — `git rev-parse origin/master` at round-1 start (2026-09-04). Product tree is still TimeWarp.Jaribu `1.0.0-beta.15`; origin-home moved only by publishing this kitchen.
 **Pinned version:** TimeWarp.Jaribu / TimeWarp.Jaribu.TestingPlatform `1.0.0-beta.15`
 **Plan / brief:** `task.md` — first whole-repo pass after MTP/sink + session-fixture work
 **Effort:** elevated — 6 area reviewers (not default effort-1)
 **Reviewer roster:** core-runner, fixtures, sinks, mtp, tests-infra, security
-**Session IDs:** kitchen created Grok `01a06a77-1631-7543-b181-07ddc524f9fe` / ganda claim 3400298; review-round sessions TBD
-
-**Re-pin before round 1:** if `origin/master` has moved, update **Pinned SHA** here and record the new `git rev-parse origin/master` / `git log -1 --oneline`.
+**Session IDs:** kitchen created Grok `01a06a77-1631-7543-b181-07ddc524f9fe` / ganda claim 3400298; implementer Grok session `01a06b00-2c05-75a0-8bc5-e69768bb0d5a` / ganda claim 3482281 (2026-09-04). Round-1 subagents: core-runner `01a06b08-ed75-7c83-babf-b1709b2433cf`, fixtures `01a06b08-ed78-7c41-938e-3000b2d9f6b2`, sinks `01a06b08-ed7b-7f90-ad74-4c2829075bb4`, mtp `01a06b08-ed7d-7671-bd18-1834cbf9dd2f`, tests-infra `01a06b08-ed80-7900-95d3-85f785f92e94`, security `01a06b08-ed83-7980-9c9d-4bc4a1de91b1`.
 
 ## Ground rules
 

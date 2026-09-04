@@ -67,18 +67,18 @@ Severity: `bug` · `suggestion` · `nit`. Status starts `open`. Prefer strongest
 
 - [x] Folder task created (`ganda kanban reserve` + `claim --repo timewarp-jaribu`)
 - [x] `review/review-framework.md` scaffolded with scope, roster, prior-art notes
-- [ ] Worker re-pins SHA at review start if `origin/master` moved
+- [x] Worker re-pins SHA at review start if `origin/master` moved (`e5ef3209e54b6eb0102075e8593c37b9ce571b56`, `publish kanban 036`)
 
 ### Round 1
 
-- [ ] Area reviewers write `review/round-1/<area>.md` (6 files)
-- [ ] Merge → `review/round-1/merged.md` (counts + stable `M#`)
+- [x] Area reviewers write `review/round-1/<area>.md` (6 files)
+- [x] Merge → `review/round-1/merged.md` (counts + stable `M#`)
 
 ### Disposition / follow-through
 
-- [ ] Child tasks for independent product fixes (`--parent 036`), or same-task nits committed here
-- [ ] `review/disposition.md`
-- [ ] `## Results` + `### How to validate`
+- [x] Child tasks for independent product fixes (`--parent 036`), or same-task nits committed here (`036-001` / `036-002` / `036-003`; M15/M16 docs on this branch)
+- [x] `review/disposition.md` (children-filed; parent stays in-progress)
+- [x] `## Results` + `### How to validate`
 - [ ] Do not `kanban done` from the implementer; host lifecycle / human gate
 
 ## Notes
@@ -113,3 +113,84 @@ ganda task work 036 --repo timewarp-jaribu --host herdr
 
 - Created: Grok cockpit `01a06a77-1631-7543-b181-07ddc524f9fe` (2026-09-04) — reserved/claimed 036, wrote inbound brief
 - Ganda claim: cramer@TWE-001 session 3400298 (2026-09-04)
+- Implementer: Grok session `01a06b00-2c05-75a0-8bc5-e69768bb0d5a` / ganda claim 3482281 (2026-09-04) — moved in-progress, re-pinned SHA, round-1 area reviewers, merged M1–M18, children 036-001/002/003 published, M15/M16 docs nits
+
+## Results
+
+Whole-repo review of TimeWarp.Jaribu at origin-home `e5ef3209e54b6eb0102075e8593c37b9ce571b56` (`publish kanban 036`; package still `1.0.0-beta.15`). Kitchen SHA at create (`2c06c70`) was re-pinned before round 1; origin had moved only by publishing this kitchen.
+
+**Rounds:** 1 (no round-2; product bugs went to children, not a same-branch fix delta).
+
+**Roster / effort:** elevated — six area specialists, not default effort-1.
+
+| File | Area |
+|------|------|
+| `review/round-1/core-runner.md` | TestRunner discovery/execution, skip/timeout/tags/`[Input]`, multi-class registration |
+| `review/round-1/fixtures.md` | Session/class fixtures, SetupOnce, dispose, generation (zero issues; 031 still present) |
+| `review/round-1/sinks.md` | Terminal/Null/ITestResultSink, tabular output, exit-code folding |
+| `review/round-1/mtp.md` | JaribuTestFramework, MtpSink, MSBuild hook, discovery vs run, `--filter-*` |
+| `review/round-1/tests-infra.md` | CI inclusion, MTP validation, packaging, dual-mode drift |
+| `review/round-1/security.md` | Timeout abandonment, fixture leak, untrusted filter/CLI, process isolation (zero issues) |
+
+**Counts (live ledger `review/round-1/merged.md`):**
+
+| Severity | open | fixed | wontfix |
+|----------|------|-------|---------|
+| bug | 5 | 0 | 0 |
+| suggestion | 9 | 1 | 0 |
+| nit | 2 | 1 | 0 |
+
+Eighteen merged IDs (M1–M18). Duplicates collapsed: core-runner Issue 1 + mtp Issue 1 → **M1**. **031** items were re-checked and not re-opened. Timeout abandonment remains the documented caveat.
+
+**Disposition:** `children-filed` (`review/disposition.md`). Parent stays in-progress until children land. Not `clean` (16 opens remain). No `wontfix`.
+
+| Child | Findings | Published |
+|-------|----------|-----------|
+| **036-001** | M1, M10, M11 — `[Input]` Uid + MTP discovery expansion | origin-home `kanban/to-do/` |
+| **036-002** | M2, M3, M6–M9, M17 — dispose/CleanUp folding + runner/sink follow-ups | origin-home `kanban/to-do/` |
+| **036-003** | M4, M5, M12–M14, M18 — CI/MTP dual-mode inclusion | origin-home `kanban/to-do/` |
+
+**Same-branch nits:** M15 (`readme.md` test paths + Building-from-Source → `./bin/dev test`), M16 (`skills/tw-jaribu/SKILL.md` filter table class-omit vs method-Skipped).
+
+**Files changed (this branch):** review artifacts under `kanban/in-progress/036-…/review/`; `readme.md`; `skills/tw-jaribu/SKILL.md`; this `task.md`.
+
+**Test outcomes:** `dotnet run tools/dev-cli/dev.cs -- test` — **50 passed** (tag-filtering 9, setup-once 15, session-fixture 16, tabular-output 5, structured-results 5). Multi-class registration is compiled into ci-runner but not executed (M4 / **036-003**).
+
+**Key decisions:** Independent product fixes as children (not a sibling “apply 036 findings” task). Docs that contradicted code were fixed here. Fixtures/security zero-issue reports accepted after independent re-check of 031 guards.
+
+### How to validate
+
+**Smoke**
+
+```bash
+cd /home/steve/worktrees/github.com/TimeWarpEngineering/timewarp-jaribu/task-036-complete-detailed-code-review-of-timewarpjaribu
+git rev-parse HEAD
+ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/round-1/
+ls kanban/in-progress/036-complete-detailed-code-review-of-timewarpjaribu/review/disposition.md
+ganda kanban show 036-001
+ganda kanban show 036-002
+ganda kanban show 036-003
+rg -n "single-file-tests" readme.md
+rg -n "class-level tags" skills/tw-jaribu/SKILL.md
+```
+
+**Expect**
+
+- Review dir contains `core-runner.md`, `fixtures.md`, `sinks.md`, `mtp.md`, `tests-infra.md`, `security.md`, `merged.md`
+- `review/review-framework.md` pins SHA `e5ef3209e54b6eb0102075e8593c37b9ce571b56`
+- `merged.md` has M1–M18, counts table (bug 5 open / suggestion 9 open 1 fixed / nit 2 open 1 fixed), child IDs in disposition notes
+- `disposition.md` outcome `children-filed`; 036-001/002/003 exist in `kanban/to-do/` on origin-home
+- `readme.md` cites `tests/timewarp-jaribu/single-file-tests/` (not `TimeWarp.Jaribu.Tests`)
+- Skill `--filter-tag` row mentions class-level omit
+
+**Automated gate**
+
+```bash
+dotnet run tools/dev-cli/dev.cs -- test
+# expect: CI-safe ci-runner suite passes (50 passed / 0 failed in this session)
+# equivalent: ./bin/dev test after self-install
+```
+
+**Depends on:** .NET 10 SDK; run from the 036 worktree.
+
+**Not in scope:** `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exiting 0 (M5 / **036-003**); parameterized MTP discovery/run count match (M1 / **036-001**).
