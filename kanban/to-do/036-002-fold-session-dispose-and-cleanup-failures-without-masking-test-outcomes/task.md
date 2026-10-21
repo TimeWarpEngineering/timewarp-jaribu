@@ -71,6 +71,13 @@ Smoke: `./bin/dev test`
 
 Expect: exit 0. Grand total 71 passed, including `CleanupOutcome_Given_` (4), `RunnerGuards_Given_` (3), and the four session-of-one dispose tests on `SessionFixture_Given_`.
 
+### Review
+
+- Round 1 (effort 3, roster: general): 1 bug and 3 nits are open, so a fix pass is needed. No disposition yet.
+- M1 (bug): under MTP, `MtpSink` drops `TestNodeInfo.Message`, so a throwing CleanUp after a failing body is not surfaced (M3 contract). M2–M4 are nits.
+- `./bin/dev test` re-run by the reviewer: exit 0, 71 passed.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`
+
 ## Notes
 
 - Parent: **036** `review/round-1/merged.md` M2, M3, M6, M7, M8, M9, M17
@@ -86,3 +93,5 @@ Acceptance: meta-tests cover both required bugs; the suggestion items above are 
 
 - Created: 3518080 (2026-09-04) — child of 036
 - Implementation: task-work implementer (2026-10-21) — M2, M3, M6–M9, M17
+- Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-21T02:35:42Z
+- Review oracle round 1: general reviewer (claude, model claude-opus-5-5), effort 3, session not reported. Result: fix pass needed for M1–M4 — 2026-10-21
