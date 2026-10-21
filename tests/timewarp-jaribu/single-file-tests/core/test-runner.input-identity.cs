@@ -8,6 +8,8 @@
 #region Design
 // Fixtures are not registered. The meta-tests drive them through DiscoverTestCases and RunTestsAsync
 // so a failing row is an expected result, not a suite failure.
+// A bad once-hook fails the same nodes discovery lists, including one node for a skipped
+// or tag-mismatched method that also has [Input] rows.
 #endregion
 
 #if !JARIBU_MULTI
@@ -84,6 +86,57 @@ namespace TestRunner_
       sink.Results[0].State.ShouldBe(TestNodeState.Failed);
       sink.Results[1].State.ShouldBe(TestNodeState.Failed);
       sink.Results[0].Uid.ShouldNotBe(sink.Results[1].Uid);
+    }
+
+    public static async Task BadHook_Should_MatchDiscoveryForSkippedAndTaggedInputs()
+    {
+      const string filterTag = "Wanted";
+      Type fixture = typeof(BadHookSkippedInputsFixture);
+      List<string> discovered =
+      [
+        .. TestRunner.DiscoverTestCases(fixture, filterTag).Select(testCase => testCase.Uid)
+      ];
+
+      CollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync(fixture, sink, filterTag);
+      List<string> ran = [.. sink.Results.Select(result => result.Uid)];
+
+      ran.ShouldBe(discovered);
+      stats.FailedCount.ShouldBe(discovered.Count);
+      stats.PassedCount.ShouldBe(0);
+      stats.SkippedCount.ShouldBe(0);
+
+      string prefix = $"{fixture.FullName}.";
+      string skippedUid = $"{prefix}Skipped";
+      string taggedUid = $"{prefix}Tagged";
+      discovered.ShouldBe(
+      [
+        skippedUid,
+        taggedUid,
+        $"{prefix}Live[0]",
+        $"{prefix}Live[1]"
+      ]);
+      sink.Results.Single(result => result.Uid == skippedUid).State.ShouldBe(TestNodeState.Failed);
+      sink.Results.Single(result => result.Uid == taggedUid).State.ShouldBe(TestNodeState.Failed);
+
+      CollectingSink selected = new();
+      TestRunStats selectedStats = await TestRunner.RunTestsAsync(
+        fixture,
+        selected,
+        filterTag,
+        casePredicate: testCase => testCase.Uid == skippedUid);
+      selectedStats.TotalTests.ShouldBe(1);
+      selectedStats.FailedCount.ShouldBe(1);
+      selected.Results.Single().Uid.ShouldBe(skippedUid);
+
+      CollectingSink expanded = new();
+      TestRunStats expandedStats = await TestRunner.RunTestsAsync(
+        fixture,
+        expanded,
+        filterTag,
+        casePredicate: testCase => testCase.Uid == $"{skippedUid}[0]");
+      expandedStats.TotalTests.ShouldBe(0);
+      expanded.Results.ShouldBeEmpty();
     }
 
     /// <summary>Collects completed nodes. Local so this file runs on its own.</summary>
@@ -169,6 +222,41 @@ namespace TestRunner_
       [Input(1)]
       [Input(2)]
       public static async Task Case(int value)
+      {
+        _ = value;
+        await Task.CompletedTask;
+      }
+    }
+
+    private sealed class BadHookSkippedInputsFixture
+    {
+      public static Task SetupOnce(int unused)
+      {
+        _ = unused;
+        return Task.CompletedTask;
+      }
+
+      [Skip("one node")]
+      [Input("a")]
+      [Input("b")]
+      public static async Task Skipped(string value)
+      {
+        _ = value;
+        await Task.CompletedTask;
+      }
+
+      [TestTag("Other")]
+      [Input("a")]
+      [Input("b")]
+      public static async Task Tagged(string value)
+      {
+        _ = value;
+        await Task.CompletedTask;
+      }
+
+      [Input(1)]
+      [Input(2)]
+      public static async Task Live(int value)
       {
         _ = value;
         await Task.CompletedTask;

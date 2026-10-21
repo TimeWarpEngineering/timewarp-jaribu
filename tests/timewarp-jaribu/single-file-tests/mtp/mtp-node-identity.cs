@@ -59,6 +59,8 @@ namespace Mtp_
       TestMethodIdentifierProperty startedId = started.Properties.Single<TestMethodIdentifierProperty>();
       startedId.MethodName.ShouldBe(nameof(Probe.Sample));
       startedId.ParameterTypeFullNames.ShouldBe(["System.String"]);
+      startedId.Namespace.ShouldBe("Mtp_");
+      startedId.TypeName.ShouldBe("NodeIdentity_Given_+Probe");
       TestMetadataProperty startedParameter = started.Properties.OfType<TestMetadataProperty>().Single();
       startedParameter.Key.ShouldBe("jaribu.parameter.0");
       startedParameter.Value.ShouldBe("fail");
@@ -68,9 +70,16 @@ namespace Mtp_
       completed.Properties.OfType<TestMetadataProperty>().Single().Value.ShouldBe("fail");
 
       TestFileLocationProperty? location = started.Properties.SingleOrDefault<TestFileLocationProperty>();
-      if (location is not null)
+      // IL3000: single-file hosts report an empty Location, and the check then treats the PDB as absent.
+#pragma warning disable IL3000
+      string? assemblyPath = method.Module.Assembly.Location;
+#pragma warning restore IL3000
+      bool pdbExists = !string.IsNullOrEmpty(assemblyPath) &&
+        File.Exists(Path.ChangeExtension(assemblyPath, ".pdb"));
+      if (pdbExists)
       {
-        location.FilePath.ShouldContain("mtp-node-identity.cs");
+        TestFileLocationProperty present = location.ShouldNotBeNull();
+        present.FilePath.ShouldContain("mtp-node-identity.cs");
       }
     }
 

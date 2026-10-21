@@ -149,7 +149,7 @@ internal sealed class MtpSink : ITestResultSink
       ?? method.Module.Assembly.FullName
       ?? string.Empty;
     string namespaceName = declaringType?.Namespace ?? string.Empty;
-    string typeName = declaringType?.FullName ?? declaringType?.Name ?? string.Empty;
+    string typeName = declaringType is null ? string.Empty : MetadataTypeName(declaringType);
     ParameterInfo[] parameters = method.GetParameters();
     string[] parameterTypeFullNames = new string[parameters.Length];
     for (int index = 0; index < parameters.Length; index++)
@@ -167,6 +167,27 @@ internal sealed class MtpSink : ITestResultSink
       method.GetGenericArguments().Length,
       parameterTypeFullNames,
       returnTypeFullName);
+  }
+
+  /// <summary>
+  /// Metadata type name without the namespace. Nested types keep <c>+</c>. Generic arity keeps the backtick.
+  /// </summary>
+  private static string MetadataTypeName(Type type)
+  {
+    string fullName = type.FullName ?? type.Name;
+    string namespaceName = type.Namespace ?? string.Empty;
+    if (namespaceName.Length == 0)
+    {
+      return fullName;
+    }
+
+    string prefix = string.Concat(namespaceName, ".");
+    if (fullName.StartsWith(prefix, StringComparison.Ordinal))
+    {
+      return fullName[prefix.Length..];
+    }
+
+    return fullName;
   }
 
   private static string FormatParameter(object? value)

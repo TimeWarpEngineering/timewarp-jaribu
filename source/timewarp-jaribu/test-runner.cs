@@ -34,9 +34,10 @@ using TimeWarp.Terminal;
 // [Input] identity:
 //   Each row is its own node. TestCaseIdentity assigns {FullName}.{Method}[ordinal]
 //   from metadata order. Discovery (DiscoverTestCases) and the run path share that
-//   list, except [Skip] and method-level tag misses, which stay one method-level node.
-//   Direct RunSingleTestAsync calls pass the same ordinal so the completed node id
-//   matches the in-progress node.
+//   list. [Skip] and method-level tag misses stay one method-level node.
+//   A bad once-hook signature fails that same reported list, so it does not expand
+//   a skipped or tag-mismatched method. Direct RunSingleTestAsync calls pass the
+//   same ordinal so the completed node id matches the in-progress node.
 //
 // Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
 //   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
@@ -470,14 +471,12 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Expands <see cref="InputAttribute"/> rows, then keeps only cases the predicate accepts.
+  /// Keeps the cases the predicate accepts. A null predicate keeps every case.
   /// </summary>
-  private static List<ReportedTestCase> SelectInputCases(
-    Type testClass,
-    MethodInfo method,
+  private static List<ReportedTestCase> SelectCases(
+    IReadOnlyList<ReportedTestCase> cases,
     Func<ReportedTestCase, bool>? casePredicate)
   {
-    IReadOnlyList<ReportedTestCase> cases = TestCaseIdentity.ExpandInputs(testClass, method);
     if (casePredicate is null)
     {
       return [.. cases];
@@ -645,10 +644,12 @@ public static class TestRunner
 
       if (resolutionError is not null)
       {
-        // Bad once-hook signature: fail the class without invoking CleanUpOnce.
+        // Bad once-hook signature: fail the nodes discovery lists, without invoking CleanUpOnce.
         foreach (MethodInfo method in testMethods)
         {
-          List<ReportedTestCase> cases = SelectInputCases(testClass, method, casePredicate);
+          List<ReportedTestCase> cases = SelectCases(
+            TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
+            casePredicate);
           await ReportCasesFailedDueToHookAsync(cases, resolutionError, sink, results);
         }
       }
@@ -790,7 +791,9 @@ public static class TestRunner
       return results;
     }
 
-    List<ReportedTestCase> cases = SelectInputCases(testClass, method, casePredicate);
+    List<ReportedTestCase> cases = SelectCases(
+      TestCaseIdentity.ExpandInputs(testClass, method),
+      casePredicate);
     if (cases.Count == 0)
     {
       return results;

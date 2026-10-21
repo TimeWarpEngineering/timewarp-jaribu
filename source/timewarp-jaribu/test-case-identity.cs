@@ -12,9 +12,10 @@ using System.Reflection;
 // A method with no [Input] keeps {Type.FullName}.{Method}. Each row is
 // {Type.FullName}.{Method}[ordinal], so two rows with the same arguments stay distinct
 // and the id does not depend on culture-sensitive formatting.
-// [Skip] and a method-level tag miss stay one method-level node: the run path reports
-// them before it expands rows. Hook-failure fan-out uses ExpandInputs, which always
-// expands rows, because that path runs only after those short-circuits.
+// [Skip] and a method-level tag miss stay one method-level node.
+// EnumerateReportedCases is that list for discovery, the skip and tag short-circuits,
+// and bad once-hook fan-out. ExpandInputs is only the rows that actually execute,
+// after those short-circuits.
 #endregion
 
 /// <summary>
