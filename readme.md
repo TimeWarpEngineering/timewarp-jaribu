@@ -351,7 +351,7 @@ public enum TestNodeState
 
 // Individual test result
 public record TestNodeInfo(
-    string Uid,                          // "Namespace.Class.Method"
+    string Uid,                          // "Namespace.Class.Method" or "Namespace.Class.Method[0]" per [Input]
     string DisplayName,                  // "MethodName" or "MethodName(param1, param2)"
     TestNodeState State,
     TimeSpan? Duration = null,

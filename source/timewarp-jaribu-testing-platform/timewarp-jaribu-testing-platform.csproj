@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="run-ci-tests" />
+    <InternalsVisibleTo Include="mtp-node-identity" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Testing.Platform" />
     <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
     <ProjectReference Include="../timewarp-jaribu/timewarp-jaribu.csproj" />

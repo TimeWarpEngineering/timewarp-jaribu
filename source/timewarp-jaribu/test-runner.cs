@@ -31,6 +31,13 @@ using TimeWarp.Terminal;
 //   around the class loop only if SetupOnce was invoked. RunSingleTestAsync does not
 //   participate in class hooks.
 //
+// [Input] identity:
+//   Each row is its own node. TestCaseIdentity assigns {FullName}.{Method}[ordinal]
+//   from metadata order. Discovery (DiscoverTestCases) and the run path share that
+//   list, except [Skip] and method-level tag misses, which stay one method-level node.
+//   Direct RunSingleTestAsync calls pass the same ordinal so the completed node id
+//   matches the in-progress node.
+//
 // Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
 //   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
 //   active session; disposed when the outermost session ends. Nesting:
@@ -148,6 +155,20 @@ public static class TestRunner
   }
 
   /// <summary>
+  /// Lists every reported node for the class, expanding <see cref="InputAttribute"/> rows
+  /// the same way a normal run does.
+  /// </summary>
+  /// <param name="testClass">The test class type to discover tests from.</param>
+  /// <param name="filterTag">
+  /// Optional tag filter. A method whose own tags exist and none match contributes one node.
+  /// </param>
+  /// <returns>Reported cases in discovery order.</returns>
+  public static IEnumerable<ReportedTestCase> DiscoverTestCases(Type testClass, string? filterTag = null)
+  {
+    return TestCaseIdentity.DiscoverTestCases(testClass, filterTag);
+  }
+
+  /// <summary>
   /// Runs a single test method and returns TestNodeInfo.
   /// Handles per-test Setup, test execution, CleanUp, timeout, skip, and exceptions.
   /// Does not invoke class-scoped SetupOnce/CleanUpOnce; those run only through
@@ -156,35 +177,49 @@ public static class TestRunner
   /// <param name="testClass">The test class containing the method.</param>
   /// <param name="method">The test method to run.</param>
   /// <param name="parameters">Optional parameters for parameterized tests.</param>
+  /// <param name="inputOrdinal">
+  /// Metadata ordinal of the <see cref="InputAttribute"/> row. When set, the node id matches discovery.
+  /// </param>
   /// <returns>A TestNodeInfo with the test outcome.</returns>
-  public static async Task<TestNodeInfo> RunSingleTestAsync(Type testClass, MethodInfo method, object?[]? parameters = null)
+  public static async Task<TestNodeInfo> RunSingleTestAsync(
+    Type testClass,
+    MethodInfo method,
+    object?[]? parameters = null,
+    int? inputOrdinal = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
     parameters ??= [];
 
-    string testNodeUid = $"{testClass.FullName}.{method.Name}";
-    string displayName = parameters.Length > 0
-      ? $"{method.Name}({string.Join(", ", parameters.Select(p => p?.ToString() ?? "null"))})"
-      : method.Name;
+    string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
+    string displayName = TestCaseIdentity.FormatDisplayName(method.Name, parameters);
 
     Stopwatch stopwatch = Stopwatch.StartNew();
+
+    TestNodeInfo Complete(
+      TestNodeState state,
+      TimeSpan? duration,
+      Exception? exception,
+      string? message)
+    {
+      return new TestNodeInfo(
+        testNodeUid,
+        displayName,
+        state,
+        duration,
+        exception,
+        message,
+        parameters.Length > 0 ? parameters.ToList() : null,
+        method);
+    }
 
     // Check for [Skip] attribute
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
     {
       stopwatch.Stop();
-      return new TestNodeInfo(
-        testNodeUid,
-        displayName,
-        TestNodeState.Skipped,
-        stopwatch.Elapsed,
-        Exception: null,
-        Message: skipAttr.Reason,
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
+      return Complete(TestNodeState.Skipped, stopwatch.Elapsed, exception: null, skipAttr.Reason);
     }
 
     try
@@ -206,15 +241,11 @@ public static class TestRunner
             if (completedTask == timeoutTask)
             {
               stopwatch.Stop();
-              return new TestNodeInfo(
-                testNodeUid,
-                displayName,
+              return Complete(
                 TestNodeState.Timeout,
                 stopwatch.Elapsed,
-                Exception: new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
-                Message: $"Timeout after {timeoutAttr.Milliseconds}ms",
-                parameters.Length > 0 ? parameters.ToList() : null
-              );
+                new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
+                $"Timeout after {timeoutAttr.Milliseconds}ms");
             }
 
             await testTask; // Propagate any exceptions
@@ -226,15 +257,7 @@ public static class TestRunner
         }
 
         stopwatch.Stop();
-        return new TestNodeInfo(
-          testNodeUid,
-          displayName,
-          TestNodeState.Passed,
-          stopwatch.Elapsed,
-          Exception: null,
-          Message: null,
-          parameters.Length > 0 ? parameters.ToList() : null
-        );
+        return Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
       }
       finally
       {
@@ -245,28 +268,20 @@ public static class TestRunner
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
       stopwatch.Stop();
-      return new TestNodeInfo(
-        testNodeUid,
-        displayName,
+      return Complete(
         TestNodeState.Failed,
         stopwatch.Elapsed,
-        Exception: ex.InnerException,
-        Message: $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}",
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
+        ex.InnerException,
+        $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
     }
     catch (Exception ex)
     {
       stopwatch.Stop();
-      return new TestNodeInfo(
-        testNodeUid,
-        displayName,
+      return Complete(
         TestNodeState.Error,
         stopwatch.Elapsed,
-        Exception: ex,
-        Message: $"{ex.GetType().Name}: {ex.Message}",
-        parameters.Length > 0 ? parameters.ToList() : null
-      );
+        ex,
+        $"{ex.GetType().Name}: {ex.Message}");
     }
   }
 
@@ -428,55 +443,47 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Reports every Input (or single node) for a method as Failed due to a class hook error.
+  /// Reports every selected case for a method as Failed due to a class hook error.
   /// </summary>
-  private static async Task ReportMethodFailedDueToHookAsync(
-    Type testClass,
-    MethodInfo method,
+  private static async Task ReportCasesFailedDueToHookAsync(
+    IReadOnlyList<ReportedTestCase> cases,
     Exception hookException,
     ITestResultSink sink,
     List<TestNodeInfo> results)
   {
-    string testNodeUid = $"{testClass.FullName}.{method.Name}";
     string message = $"{hookException.GetType().Name}: {hookException.Message}";
-    InputAttribute[] inputAttrs = method.GetCustomAttributes<InputAttribute>().ToArray();
-
-    if (inputAttrs.Length > 0)
-    {
-      foreach (InputAttribute inputAttr in inputAttrs)
-      {
-        string displayName = inputAttr.Parameters.Length > 0
-          ? $"{method.Name}({string.Join(", ", inputAttr.Parameters.Select(p => p?.ToString() ?? "null"))})"
-          : method.Name;
-        TestNodeInfo failedNode = new(
-          testNodeUid,
-          displayName,
-          TestNodeState.Failed,
-          TimeSpan.Zero,
-          Exception: hookException,
-          Message: message,
-          Parameters: inputAttr.Parameters.Length > 0 ? inputAttr.Parameters.ToList() : null
-        );
-        await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
-        await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
-        results.Add(failedNode);
-      }
-    }
-    else
+    foreach (ReportedTestCase testCase in cases)
     {
       TestNodeInfo failedNode = new(
-        testNodeUid,
-        method.Name,
+        testCase.Uid,
+        testCase.DisplayName,
         TestNodeState.Failed,
         TimeSpan.Zero,
         Exception: hookException,
         Message: message,
-        Parameters: null
-      );
+        Parameters: testCase.Parameters,
+        Method: testCase.Method);
       await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
       await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
       results.Add(failedNode);
     }
+  }
+
+  /// <summary>
+  /// Expands <see cref="InputAttribute"/> rows, then keeps only cases the predicate accepts.
+  /// </summary>
+  private static List<ReportedTestCase> SelectInputCases(
+    Type testClass,
+    MethodInfo method,
+    Func<ReportedTestCase, bool>? casePredicate)
+  {
+    IReadOnlyList<ReportedTestCase> cases = TestCaseIdentity.ExpandInputs(testClass, method);
+    if (casePredicate is null)
+    {
+      return [.. cases];
+    }
+
+    return [.. cases.Where(casePredicate)];
   }
 
   /// <summary>
@@ -491,6 +498,7 @@ public static class TestRunner
   {
     string uid = $"{testClass.FullName}.{hookName}";
     string message = $"{exception.GetType().Name}: {exception.Message}";
+    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
     TestNodeInfo failedNode = new(
       uid,
       hookName,
@@ -498,7 +506,8 @@ public static class TestRunner
       TimeSpan.Zero,
       Exception: exception,
       Message: message,
-      Parameters: null
+      Parameters: null,
+      Method: hook
     );
     await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
     await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
@@ -517,15 +526,19 @@ public static class TestRunner
   /// <param name="methodPredicate">
   /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
   /// </param>
+  /// <param name="casePredicate">
+  /// Optional per-node predicate. A method is omitted when none of its reported cases match.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync<T>(
     ITestResultSink sink,
     string? filterTag = null,
     string? methodNameContains = null,
-    Func<MethodInfo, bool>? methodPredicate = null) where T : class
+    Func<MethodInfo, bool>? methodPredicate = null,
+    Func<ReportedTestCase, bool>? casePredicate = null) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(typeof(T), sink, filterTag, methodNameContains, methodPredicate);
+    return RunTestsAsyncCore(typeof(T), sink, filterTag, methodNameContains, methodPredicate, casePredicate);
   }
 
   /// <summary>
@@ -540,17 +553,21 @@ public static class TestRunner
   /// <param name="methodPredicate">
   /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
   /// </param>
+  /// <param name="casePredicate">
+  /// Optional per-node predicate. A method is omitted when none of its reported cases match.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync(
     Type testClass,
     ITestResultSink sink,
     string? filterTag = null,
     string? methodNameContains = null,
-    Func<MethodInfo, bool>? methodPredicate = null)
+    Func<MethodInfo, bool>? methodPredicate = null,
+    Func<ReportedTestCase, bool>? casePredicate = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(testClass, sink, filterTag, methodNameContains, methodPredicate);
+    return RunTestsAsyncCore(testClass, sink, filterTag, methodNameContains, methodPredicate, casePredicate);
   }
 
   /// <summary>
@@ -562,7 +579,8 @@ public static class TestRunner
     ITestResultSink sink,
     string? filterTag = null,
     string? methodNameContains = null,
-    Func<MethodInfo, bool>? methodPredicate = null)
+    Func<MethodInfo, bool>? methodPredicate = null,
+    Func<ReportedTestCase, bool>? casePredicate = null)
   {
     bool ownsSession = false;
     if (!SessionFixture.IsSessionActive)
@@ -630,7 +648,8 @@ public static class TestRunner
         // Bad once-hook signature: fail the class without invoking CleanUpOnce.
         foreach (MethodInfo method in testMethods)
         {
-          await ReportMethodFailedDueToHookAsync(testClass, method, resolutionError, sink, results);
+          List<ReportedTestCase> cases = SelectInputCases(testClass, method, casePredicate);
+          await ReportCasesFailedDueToHookAsync(cases, resolutionError, sink, results);
         }
       }
       else
@@ -645,7 +664,13 @@ public static class TestRunner
         {
           foreach (MethodInfo method in testMethods)
           {
-            List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(testClass, method, sink, filterTag, onceState);
+            List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(
+              testClass,
+              method,
+              sink,
+              filterTag,
+              onceState,
+              casePredicate);
             results.AddRange(methodResults);
           }
         }
@@ -704,7 +729,8 @@ public static class TestRunner
     MethodInfo method,
     ITestResultSink sink,
     string? filterTag,
-    ClassOnceState onceState)
+    ClassOnceState onceState,
+    Func<ReportedTestCase, bool>? casePredicate)
   {
     List<TestNodeInfo> results = [];
 
@@ -714,16 +740,22 @@ public static class TestRunner
       TestTagAttribute[] methodTags = method.GetCustomAttributes<TestTagAttribute>().ToArray();
       if (methodTags.Length > 0 && !methodTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
       {
-        // Method has tags but none match - report as skipped
-        string testNodeUid = $"{testClass.FullName}.{method.Name}";
+        // Method has tags but none match - report as skipped (one method-level node).
+        ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
+        if (casePredicate is not null && !casePredicate(skipCase))
+        {
+          return results;
+        }
+
         TestNodeInfo skipNode = new(
-          testNodeUid,
-          method.Name,
+          skipCase.Uid,
+          skipCase.DisplayName,
           TestNodeState.Skipped,
           TimeSpan.Zero,
           Exception: null,
           Message: $"No matching tag '{filterTag}'",
-          Parameters: null
+          Parameters: null,
+          Method: method
         );
         await sink.OnTestStartedAsync(skipNode);
         await sink.OnTestCompletedAsync(skipNode);
@@ -736,15 +768,21 @@ public static class TestRunner
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
     {
-      string testNodeUid = $"{testClass.FullName}.{method.Name}";
+      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
+      if (casePredicate is not null && !casePredicate(skipCase))
+      {
+        return results;
+      }
+
       TestNodeInfo skipNode = new(
-        testNodeUid,
-        method.Name,
+        skipCase.Uid,
+        skipCase.DisplayName,
         TestNodeState.Skipped,
         TimeSpan.Zero,
         Exception: null,
         Message: skipAttr.Reason,
-        Parameters: null
+        Parameters: null,
+        Method: method
       );
       await sink.OnTestStartedAsync(skipNode);
       await sink.OnTestCompletedAsync(skipNode);
@@ -752,58 +790,36 @@ public static class TestRunner
       return results;
     }
 
+    List<ReportedTestCase> cases = SelectInputCases(testClass, method, casePredicate);
+    if (cases.Count == 0)
+    {
+      return results;
+    }
+
     // Lazy class-scoped SetupOnce immediately before first real execution path
     await EnsureSetupOnceAsync(onceState);
     if (onceState.SetupOnceFailure is not null)
     {
-      await ReportMethodFailedDueToHookAsync(testClass, method, onceState.SetupOnceFailure, sink, results);
+      await ReportCasesFailedDueToHookAsync(cases, onceState.SetupOnceFailure, sink, results);
       return results;
     }
 
-    // Check for [Input] attributes for parameterized tests
-    InputAttribute[] inputAttrs = method.GetCustomAttributes<InputAttribute>().ToArray();
-
-    if (inputAttrs.Length > 0)
+    foreach (ReportedTestCase testCase in cases)
     {
-      // Run test once for each [Input]
-      foreach (InputAttribute inputAttr in inputAttrs)
-      {
-        // Create in-progress node
-        string testNodeUid = $"{testClass.FullName}.{method.Name}";
-        string displayName = inputAttr.Parameters.Length > 0
-          ? $"{method.Name}({string.Join(", ", inputAttr.Parameters.Select(p => p?.ToString() ?? "null"))})"
-          : method.Name;
-        TestNodeInfo inProgressNode = new(
-          testNodeUid,
-          displayName,
-          TestNodeState.InProgress,
-          Parameters: inputAttr.Parameters.Length > 0 ? inputAttr.Parameters.ToList() : null
-        );
-
-        await sink.OnTestStartedAsync(inProgressNode);
-
-        // Run the test
-        TestNodeInfo result = await RunSingleTestAsync(testClass, method, inputAttr.Parameters);
-
-        await sink.OnTestCompletedAsync(result);
-        results.Add(result);
-      }
-    }
-    else
-    {
-      // No [Input] attributes - run once with no parameters
-      string testNodeUid = $"{testClass.FullName}.{method.Name}";
       TestNodeInfo inProgressNode = new(
-        testNodeUid,
-        method.Name,
+        testCase.Uid,
+        testCase.DisplayName,
         TestNodeState.InProgress,
-        Parameters: null
-      );
+        Parameters: testCase.Parameters,
+        Method: method);
 
       await sink.OnTestStartedAsync(inProgressNode);
 
-      // Run the test
-      TestNodeInfo result = await RunSingleTestAsync(testClass, method, []);
+      TestNodeInfo result = await RunSingleTestAsync(
+        testClass,
+        method,
+        testCase.ToParameterArray(),
+        testCase.InputOrdinal);
 
       await sink.OnTestCompletedAsync(result);
       results.Add(result);
