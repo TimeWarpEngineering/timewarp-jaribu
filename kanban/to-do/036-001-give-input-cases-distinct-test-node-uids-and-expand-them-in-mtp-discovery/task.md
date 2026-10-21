@@ -51,8 +51,7 @@ This child lands **M1** (bug) and the related MTP node-identity suggestions **M1
 
 - Round 1: Blocked — open M1, M2, M3, M4, M5
 - Fix pass: M1–M5 implemented.
-- Round 2: all five verified fixed, no new findings. Disposition `clean`.
-
+- Round 2: Done
 ## Notes
 
 - Parent: **036** `review/round-1/merged.md` M1, M10, M11
