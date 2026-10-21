@@ -79,8 +79,7 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 
 - Round 1: Blocked — open M1, M2
 - Fix pass: M1 and M2 implemented on this branch. Round 2 reviews the diff.
-- Round 2: M1 and M2 fixed, no new findings. Disposition `clean`.
-
+- Round 2: Done
 ## Notes
 
 - Parent: **036** `review/round-1/merged.md` M4, M5, M12, M13, M14, M18
