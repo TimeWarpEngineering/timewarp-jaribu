@@ -27,5 +27,6 @@
     "statusBar.debuggingBackground": "#5a7622",
     "statusBar.debuggingForeground": "#e7e7e7"
   },
-  "window.title": "timewarp-jaribu · ${rootName}${separator}${activeEditorShort}"
+  "window.title": "timewarp-jaribu · ${rootName}${separator}${activeEditorShort}",
+  "peacock.color": "#5A7622"
 }

@@ -8,41 +8,59 @@ using TimeWarp.Terminal;
 /// </summary>
 public sealed class TerminalSink : ITestResultSink, IDisposable
 {
+  private const int MinimumMessageWidth = 3;
+
   private readonly ITerminal Terminal;
   private readonly int MaxMessageWidth;
+  private readonly bool OwnsTerminal;
   private bool IsDisposed;
 
   /// <summary>
-  /// Creates a new TerminalSink with the specified terminal and message width.
+  /// Creates a TerminalSink that writes to a caller-owned terminal.
+  /// Disposing the sink does not dispose <paramref name="terminal"/>.
   /// </summary>
-  /// <param name="terminal">The terminal to write output to.</param>
-  /// <param name="maxMessageWidth">Maximum width for message column before truncation. Default 50.</param>
+  /// <param name="terminal">The terminal to write output to. The caller retains ownership.</param>
+  /// <param name="maxMessageWidth">
+  /// Maximum width for the message column before truncation. Values below 3 are raised to 3
+  /// so the ellipsis fits.
+  /// </param>
   public TerminalSink(ITerminal terminal, int maxMessageWidth = 50)
+    : this(terminal, ownsTerminal: false, maxMessageWidth)
   {
-    ArgumentNullException.ThrowIfNull(terminal);
-    Terminal = terminal;
-    MaxMessageWidth = maxMessageWidth;
   }
 
   /// <summary>
-  /// Creates a new TerminalSink using the default TimeWarpTerminal.
+  /// Creates a TerminalSink that owns a new <see cref="TimeWarpTerminal"/> and disposes it.
   /// </summary>
-  public TerminalSink() : this(new TimeWarpTerminal()) { }
+  public TerminalSink()
+    : this(new TimeWarpTerminal(), ownsTerminal: true, maxMessageWidth: 50)
+  {
+  }
+
+  private TerminalSink(ITerminal terminal, bool ownsTerminal, int maxMessageWidth)
+  {
+    ArgumentNullException.ThrowIfNull(terminal);
+    Terminal = terminal;
+    OwnsTerminal = ownsTerminal;
+    MaxMessageWidth = Math.Max(maxMessageWidth, MinimumMessageWidth);
+  }
 
   /// <summary>
-  /// Disposes the TerminalSink and its underlying terminal if disposable.
+  /// Disposes the sink. The terminal is disposed only when this sink created it.
   /// </summary>
   public void Dispose()
   {
-    if (!IsDisposed)
+    if (IsDisposed)
     {
-      if (Terminal is IDisposable disposable)
-      {
-        disposable.Dispose();
-      }
-
-      IsDisposed = true;
+      return;
     }
+
+    if (OwnsTerminal && Terminal is IDisposable disposable)
+    {
+      disposable.Dispose();
+    }
+
+    IsDisposed = true;
   }
 
   public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;

@@ -4,6 +4,17 @@ using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Services;
 
+#region Purpose
+// Bridges Jaribu discovery and execution to Microsoft.Testing.Platform.
+#endregion
+
+#region Design
+// ExecuteRequestAsync copies RegisteredTestClasses before the loop.
+// A class may call ClearRegisteredTests or RegisterTests while it runs.
+// Enumerating the live list throws Collection was modified and drops every
+// later class. RunAllTestsCore uses the same snapshot.
+#endregion
+
 /// <summary>
 /// Implementation of ITestFramework for Microsoft.Testing.Platform integration.
 /// Bridges Jaribu's test runner with M.T.P. for test discovery and execution.
@@ -73,7 +84,10 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
       string? filterClass = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterClassOption);
       string? filterMethod = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterMethodOption);
 
-      foreach (Type testClass in TestRunner.RegisteredTestClasses)
+      // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
+      Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
+
+      foreach (Type testClass in registeredClasses)
       {
         if (filterClass is not null &&
             testClass.FullName?.Contains(filterClass, StringComparison.OrdinalIgnoreCase) != true)
@@ -100,33 +114,37 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
               continue;
             }
 
-            string testNodeUid = $"{testClass.FullName}.{method.Name}";
-            if (filter is not null && !MatchesFilter(testNodeUid, filter))
+            foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
             {
-              continue;
-            }
+              if (filter is not null && !MatchesFilter(testCase.Uid, filter))
+              {
+                continue;
+              }
 
-            TestNodeInfo node = new
-            (
-              Uid: testNodeUid,
-              DisplayName: method.Name,
-              State: TestNodeState.Discovered
-            );
-            await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
+              TestNodeInfo node = new
+              (
+                Uid: testCase.Uid,
+                DisplayName: testCase.DisplayName,
+                State: TestNodeState.Discovered,
+                Parameters: testCase.Parameters,
+                Method: method
+              );
+              await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
+            }
           }
         }
         else
         {
           // Selection filters omit methods (no Skipped nodes). Tag filter keeps Skipped semantics.
-          // Also honor MTP uid/tree filter on the run path (not only discovery).
+          // MTP uid/tree filters select reported cases, including individual [Input] rows.
           await TestRunner.RunTestsAsync(
             testClass,
             sink,
             filterTag,
             methodNameContains: filterMethod,
-            methodPredicate: filter is null
+            casePredicate: filter is null
               ? null
-              : method => MatchesFilter($"{testClass.FullName}.{method.Name}", filter)
+              : testCase => MatchesFilter(testCase.Uid, filter)
           ).ConfigureAwait(false);
         }
       }

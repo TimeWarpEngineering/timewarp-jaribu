@@ -1,5 +1,21 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
+using System.Globalization;
+using System.Reflection;
+using Microsoft.Testing.Platform.Extensions.Messages;
+
+#region Purpose
+// Publishes Jaribu test nodes onto the Microsoft.Testing.Platform message bus.
+#endregion
+
+#region Design
+// Failed, Timeout, and Error carry both the exception and TestNodeInfo.Message.
+// A throwing CleanUp after a failing body keeps the body exception and puts the
+// cleanup text only in Message. The explanation argument is what dotnet test shows,
+// so dropping Message hides that cleanup failure. Cancelled has no state property;
+// it is reported as Error and the message is the cancellation reason.
+#endregion
+
 /// <summary>
 /// Sink implementation that publishes test results to Microsoft.Testing.Platform's IMessageBus.
 /// Translates TestNodeInfo lifecycle events into TestNodeUpdateMessage publications.
@@ -42,7 +58,8 @@ internal sealed class MtpSink : ITestResultSink
       Duration: null,
       Exception: null,
       Message: null,
-      Parameters: node.Parameters
+      Parameters: node.Parameters,
+      Method: node.Method
     );
     return PublishNodeAsync(inProgress);
   }
@@ -71,6 +88,27 @@ internal sealed class MtpSink : ITestResultSink
       properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, node.Duration.Value)));
     }
 
+    if (node.Method is MethodInfo method)
+    {
+      properties.Add(CreateMethodIdentifier(method));
+      TestFileLocationProperty? location = MethodSourceLocation.TryCreate(method);
+      if (location is not null)
+      {
+        properties.Add(location);
+      }
+    }
+
+    if (node.Parameters is { Count: > 0 } parameters)
+    {
+      for (int index = 0; index < parameters.Count; index++)
+      {
+        string key = string.Concat(
+          "jaribu.parameter.",
+          index.ToString(CultureInfo.InvariantCulture));
+        properties.Add(new TestMetadataProperty(key, FormatParameter(parameters[index])));
+      }
+    }
+
     await MessageBus.PublishAsync
     (
       DataProducer,
@@ -96,16 +134,21 @@ internal sealed class MtpSink : ITestResultSink
       TestNodeState.Skipped => new SkippedTestNodeStateProperty(node.Message),
       TestNodeState.Failed => new FailedTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test failed without exception details")
+        node.Exception ?? new InvalidOperationException("Test failed without exception details"),
+        node.Message
       ),
       TestNodeState.Timeout => new TimeoutTestNodeStateProperty
       (
-        node.Exception ?? new TimeoutException("Test timed out")
+        node.Exception ?? new TimeoutException("Test timed out"),
+        node.Message
       ),
       TestNodeState.Error => new ErrorTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test error without exception details")
+        node.Exception ?? new InvalidOperationException("Test error without exception details"),
+        node.Message
       ),
+      // Failing outcome, same bucket as TestRunStats.IsFailingState. There is no
+      // CancelledTestNodeStateProperty, so the bus reports an error.
       TestNodeState.Cancelled => new ErrorTestNodeStateProperty
       (
         new OperationCanceledException(node.Message ?? "Test cancelled")
@@ -115,4 +158,64 @@ internal sealed class MtpSink : ITestResultSink
         new InvalidOperationException($"Unknown test state: {node.State}")
       )
     };
+
+  private static TestMethodIdentifierProperty CreateMethodIdentifier(MethodInfo method)
+  {
+    Type? declaringType = method.DeclaringType;
+    string assemblyFullName = declaringType?.Assembly.FullName
+      ?? method.Module.Assembly.FullName
+      ?? string.Empty;
+    string namespaceName = declaringType?.Namespace ?? string.Empty;
+    string typeName = declaringType is null ? string.Empty : MetadataTypeName(declaringType);
+    ParameterInfo[] parameters = method.GetParameters();
+    string[] parameterTypeFullNames = new string[parameters.Length];
+    for (int index = 0; index < parameters.Length; index++)
+    {
+      Type parameterType = parameters[index].ParameterType;
+      parameterTypeFullNames[index] = parameterType.FullName ?? parameterType.Name;
+    }
+
+    string returnTypeFullName = method.ReturnType.FullName ?? method.ReturnType.Name;
+    return new TestMethodIdentifierProperty(
+      assemblyFullName,
+      namespaceName,
+      typeName,
+      method.Name,
+      method.GetGenericArguments().Length,
+      parameterTypeFullNames,
+      returnTypeFullName);
+  }
+
+  /// <summary>
+  /// Metadata type name without the namespace. Nested types keep <c>+</c>. Generic arity keeps the backtick.
+  /// </summary>
+  private static string MetadataTypeName(Type type)
+  {
+    string fullName = type.FullName ?? type.Name;
+    string namespaceName = type.Namespace ?? string.Empty;
+    if (namespaceName.Length == 0)
+    {
+      return fullName;
+    }
+
+    string prefix = string.Concat(namespaceName, ".");
+    if (fullName.StartsWith(prefix, StringComparison.Ordinal))
+    {
+      return fullName[prefix.Length..];
+    }
+
+    return fullName;
+  }
+
+  private static string FormatParameter(object? value)
+  {
+    return value switch
+    {
+      null => "null",
+      string text => text,
+      bool flag => flag ? "true" : "false",
+      IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+      _ => value.ToString() ?? string.Empty
+    };
+  }
 }

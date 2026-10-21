@@ -8,12 +8,7 @@
     <DefineConstants>$(DefineConstants);JARIBU_MULTI</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Include all single-file tests -->
-    <Compile Include="../../single-file-tests/core/*.cs" />
-    <Compile Include="../../single-file-tests/output/*.cs" />
-    <Compile Include="../../single-file-tests/api/*.cs" />
-  </ItemGroup>
+  <!-- Compile items come from ../ci-safe-tests.props (imported by the parent Directory.Build.props). -->
 
   <ItemGroup>
     <ProjectReference Include="../../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />

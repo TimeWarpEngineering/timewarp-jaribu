@@ -12,19 +12,14 @@
 // - Method = Given condition + Should + Result
 // Full test name: TestRunner_.MultiClassRegistration_Given_.SingleClass_Should_RegisterOne
 //
-// WHY THIS FILE DOESN'T FOLLOW THE STANDARD PATTERN:
-// - Standard pattern: [ModuleInitializer] for registration + RunAllTests() in conditional
-// - This file tests the registration API itself, calling ClearRegisteredTests() and RegisterTests<T>()
-// - Using [ModuleInitializer] + RunAllTests() would cause "Collection was modified during enumeration"
-//   because the tests modify the same RegisteredTestClasses collection that RunAllTests() iterates
-// - Solution: Use RunTests<T>() directly, which doesn't use the registration collection
-//
-// Helper classes (MultiClassCollectingSink, MultiClassHelper, SampleTestClass*, etc.)
-// are test fixtures that support the meta-tests.
+// RunAllTestsCore and JaribuTestFramework snapshot RegisteredTestClasses before they iterate.
+// This class registers with ModuleInitializer. Each test swaps the live list and restores it,
+// so ClearRegisteredTests cannot drop later classes from that snapshot.
+// SampleTestClass* fixtures are not ModuleInitializer-registered.
 #endregion
 
 #if !JARIBU_MULTI
-return await RunTests<TestRunner_.MultiClassRegistration_Given_>();
+return await RunAllTests();
 #endif
 
 namespace TestRunner_
@@ -64,7 +59,7 @@ namespace TestRunner_
     {
       MultiClassCollectingSink sink = new();
 
-      foreach (Type testClass in TestRunner.RegisteredTestClasses)
+      foreach (Type testClass in TestRunner.RegisteredTestClasses.ToArray())
       {
         await TestRunner.RunTestsAsync(testClass, sink, filterTag);
       }
@@ -76,111 +71,136 @@ namespace TestRunner_
   [TestTag("Api")]
   public class MultiClassRegistration_Given_
   {
+    [ModuleInitializer]
+    internal static void Register() => RegisterTests<MultiClassRegistration_Given_>();
+
     public static async Task SingleClass_Should_RegisterOne()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      sink.ClassStats.Count.ShouldBe(1);
-      sink.ClassStats[0].ClassName.ShouldBe("SampleTestClassA");
-
-      TestRunner.ClearRegisteredTests();
+        sink.ClassStats.Count.ShouldBe(1);
+        sink.ClassStats[0].ClassName.ShouldBe("SampleTestClassA");
+      });
     }
 
     public static async Task MultipleClasses_Should_RegisterAll()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
-      TestRunner.RegisterTests<SampleTestClassB>();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
+        TestRunner.RegisterTests<SampleTestClassB>();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      sink.ClassStats.Count.ShouldBe(2);
-
-      TestRunner.ClearRegisteredTests();
+        sink.ClassStats.Count.ShouldBe(2);
+      });
     }
 
     public static async Task DuplicateRegistration_Should_BeIgnored()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
-      TestRunner.RegisterTests<SampleTestClassA>(); // Duplicate
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
+        TestRunner.RegisterTests<SampleTestClassA>();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      sink.ClassStats.Count.ShouldBe(1);
-
-      TestRunner.ClearRegisteredTests();
+        sink.ClassStats.Count.ShouldBe(1);
+      });
     }
 
     public static async Task ClearRegistered_Should_RemoveAll()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
-      TestRunner.RegisterTests<SampleTestClassB>();
-      TestRunner.ClearRegisteredTests();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
+        TestRunner.RegisterTests<SampleTestClassB>();
+        TestRunner.ClearRegisteredTests();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      sink.ClassStats.Count.ShouldBe(0);
-      sink.AllResults.Count.ShouldBe(0);
+        sink.ClassStats.Count.ShouldBe(0);
+        sink.AllResults.Count.ShouldBe(0);
+      });
     }
 
     public static async Task AllPassing_Should_ReturnExitCodeZero()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
 
-      int exitCode = await TestRunner.RunAllTests();
+        int exitCode = await TestRunner.RunAllTests();
 
-      exitCode.ShouldBe(0);
-
-      TestRunner.ClearRegisteredTests();
+        exitCode.ShouldBe(0);
+      });
     }
 
     public static async Task MultipleClasses_Should_AggregateStatsCorrectly()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
-      TestRunner.RegisterTests<SampleTestClassB>();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
+        TestRunner.RegisterTests<SampleTestClassB>();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      int expectedTotal = sink.ClassStats.Sum(r => r.TotalTests);
-      int expectedPassed = sink.ClassStats.Sum(r => r.PassedCount);
+        int expectedTotal = sink.ClassStats.Sum(r => r.TotalTests);
+        int expectedPassed = sink.ClassStats.Sum(r => r.PassedCount);
 
-      expectedTotal.ShouldBeGreaterThan(0);
-      expectedPassed.ShouldBe(expectedTotal);
-      sink.ClassStats.All(s => s.Success).ShouldBeTrue();
-
-      TestRunner.ClearRegisteredTests();
+        expectedTotal.ShouldBeGreaterThan(0);
+        expectedPassed.ShouldBe(expectedTotal);
+        sink.ClassStats.All(s => s.Success).ShouldBeTrue();
+      });
     }
 
     public static async Task EmptyRegistration_Should_HandleGracefully()
     {
-      TestRunner.ClearRegisteredTests();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync();
-
-      sink.ClassStats.Count.ShouldBe(0);
-      sink.AllResults.Count.ShouldBe(0);
+        sink.ClassStats.Count.ShouldBe(0);
+        sink.AllResults.Count.ShouldBe(0);
+      });
     }
 
     public static async Task FilterTag_Should_IncludeMatchingClasses()
     {
-      TestRunner.ClearRegisteredTests();
-      TestRunner.RegisterTests<SampleTestClassA>();
-      TestRunner.RegisterTests<TaggedSampleTestClass>();
+      await WithIsolatedRegistryAsync(async () =>
+      {
+        TestRunner.RegisterTests<SampleTestClassA>();
+        TestRunner.RegisterTests<TaggedSampleTestClass>();
 
-      MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync(filterTag: "Integration");
+        MultiClassCollectingSink sink = await MultiClassHelper.RunAllRegisteredAsync(filterTag: "Integration");
 
-      // Both classes should be included (SampleTestClassA has no tags, TaggedSampleTestClass matches)
-      sink.ClassStats.Any(r => r.ClassName == "TaggedSampleTestClass").ShouldBeTrue();
-      sink.ClassStats.Count.ShouldBe(2);
+        // Both classes should be included (SampleTestClassA has no tags, TaggedSampleTestClass matches)
+        sink.ClassStats.Any(r => r.ClassName == "TaggedSampleTestClass").ShouldBeTrue();
+        sink.ClassStats.Count.ShouldBe(2);
+      });
+    }
 
-      TestRunner.ClearRegisteredTests();
+    private static async Task WithIsolatedRegistryAsync(Func<Task> body)
+    {
+      Type[] saved = [.. TestRunner.RegisteredTestClasses];
+      try
+      {
+        TestRunner.ClearRegisteredTests();
+        await body();
+      }
+      finally
+      {
+        TestRunner.ClearRegisteredTests();
+        System.Reflection.MethodInfo register = typeof(TestRunner).GetMethod(nameof(TestRunner.RegisterTests))!;
+        foreach (Type type in saved)
+        {
+          register.MakeGenericMethod(type).Invoke(null, null);
+        }
+      }
     }
   }
 

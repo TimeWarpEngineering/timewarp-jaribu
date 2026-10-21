@@ -9,10 +9,6 @@
     <NoWarn>$(NoWarn);IDE0161</NoWarn>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Include all test files for multi-mode compilation -->
-    <Compile Include="../single-file-tests/core/*.cs" />
-    <Compile Include="../single-file-tests/output/*.cs" />
-    <Compile Include="../single-file-tests/api/*.cs" />
-  </ItemGroup>
+  <!-- Same CI-safe set as ci-runner and mtp-runner. Wildcards would compile suites that are not in this list. -->
+  <Import Project="$(MSBuildThisFileDirectory)ci-safe-tests.props" />
 </Project>

@@ -351,7 +351,7 @@ public enum TestNodeState
 
 // Individual test result
 public record TestNodeInfo(
-    string Uid,                          // "Namespace.Class.Method"
+    string Uid,                          // "Namespace.Class.Method" or "Namespace.Class.Method[0]" per [Input]
     string DisplayName,                  // "MethodName" or "MethodName(param1, param2)"
     TestNodeState State,
     TimeSpan? Duration = null,
@@ -373,6 +373,7 @@ public record TestRunStats(
     public int TotalTests => PassedCount + FailedCount + SkippedCount;
     public bool Success => FailedCount == 0;
 }
+// FailedCount includes Failed, Error, Timeout, and Cancelled. Skipped does not fail the run.
 ```
 
 ### Sink-Based Architecture
