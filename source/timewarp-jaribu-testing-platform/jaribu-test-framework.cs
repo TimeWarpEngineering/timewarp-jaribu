@@ -100,33 +100,37 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
               continue;
             }
 
-            string testNodeUid = $"{testClass.FullName}.{method.Name}";
-            if (filter is not null && !MatchesFilter(testNodeUid, filter))
+            foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
             {
-              continue;
-            }
+              if (filter is not null && !MatchesFilter(testCase.Uid, filter))
+              {
+                continue;
+              }
 
-            TestNodeInfo node = new
-            (
-              Uid: testNodeUid,
-              DisplayName: method.Name,
-              State: TestNodeState.Discovered
-            );
-            await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
+              TestNodeInfo node = new
+              (
+                Uid: testCase.Uid,
+                DisplayName: testCase.DisplayName,
+                State: TestNodeState.Discovered,
+                Parameters: testCase.Parameters,
+                Method: method
+              );
+              await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
+            }
           }
         }
         else
         {
           // Selection filters omit methods (no Skipped nodes). Tag filter keeps Skipped semantics.
-          // Also honor MTP uid/tree filter on the run path (not only discovery).
+          // MTP uid/tree filters select reported cases, including individual [Input] rows.
           await TestRunner.RunTestsAsync(
             testClass,
             sink,
             filterTag,
             methodNameContains: filterMethod,
-            methodPredicate: filter is null
+            casePredicate: filter is null
               ? null
-              : method => MatchesFilter($"{testClass.FullName}.{method.Name}", filter)
+              : testCase => MatchesFilter(testCase.Uid, filter)
           ).ConfigureAwait(false);
         }
       }

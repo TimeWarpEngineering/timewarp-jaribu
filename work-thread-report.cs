@@ -1,4 +1,4 @@
-#!/usr/bin/dotnet --
+#!/usr/bin/env -S dotnet --
 #:package TimeWarp.Amuru
 #:package TimeWarp.Nuru
 #:property NoWarn=CA1303;CA1852;CA2007;CA1031;CA1854;CA1307;CA1812;IL2026;IL3050
