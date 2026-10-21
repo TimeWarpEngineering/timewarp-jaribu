@@ -1,5 +1,19 @@
 # Align CI, MTP runner, and multi-class tests so documented test commands pass
 
+## Goal (implementer restatement)
+
+The documented test commands must exit 0, and they must execute the suites they claim to run.
+
+Acceptance:
+
+- Multi-class registration tests register for multi-mode and run under ci-runner and `dotnet test` on mtp-runner. `RunAllTests` and the MTP host already snapshot the class list (036-002), so a test may clear the live registry. Each test restores that list before it returns.
+- mtp-runner and `run-tests.cs` compile the CI-safe file list. Intentional failures are nested fixtures, not `[ModuleInitializer]` tests in that runner.
+- Discovery, skip/exceptions, parameterized input, reporting/cleanup, and edges are meta-tests that pass, and ci-runner includes them.
+- The release pipeline runs those tests before pack/push.
+- Push and pull_request path filters include `BannedSymbols.txt` and `msbuild/**`.
+- `verify-samples` exits non-zero and does not print success when `samples/` is missing.
+- `./bin/dev test` and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` both exit 0.
+
 ## Description
 
 Parent **036** whole-repo review (SHA `e5ef320`, TimeWarp.Jaribu `1.0.0-beta.15`) found dual-mode drift in the test/CI surface: multi-class registration tests run only under `dotnet run` on the file (no `[ModuleInitializer]`), while `ci-runner` still compiles them; the documented `dotnet test …/mtp-runner/` path wildcard-includes intentional-failure / hang suites that `ci-runner` excludes, so it cannot exit 0. Same batch: rewrite those scenario files as nested-fixture meta-tests, run tests on the release pipeline, widen workflow path filters, and stop `verify-samples` from claiming success.
@@ -48,14 +62,14 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 
 ## Checklist
 
-- [ ] Multi-class registration tests execute under CI and MTP (not only `dotnet run` on the file)
-- [ ] `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0 (CI-safe set)
-- [ ] Intentional-failure suites are not ModuleInitializer-registered into that runner
-- [ ] Scenario files rewritten as meta-tests and added to ci-runner, or explicit deferral
-- [ ] Release workflow runs tests before pack
-- [ ] Workflow path filters include `BannedSymbols.txt` and `msbuild/**`
-- [ ] `verify-samples` does not claim success with no samples
-- [ ] `./bin/dev test` green; documented `dotnet test …/mtp-runner/` green
+- [x] Multi-class registration tests execute under CI and MTP (not only `dotnet run` on the file)
+- [x] `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0 (CI-safe set)
+- [x] Intentional-failure suites are not ModuleInitializer-registered into that runner
+- [x] Scenario files rewritten as meta-tests and added to ci-runner, or explicit deferral
+- [x] Release workflow runs tests before pack
+- [x] Workflow path filters include `BannedSymbols.txt` and `msbuild/**`
+- [x] `verify-samples` does not claim success with no samples
+- [x] `./bin/dev test` green; documented `dotnet test …/mtp-runner/` green
 
 ## Notes
 
@@ -67,3 +81,24 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 ## Session
 
 - Created: 3518943 (2026-09-04) — child of 036
+- Implementation: implementer-grok (2026-10-21) — shared CI-safe compile list, meta-tests for the five scenario files, release test step before pack, and `verify-samples` fails when `samples/` is missing. No depends-on edge to 036-002: the M7 registry snapshot is already in this tree.
+
+## Results
+
+`run-tests.cs`, ci-runner, and mtp-runner compile one list, `tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props`. Discovery, skip/exceptions, parameterized input, edges, and reporting/cleanup are nested-fixture meta-tests. Only those meta classes, plus multi-class registration, use `[ModuleInitializer]`. Each multi-class test restores the live registry after it clears it. `RegisteredSuites_Should_IncludeCiSafeMetaTests` fails the multi-file run if one of those suites is missing. Release `dev workflow` runs ci-runner and `dotnet test` on `timewarp-jaribu-tests-mtp.csproj` before check-version and pack. Push and pull_request path filters include `BannedSymbols.txt` and `msbuild/**`. `verify-samples` exits 1 when `samples/` is absent. `MtpSink` is friend-visible to assembly `timewarp-jaribu-tests-mtp` so the MTP project can compile `mtp-node-identity.cs`. Adapter demos stay in `tests/timewarp-jaribu-mtp-validation/`.
+
+### How to validate
+
+Smoke:
+
+```bash
+./bin/dev test
+dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/
+dotnet run tools/dev-cli/dev.cs /p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true -- verify-samples
+```
+
+Expect:
+
+- `./bin/dev test` exits 0. Grand total 101 passed, including `MultiClassRegistration_Given_`, `Discovery_Given_`, `SkipExceptions_Given_`, `Parameterized_Given_`, `Edges_Given_`, `Reporting_Given_`, and `RunnerGuards_Given_`.
+- `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0. Summary: 101 succeeded, 0 failed. Nested runs of `timewarp-jaribu-mtp-validation` may print failures; the MTP project itself passes.
+- `verify-samples` prints `verify-samples: no samples/ directory exists.` and exits 1. It does not print `Samples verified successfully!`.

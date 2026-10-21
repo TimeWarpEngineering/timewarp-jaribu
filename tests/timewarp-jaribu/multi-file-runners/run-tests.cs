@@ -2,10 +2,10 @@
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 
 // Multi-file test runner
-// Runs all test files compiled together via Directory.Build.props.
+// Compiles the CI-safe set in ci-safe-tests.props (same list as ci-runner and mtp-runner).
 // Test classes are auto-registered via [ModuleInitializer].
 
-WriteLine("Running all Jaribu tests");
+WriteLine("Running CI-safe Jaribu tests");
 WriteLine();
 
 return await RunAllTests();

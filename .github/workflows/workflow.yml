@@ -11,6 +11,8 @@ on:
       - '.github/workflows/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
+      - 'BannedSymbols.txt'
+      - 'msbuild/**'
   pull_request:
     branches:
       - master
@@ -22,6 +24,8 @@ on:
       - '.github/workflows/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
+      - 'BannedSymbols.txt'
+      - 'msbuild/**'
   release:
     types: [published]
   workflow_dispatch:
