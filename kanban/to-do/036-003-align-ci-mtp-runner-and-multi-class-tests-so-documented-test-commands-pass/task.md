@@ -82,6 +82,8 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 
 - Created: 3518943 (2026-09-04) — child of 036
 - Implementation: implementer-grok (2026-10-21) — shared CI-safe compile list, meta-tests for the five scenario files, release test step before pack, and `verify-samples` fails when `samples/` is missing. No depends-on edge to 036-002: the M7 registry snapshot is already in this tree.
+- Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-21T03:36:06Z
+- Review oracle round 1: reviewer-claude (claude-opus-5-5), effort 3, roster general, 2026-10-21. 2 open: M1 bug (`run-tests.cs` does not compile), M2 suggestion (PR pipeline runs no MTP test). Fix pass requested.
 
 ## Results
 
@@ -102,3 +104,11 @@ Expect:
 - `./bin/dev test` exits 0. Grand total 101 passed, including `MultiClassRegistration_Given_`, `Discovery_Given_`, `SkipExceptions_Given_`, `Parameterized_Given_`, `Edges_Given_`, `Reporting_Given_`, and `RunnerGuards_Given_`.
 - `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0. Summary: 101 succeeded, 0 failed. Nested runs of `timewarp-jaribu-mtp-validation` may print failures; the MTP project itself passes.
 - `verify-samples` prints `verify-samples: no samples/ directory exists.` and exits 1. It does not print `Samples verified successfully!`.
+
+### Review
+
+- Round 1 (effort 3, roster general): 1 bug open, 1 suggestion open, 0 nit. Disposition is pending until the fix pass and round 2.
+- M1 (bug): the documented `./run-tests.cs` fails to build with `CS0122 'MtpSink' is inaccessible`. The shared list compiles `mtp-node-identity.cs`, and `run-tests` has no friend access to the testing platform.
+- M2 (suggestion): only the release pipeline runs the MTP project. The PR pipeline runs ci-runner alone.
+- Reviewer re-ran: `./bin/dev test` exit 0 (101 passed), `dotnet test …/mtp-runner/` exit 0 (101), and the MTP project in Release exit 0. `verify-samples` exit 1. All six rewritten files exit 0 in single-file mode.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
