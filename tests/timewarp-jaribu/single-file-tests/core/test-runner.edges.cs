@@ -27,7 +27,8 @@ namespace TestRunner_
     internal static void Register() => RegisterTests<Edges_Given_>();
 
     /// <summary>
-    /// Generic test method - reflection should handle generics.
+    /// Open generic methods are excluded from discovery. The runner cannot invoke
+    /// an unbound generic definition.
     /// </summary>
     public static async Task GenericMethod_Should_HandleReflection<T>()
     {

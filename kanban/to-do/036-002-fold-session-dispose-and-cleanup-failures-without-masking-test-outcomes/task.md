@@ -52,20 +52,37 @@ This child lands **M2**, **M3** (bugs) and **M6–M9**, **M17**.
 
 ## Checklist
 
-- [ ] Session-of-one / `RunTests<T>` dispose failure → surfaced + exit 1, body exception not masked
-- [ ] Throwing `CleanUp` does not drop a prior fail or timeout
-- [ ] Meta-tests for both required bugs
-- [ ] `DiscoverTests` skips open generics
-- [ ] `RunAllTestsCore` snapshots the registered-class list
-- [ ] Cancelled counts as failure (or documented wontfix)
-- [ ] TerminalSink width clamp + ownership docs
-- [ ] `./bin/dev test` green
+- [x] Session-of-one / `RunTests<T>` dispose failure → surfaced + exit 1, body exception not masked
+- [x] Throwing `CleanUp` does not drop a prior fail or timeout
+- [x] Meta-tests for both required bugs
+- [x] `DiscoverTests` skips open generics
+- [x] `RunAllTestsCore` snapshots the registered-class list
+- [x] Cancelled counts as failure (or documented wontfix)
+- [x] TerminalSink width clamp + ownership docs
+- [x] `./bin/dev test` green
+
+## Results
+
+Session-of-one teardown now catches fixture dispose failures, records a `SessionFixtureDispose` node, and returns a failed run so `RunTests<T>` exits 1. If the class run already threw, that exception still propagates and the dispose failure is only logged. Per-test `CleanUp` runs after the body outcome is stored: a passing body becomes `Error`, and a failed, errored, or timed-out body keeps its state and exception while the cleanup failure is appended to the message. `DiscoverTests` skips open generic methods. `RunAllTestsCore` walks a snapshot of the registered classes. `Cancelled` counts in `FailedCount` through `TestRunStats.IsFailingState`, matching MTP's error mapping. `TerminalSink` raises `maxMessageWidth` to at least 3 and disposes a terminal only when the parameterless constructor created it.
+
+### How to validate
+
+Smoke: `./bin/dev test`
+
+Expect: exit 0. Grand total 71 passed, including `CleanupOutcome_Given_` (4), `RunnerGuards_Given_` (3), and the four session-of-one dispose tests on `SessionFixture_Given_`.
 
 ## Notes
 
 - Parent: **036** `review/round-1/merged.md` M2, M3, M6, M7, M8, M9, M17
 - Sources: 036 round-1 `core-runner.md` Issues 2–5, `sinks.md` Issues 1–3
 
+## Goal (implementer restatement)
+
+A session-of-one (`RunTests<T>` / `RunTestsAsync` when no outer session is active) must catch session-fixture dispose failures, show them, and fail the run (exit 1) without letting that dispose exception replace an exception already in flight. A per-test `CleanUp` that throws must keep the body's pass, fail, or timeout outcome: the body exception wins when both fail, and the cleanup failure is still visible. Discovery skips open generic methods. `RunAllTests` walks a snapshot of the registered classes. `Cancelled` counts as a failed outcome so stats and the exit code agree with MTP. `TerminalSink` refuses a message width below 3, and it disposes only a terminal it created itself.
+
+Acceptance: meta-tests cover both required bugs; the suggestion items above are in the product code; `./bin/dev test` passes.
+
 ## Session
 
 - Created: 3518080 (2026-09-04) — child of 036
+- Implementation: task-work implementer (2026-10-21) — M2, M3, M6–M9, M17

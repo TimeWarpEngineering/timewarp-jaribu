@@ -132,6 +132,8 @@ internal sealed class MtpSink : ITestResultSink
       (
         node.Exception ?? new InvalidOperationException("Test error without exception details")
       ),
+      // Failing outcome, same bucket as TestRunStats.IsFailingState. There is no
+      // CancelledTestNodeStateProperty, so the bus reports an error.
       TestNodeState.Cancelled => new ErrorTestNodeStateProperty
       (
         new OperationCanceledException(node.Message ?? "Test cancelled")

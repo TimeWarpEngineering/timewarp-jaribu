@@ -51,13 +51,13 @@ TestRunner.RunTestsAsync(sink)
 
 - **TestNodeState** — Enum with 8 states aligned to MTP: Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, Cancelled
 - **TestNodeInfo** — Record representing a single test result with Uid, DisplayName, State, Duration, Exception, Message, Parameters
-- **TestRunStats** — Record with aggregated stats: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount
+- **TestRunStats** — Record with aggregated stats: ClassName, StartTime, Duration, PassedCount, FailedCount, SkippedCount. FailedCount includes Failed, Error, Timeout, and Cancelled.
 - **ITestResultSink** — Interface for receiving test lifecycle events (discovered, started, completed, run started/completed)
 
 ### Core Components
 
 **TestRunner** ([source/timewarp-jaribu/test-runner.cs](source/timewarp-jaribu/test-runner.cs))
-- Convention-based test discovery: finds public static async Task methods via reflection
+- Convention-based test discovery: public static Task methods, excluding lifecycle hooks and open generic definitions
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
 - Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
 - Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`
