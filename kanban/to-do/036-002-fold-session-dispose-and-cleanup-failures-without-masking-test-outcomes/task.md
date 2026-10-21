@@ -81,10 +81,16 @@ Expect: exit 0. Grand total 72 passed, including `CleanupOutcome_Given_` (4), `R
 - M1 (bug): under MTP, `MtpSink` drops `TestNodeInfo.Message`, so a throwing CleanUp after a failing body is not surfaced (M3 contract). M2–M4 are nits.
 - `./bin/dev test` re-run by the reviewer: exit 0, 71 passed.
 - Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`
+- Round 2 (effort 1, roster: general, scope `bba08ba` fix delta): M1 (bug) and M2–M4 (nits) are fixed. A new M5 (suggestion) is open, so a fix pass is needed. No disposition yet.
+- M5: `JaribuTestFramework.ExecuteRequestAsync` loops over the live `RegisteredTestClasses`. This task's snapshot meta-test, compiled into `mtp-runner`, edits that list mid-run, so `dotnet test …/mtp-runner/` aborts with "Collection was modified" (exit 134). The fix is to snapshot that loop the way `RunAllTestsCore` does.
+- Final counts so far (round 2): bug 0 open / 1 fixed, suggestion 1 open, nit 0 open / 3 fixed.
+- `./bin/dev test` re-run by the round-2 reviewer: exit 0, 72 passed.
+- Paths: `review/round-2/general.md`, `review/round-2/merged.md`
 
 ## Review
 
 - Round 1: Blocked — open M1, M2, M3, M4
+- Round 2: Blocked — M1–M4 fixed. M5 is open.
 
 ## Notes
 
@@ -105,3 +111,4 @@ Acceptance for this fix pass: MTP copies `TestNodeInfo.Message` onto the Failed,
 - Review oracle round 1: general reviewer (claude, model claude-opus-5-5), effort 3, session not reported. Result: fix pass needed for M1–M4 — 2026-10-21
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 200 — 2026-10-21T02:39:27Z
 - Fix pass (review round 1 M1–M4): implement-fix-2 (grok, model grok-4.7) — 2026-10-21. `./bin/dev test` exit 0, 72 passed.
+- Review oracle round 2: general reviewer (claude, model claude-opus-5-5), effort 1, max-turns 80, session not reported. Result: M1–M4 fixed. Fix pass needed for M5 — 2026-10-21

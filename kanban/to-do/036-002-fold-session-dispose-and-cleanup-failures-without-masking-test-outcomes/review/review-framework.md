@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 863
-- Effort: 3
+- Lines changed: 185
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Scope
 
@@ -17,6 +17,11 @@
 **Effort:** 3 (by-diff); roster axes: general
 **Reviewer roster:** general (review oracle, Claude Opus 5.5)
 **Session IDs:** review oracle — not reported by host
+
+## Round 2 scope
+
+- Diff scope: fix delta `14ba1b5..bba08ba` (commit `bba08ba`), with M1–M4 re-checked against it
+- Effort: 1. Roster: general (review oracle, Claude Opus 5.5)
 
 ## Ground rules
 
