@@ -23,6 +23,8 @@
     <Compile Include="../../single-file-tests/api/test-runner.structured-results.cs" />
     <Compile Include="../../single-file-tests/api/test-runner.multi-class-registration.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.input-identity.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.cleanup-outcome.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runner-guards.cs" />
     <Compile Include="../../single-file-tests/mtp/mtp-node-identity.cs" />
   </ItemGroup>
 

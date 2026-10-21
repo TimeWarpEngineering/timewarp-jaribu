@@ -198,5 +198,46 @@ namespace TerminalSink_
       output.ShouldContain("Total:");
       output.ShouldContain("0");
     }
+
+    public static async Task NarrowWidth_Should_ClampInsteadOfThrowing()
+    {
+      using TimeWarp.Terminal.TestTerminal terminal = new();
+      using TerminalSink sink = new(terminal, maxMessageWidth: 2);
+
+      List<TestNodeInfo> results =
+      [
+        new("NS.Class.Narrow", "Narrow", TestNodeState.Failed, TimeSpan.FromMilliseconds(10), Message: "abcdef")
+      ];
+
+      TestRunStats stats = new(
+        "Narrow",
+        DateTimeOffset.Now,
+        TimeSpan.FromMilliseconds(10),
+        PassedCount: 0,
+        FailedCount: 1,
+        SkippedCount: 0);
+
+      await sink.OnRunCompletedAsync(stats, results);
+
+      string output = terminal.Output;
+      output.ShouldContain("...");
+      output.ShouldNotContain("abcdef");
+
+      using TimeWarp.Terminal.TestTerminal zeroTerminal = new();
+      using TerminalSink zeroSink = new(zeroTerminal, maxMessageWidth: 0);
+      await zeroSink.OnRunCompletedAsync(stats, results);
+      zeroTerminal.Output.ShouldContain("...");
+    }
+
+    public static async Task InjectedTerminal_Should_RemainUsableAfterDispose()
+    {
+      using TimeWarp.Terminal.TestTerminal terminal = new();
+      TerminalSink sink = new(terminal);
+      await sink.OnRunStartedAsync("OwnedElsewhere");
+      sink.Dispose();
+
+      string output = terminal.Output;
+      output.ShouldContain("OwnedElsewhere");
+    }
   }
 }

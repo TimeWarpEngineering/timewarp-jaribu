@@ -373,6 +373,7 @@ public record TestRunStats(
     public int TotalTests => PassedCount + FailedCount + SkippedCount;
     public bool Success => FailedCount == 0;
 }
+// FailedCount includes Failed, Error, Timeout, and Cancelled. Skipped does not fail the run.
 ```
 
 ### Sink-Based Architecture

@@ -45,6 +45,23 @@ namespace TestRunner_
     public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results) => Task.CompletedTask;
   }
 
+  /// <summary>
+  /// Throws from OnTestCompleted so a session dispose failure can be checked for masking.
+  /// </summary>
+  sealed class SessionDisposeThrowingSink : ITestResultSink
+  {
+    public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
+    public Task OnTestStartedAsync(TestNodeInfo node) => Task.CompletedTask;
+
+    public Task OnTestCompletedAsync(TestNodeInfo node)
+    {
+      throw new InvalidOperationException("sink boom");
+    }
+
+    public Task OnRunStartedAsync(string className, string? filterTag = null) => Task.CompletedTask;
+    public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results) => Task.CompletedTask;
+  }
+
   [TestTag("Jaribu")]
   public class SessionFixture_Given_
   {
@@ -446,6 +463,114 @@ namespace TestRunner_
         OtherSessionFixture.Reset();
       }
     }
+
+    public static async Task SessionOfOneDisposeFailure_Should_FailRunWithoutThrowing()
+    {
+      FailingDisposeSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<FailingDisposeSessionFixture>();
+      try
+      {
+        SessionFixtureCollectingSink sink = new();
+        TestRunStats stats = await TestRunner.RunTestsAsync<UsesFailingDisposeFixture>(sink);
+
+        stats.Success.ShouldBeFalse();
+        stats.PassedCount.ShouldBe(1);
+        stats.FailedCount.ShouldBeGreaterThanOrEqualTo(1);
+        FailingDisposeSessionFixture.DisposeCount.ShouldBe(1);
+
+        TestNodeInfo body = sink.Results.Single(node => node.DisplayName == "OnlyTest");
+        body.State.ShouldBe(TestNodeState.Passed);
+
+        TestNodeInfo disposeNode = sink.Results.Single(node => node.DisplayName == "SessionFixtureDispose");
+        disposeNode.State.ShouldBe(TestNodeState.Failed);
+        disposeNode.Message.ShouldNotBeNull();
+        disposeNode.Message.ShouldContain("dispose boom");
+      }
+      finally
+      {
+        await EndLeftoverSessionAsync();
+        TestRunner.ClearRegisteredSessionFixtures();
+        FailingDisposeSessionFixture.Reset();
+      }
+    }
+
+    public static async Task SessionOfOneDisposeFailure_Should_ReturnExitCodeOne()
+    {
+      FailingDisposeSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<FailingDisposeSessionFixture>();
+      try
+      {
+        int exitCode = await TestRunner.RunTests<UsesFailingDisposeFixture>();
+        exitCode.ShouldBe(1);
+        FailingDisposeSessionFixture.DisposeCount.ShouldBe(1);
+      }
+      finally
+      {
+        await EndLeftoverSessionAsync();
+        TestRunner.ClearRegisteredSessionFixtures();
+        FailingDisposeSessionFixture.Reset();
+      }
+    }
+
+    public static async Task SessionOfOneDisposeFailure_Should_KeepBodyException()
+    {
+      FailingDisposeSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<FailingDisposeSessionFixture>();
+      try
+      {
+        SessionFixtureCollectingSink sink = new();
+        TestRunStats stats = await TestRunner.RunTestsAsync<UsesFailingDisposeAndFailingBody>(sink);
+
+        stats.Success.ShouldBeFalse();
+        TestNodeInfo body = sink.Results.Single(node => node.DisplayName == "OnlyTest");
+        body.State.ShouldBe(TestNodeState.Error);
+        body.Exception.ShouldBeOfType<ArgumentException>();
+        body.Exception.Message.ShouldBe("body boom");
+        sink.Results.Any(node => node.DisplayName == "SessionFixtureDispose").ShouldBeTrue();
+        FailingDisposeSessionFixture.DisposeCount.ShouldBe(1);
+      }
+      finally
+      {
+        await EndLeftoverSessionAsync();
+        TestRunner.ClearRegisteredSessionFixtures();
+        FailingDisposeSessionFixture.Reset();
+      }
+    }
+
+    public static async Task SessionOfOneDisposeFailure_Should_NotMaskInFlightException()
+    {
+      FailingDisposeSessionFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<FailingDisposeSessionFixture>();
+      try
+      {
+        InvalidOperationException ex = await Should.ThrowAsync<InvalidOperationException>(
+          () => TestRunner.RunTestsAsync<UsesFailingDisposeFixture>(new SessionDisposeThrowingSink()));
+        ex.Message.ShouldContain("sink boom");
+        FailingDisposeSessionFixture.DisposeCount.ShouldBe(1);
+      }
+      finally
+      {
+        await EndLeftoverSessionAsync();
+        TestRunner.ClearRegisteredSessionFixtures();
+        FailingDisposeSessionFixture.Reset();
+      }
+    }
+
+    private static async Task EndLeftoverSessionAsync()
+    {
+      try
+      {
+        await TestRunner.EndTestSessionAsync();
+      }
+      catch (InvalidOperationException)
+      {
+        // The session already ended, or dispose failed after the instance was cleared.
+      }
+    }
   }
 
   // --- Session fixture types (not test classes) ---
@@ -731,6 +856,28 @@ namespace TestRunner_
     public static async Task OnlyTest()
     {
       await Task.CompletedTask;
+    }
+  }
+
+  public class UsesFailingDisposeAndFailingBody
+  {
+    private static FailingDisposeSessionFixture? Shared;
+
+    public static async Task SetupOnce()
+    {
+      Shared = await SessionFixture.GetAsync<FailingDisposeSessionFixture>();
+    }
+
+    public static async Task CleanUpOnce()
+    {
+      Shared = null;
+      await Task.CompletedTask;
+    }
+
+    public static async Task OnlyTest()
+    {
+      Shared.ShouldNotBeNull();
+      throw new ArgumentException("body boom");
     }
   }
 }

@@ -47,6 +47,22 @@ using TimeWarp.Terminal;
 //     Lone RunTestsAsync → owns session-of-one if none active
 //   Authors must NOT dispose session fixtures in CleanUpOnce.
 //
+// Per-test CleanUp runs only after the body outcome is stored. A throwing CleanUp
+// cannot replace Failed, Error, or Timeout. The body exception stays on the node
+// and the cleanup failure is appended to Message, labeled CleanUp. A passing body
+// becomes Error and its message is prefixed with CleanUp.
+//
+// ownsSession teardown catches EndSessionAsync. The dispose failure is a synthetic
+// failed node from the same helper as class-hook failures, with the message
+// "Session fixture dispose failed: …". RunTests<T> maps Success to exit code 1.
+// When the class run already threw, the dispose exception is logged and swallowed
+// so it cannot replace the in-flight exception.
+//
+// DiscoverTests skips open generic method definitions.
+// RunAllTestsCore and JaribuTestFramework.ExecuteRequestAsync each enumerate
+// a snapshot of RegisteredTestClasses.
+// FailedCount includes Failed, Error, Timeout, and Cancelled.
+//
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
 //   This ensures existing test files continue to work unchanged.
@@ -138,7 +154,7 @@ public static class TestRunner
   /// <summary>
   /// Discovers all test methods in the specified test class.
   /// Test methods are public static methods that return Task, excluding lifecycle hooks
-  /// (Setup, CleanUp, SetupOnce, CleanUpOnce).
+  /// (Setup, CleanUp, SetupOnce, CleanUpOnce) and open generic method definitions.
   /// </summary>
   /// <param name="testClass">The test class type to discover tests from.</param>
   /// <returns>Enumerable of test method infos.</returns>
@@ -152,6 +168,7 @@ public static class TestRunner
         method.IsPublic &&
         method.IsStatic &&
         method.ReturnType == typeof(Task) &&
+        !method.IsGenericMethodDefinition &&
         method.Name is not "CleanUp" and not "Setup" and not "SetupOnce" and not "CleanUpOnce");
   }
 
@@ -227,44 +244,6 @@ public static class TestRunner
     {
       // Run Setup
       await InvokeSetupForType(testClass);
-
-      try
-      {
-        // Run the test
-        Task? testTask = method.Invoke(null, parameters) as Task;
-        if (testTask is not null)
-        {
-          TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
-          if (timeoutAttr is not null)
-          {
-            Task timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
-            Task completedTask = await Task.WhenAny(testTask, timeoutTask);
-            if (completedTask == timeoutTask)
-            {
-              stopwatch.Stop();
-              return Complete(
-                TestNodeState.Timeout,
-                stopwatch.Elapsed,
-                new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
-                $"Timeout after {timeoutAttr.Milliseconds}ms");
-            }
-
-            await testTask; // Propagate any exceptions
-          }
-          else
-          {
-            await testTask;
-          }
-        }
-
-        stopwatch.Stop();
-        return Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-      }
-      finally
-      {
-        // Run CleanUp
-        await InvokeCleanupForType(testClass);
-      }
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
@@ -284,6 +263,73 @@ public static class TestRunner
         ex,
         $"{ex.GetType().Name}: {ex.Message}");
     }
+
+    TestNodeInfo outcome;
+    try
+    {
+      Task? testTask = method.Invoke(null, parameters) as Task;
+      if (testTask is not null)
+      {
+        TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
+        if (timeoutAttr is not null)
+        {
+          Task timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
+          Task completedTask = await Task.WhenAny(testTask, timeoutTask);
+          if (completedTask == timeoutTask)
+          {
+            stopwatch.Stop();
+            outcome = Complete(
+              TestNodeState.Timeout,
+              stopwatch.Elapsed,
+              new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
+              $"Timeout after {timeoutAttr.Milliseconds}ms");
+          }
+          else
+          {
+            await testTask;
+            stopwatch.Stop();
+            outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+          }
+        }
+        else
+        {
+          await testTask;
+          stopwatch.Stop();
+          outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+        }
+      }
+      else
+      {
+        stopwatch.Stop();
+        outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+      }
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is not null)
+    {
+      stopwatch.Stop();
+      outcome = Complete(
+        TestNodeState.Failed,
+        stopwatch.Elapsed,
+        ex.InnerException,
+        $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+    }
+    catch (Exception ex)
+    {
+      stopwatch.Stop();
+      outcome = Complete(
+        TestNodeState.Error,
+        stopwatch.Elapsed,
+        ex,
+        $"{ex.GetType().Name}: {ex.Message}");
+    }
+
+    Exception? cleanupException = await InvokeCleanupIsolatedAsync(testClass);
+    if (cleanupException is null)
+    {
+      return outcome;
+    }
+
+    return FoldCleanupFailure(outcome, cleanupException);
   }
 
   /// <summary>
@@ -316,6 +362,122 @@ public static class TestRunner
         await task;
       }
     }
+  }
+
+  /// <summary>
+  /// Runs CleanUp without letting its exception escape. Returns null when cleanup succeeds
+  /// or no conforming CleanUp exists.
+  /// </summary>
+  private static async Task<Exception?> InvokeCleanupIsolatedAsync(Type testClass)
+  {
+    try
+    {
+      await InvokeCleanupForType(testClass);
+      return null;
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is not null)
+    {
+      return ex.InnerException;
+    }
+#pragma warning disable CA1031 // Cleanup failure is data for the node, not a crash
+    catch (Exception ex)
+#pragma warning restore CA1031
+    {
+      return ex;
+    }
+  }
+
+  /// <summary>
+  /// Prefers the body outcome. A passing body becomes Error. Any other state keeps its
+  /// exception and state, and the cleanup failure is appended to the message.
+  /// Both messages name CleanUp so a passing body is not mistaken for a body failure.
+  /// </summary>
+  private static TestNodeInfo FoldCleanupFailure(TestNodeInfo outcome, Exception cleanupException)
+  {
+    string cleanupText = $"{cleanupException.GetType().Name}: {cleanupException.Message}";
+    if (outcome.State is TestNodeState.Passed)
+    {
+      return outcome with
+      {
+        State = TestNodeState.Error,
+        Exception = cleanupException,
+        Message = $"CleanUp {cleanupText}"
+      };
+    }
+
+    string bodyText = outcome.Message ?? outcome.Exception?.Message ?? outcome.State.ToString();
+    return outcome with
+    {
+      Message = $"{bodyText}; CleanUp {cleanupText}"
+    };
+  }
+
+  /// <summary>
+  /// Ends an owned session. Returns the dispose exception instead of throwing.
+  /// </summary>
+  private static async Task<Exception?> TryEndOwnedSessionAsync()
+  {
+    try
+    {
+      await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+      return null;
+    }
+#pragma warning disable CA1031 // Host boundary: dispose failure becomes a failed node
+    catch (Exception ex)
+#pragma warning restore CA1031
+    {
+      return ex;
+    }
+  }
+
+  /// <summary>
+  /// Ends an owned session while another exception is already in flight.
+  /// The dispose exception is logged and swallowed so it cannot replace the body exception.
+  /// </summary>
+  private static async Task EndOwnedSessionWithoutMaskingAsync()
+  {
+    try
+    {
+      await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+    }
+#pragma warning disable CA1031 // Host boundary: do not replace an in-flight exception
+    catch (Exception ex)
+#pragma warning restore CA1031
+    {
+#pragma warning disable CA1849 // Same host-boundary log as RunAllTests
+      Terminal.WriteLine($"✗ Session fixture dispose failed: {ex.Message}");
+#pragma warning restore CA1849
+    }
+  }
+
+  /// <summary>
+  /// Emits a synthetic failed node for a class-hook failure (e.g. CleanUpOnce)
+  /// or a session-fixture dispose failure.
+  /// </summary>
+  private static async Task EmitSyntheticHookFailureAsync(
+    Type testClass,
+    string hookName,
+    Exception exception,
+    ITestResultSink sink,
+    List<TestNodeInfo> results,
+    string? message = null)
+  {
+    string uid = $"{testClass.FullName}.{hookName}";
+    string nodeMessage = message ?? $"{exception.GetType().Name}: {exception.Message}";
+    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
+    TestNodeInfo failedNode = new(
+      uid,
+      hookName,
+      TestNodeState.Failed,
+      TimeSpan.Zero,
+      Exception: exception,
+      Message: nodeMessage,
+      Parameters: null,
+      Method: hook
+    );
+    await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
+    await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
+    results.Add(failedNode);
   }
 
   /// <summary>
@@ -486,34 +648,6 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Emits a synthetic failed node for a class-hook failure (e.g. CleanUpOnce).
-  /// </summary>
-  private static async Task EmitSyntheticHookFailureAsync(
-    Type testClass,
-    string hookName,
-    Exception exception,
-    ITestResultSink sink,
-    List<TestNodeInfo> results)
-  {
-    string uid = $"{testClass.FullName}.{hookName}";
-    string message = $"{exception.GetType().Name}: {exception.Message}";
-    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
-    TestNodeInfo failedNode = new(
-      uid,
-      hookName,
-      TestNodeState.Failed,
-      TimeSpan.Zero,
-      Exception: exception,
-      Message: message,
-      Parameters: null,
-      Method: hook
-    );
-    await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
-    await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
-    results.Add(failedNode);
-  }
-
-  /// <summary>
   /// Runs all tests in the specified test class using the provided sink.
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
@@ -594,6 +728,29 @@ public static class TestRunner
       Stopwatch overallStopwatch = Stopwatch.StartNew();
       List<TestNodeInfo> results = [];
 
+      async Task EndOwnedSessionIntoResultsAsync()
+      {
+        if (!ownsSession)
+        {
+          return;
+        }
+
+        Exception? disposeFailure = await TryEndOwnedSessionAsync().ConfigureAwait(false);
+        ownsSession = false;
+        if (disposeFailure is not null)
+        {
+          await EmitSyntheticHookFailureAsync
+          (
+            testClass,
+            "SessionFixtureDispose",
+            disposeFailure,
+            sink,
+            results,
+            $"Session fixture dispose failed: {disposeFailure.Message}"
+          ).ConfigureAwait(false);
+        }
+      }
+
       // Check environment variable if filterTag not explicitly provided
       filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
 
@@ -606,16 +763,18 @@ public static class TestRunner
         if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
         {
           // Class has tags but none match the filter - skip entire class
+          await sink.OnRunStartedAsync(className, filterTag);
+          await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
           overallStopwatch.Stop();
+          int filteredFailures = results.Count(r => TestRunStats.IsFailingState(r.State));
           TestRunStats emptyStats = new(
             className,
             startTime,
             overallStopwatch.Elapsed,
             PassedCount: 0,
-            FailedCount: 0,
+            FailedCount: filteredFailures,
             SkippedCount: 0
           );
-          await sink.OnRunStartedAsync(className, filterTag);
           await sink.OnRunCompletedAsync(emptyStats, results);
           return emptyStats;
         }
@@ -691,11 +850,13 @@ public static class TestRunner
         }
       }
 
+      await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
+
       overallStopwatch.Stop();
 
       // Calculate stats
       int passedCount = results.Count(r => r.State == TestNodeState.Passed);
-      int failedCount = results.Count(r => r.State is TestNodeState.Failed or TestNodeState.Error or TestNodeState.Timeout);
+      int failedCount = results.Count(r => TestRunStats.IsFailingState(r.State));
       int skippedCount = results.Count(r => r.State == TestNodeState.Skipped);
 
       TestRunStats stats = new(
@@ -716,7 +877,7 @@ public static class TestRunner
     {
       if (ownsSession)
       {
-        await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+        await EndOwnedSessionWithoutMaskingAsync().ConfigureAwait(false);
       }
     }
   }
@@ -895,7 +1056,9 @@ public static class TestRunner
   /// </summary>
   private static async Task<int> RunAllTestsCore(string? filterTag)
   {
-    if (RegisteredTestClasses.Count == 0)
+    // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
+    Type[] registeredClasses = [.. RegisteredTestClasses];
+    if (registeredClasses.Length == 0)
     {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
       Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
@@ -905,7 +1068,7 @@ public static class TestRunner
 
     List<TestRunStats> allStats = [];
 
-    foreach (Type testClass in RegisteredTestClasses)
+    foreach (Type testClass in registeredClasses)
     {
       using TerminalSink sink = new();
       TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
