@@ -86,10 +86,30 @@ Smoke: `dotnet test tests/timewarp-jaribu-mtp-validation -- --filter-class Input
 
 Expect: `failed FailThenPass(fail)` is in the log, with `total: 2`, `failed: 1`, `succeeded: 1`.
 
+### Review
+
+Round 1 (effort 3, roster: general). Disposition is pending: 5 findings are open and a fix pass is needed.
+
+| Severity | open | fixed | wontfix |
+|----------|------|-------|---------|
+| bug | 2 | 0 | 0 |
+| suggestion | 1 | 0 | 0 |
+| nit | 2 | 0 | 0 |
+
+- M1 (bug): a bad once-hook signature fans out `[Skip]` and tag-mismatched `[Input]` methods per row, so discovery and run diverge.
+- M2 (bug): `TestMethodIdentifierProperty.TypeName` includes the namespace, which violates the MTP contract.
+- M3 (suggestion): the PDB is re-parsed on every publish.
+- M4 (nit): the location assertion is conditional.
+- M5 (nit): the smoke command above puts `--list-tests` after `--`, which exits 12.
+
+The reviewer re-ran `./bin/dev test` (57/57) and the MTP Parameterized list/run (7/7). Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+
 ## Session
 
 - Created: 3517113 (2026-09-04) — child of 036
 - 2026-10-21: distinct input uids, MTP discovery expansion, M10 bus properties, M11 filter and in-progress tests. CI runner 57 passed. Parameterized list and run both 7. Audit `--fix` applied. Version `1.0.0-beta.16`.
+- Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-21T01:44:11Z
+- Review oracle round 1: reviewer claude (claude-opus-5-5), session not exposed in print mode, effort 3, roster general. Found 2 bugs, 1 suggestion, and 2 nits, all open. A fix pass is requested — 2026-10-21
 
 ## Interruptions
 
