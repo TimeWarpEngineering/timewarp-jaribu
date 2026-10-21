@@ -125,7 +125,7 @@ Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-
 - Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-21T01:44:11Z
 - Review oracle round 1: reviewer claude (claude-opus-5-5), session not exposed in print mode, effort 3, roster general. Found 2 bugs, 1 suggestion, and 2 nits, all open. A fix pass is requested — 2026-10-21
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 200 — 2026-10-21T01:47:54Z
-- 2026-10-21: fix pass for round 1. Bad once-hook fan-out matches discovery. TypeName omits the namespace. PDB spans are cached, and async methods follow MoveNext. CI runner 58 passed. Parameterized list exits 0 with 7 tests. The run summary is total 7, failed 2, succeeded 5.
+- 2026-10-21: fix pass for round 1. Bad once-hook fan-out matches discovery. TypeName omits the namespace. PDB spans are cached, and async methods follow MoveNext. CI runner 58 passed. Parameterized list exits 0 with 7 tests. The run summary is total 7, failed 2, succeeded 5. `ganda repo audit --fix` restored the executable bit on the two edited runfiles after the rewrite cleared it.
 
 ## Interruptions
 
