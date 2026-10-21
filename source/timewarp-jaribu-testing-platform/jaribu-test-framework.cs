@@ -4,6 +4,17 @@ using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Services;
 
+#region Purpose
+// Bridges Jaribu discovery and execution to Microsoft.Testing.Platform.
+#endregion
+
+#region Design
+// ExecuteRequestAsync copies RegisteredTestClasses before the loop.
+// A class may call ClearRegisteredTests or RegisterTests while it runs.
+// Enumerating the live list throws Collection was modified and drops every
+// later class. RunAllTestsCore uses the same snapshot.
+#endregion
+
 /// <summary>
 /// Implementation of ITestFramework for Microsoft.Testing.Platform integration.
 /// Bridges Jaribu's test runner with M.T.P. for test discovery and execution.
@@ -73,7 +84,10 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
       string? filterClass = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterClassOption);
       string? filterMethod = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterMethodOption);
 
-      foreach (Type testClass in TestRunner.RegisteredTestClasses)
+      // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
+      Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
+
+      foreach (Type testClass in registeredClasses)
       {
         if (filterClass is not null &&
             testClass.FullName?.Contains(filterClass, StringComparison.OrdinalIgnoreCase) != true)

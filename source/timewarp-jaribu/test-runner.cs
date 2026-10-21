@@ -59,7 +59,8 @@ using TimeWarp.Terminal;
 // so it cannot replace the in-flight exception.
 //
 // DiscoverTests skips open generic method definitions.
-// RunAllTestsCore enumerates a snapshot of RegisteredTestClasses.
+// RunAllTestsCore and JaribuTestFramework.ExecuteRequestAsync each enumerate
+// a snapshot of RegisteredTestClasses.
 // FailedCount includes Failed, Error, Timeout, and Cancelled.
 //
 // Backward compatibility:

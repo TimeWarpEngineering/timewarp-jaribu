@@ -8,8 +8,8 @@
 
 #region Design
 // The snapshot meta-test swaps the live registration list and calls RunAllTests.
-// It restores the previous list before returning. The outer run already holds
-// its own snapshot, so the swap does not drop later classes.
+// It restores the previous list before returning. RunAllTests and the MTP host
+// each hold their own snapshot, so the swap does not drop later classes.
 #endregion
 
 #if !JARIBU_MULTI
