@@ -9,6 +9,7 @@
 #region Design
 // Nested fixtures are driven by RunTestsAsync. Only CleanupOutcome_Given_ registers,
 // so the failing fixtures are not top-level CI tests.
+// A passing body becomes Error, and its message starts with CleanUp.
 #endregion
 
 #if !JARIBU_MULTI
@@ -104,6 +105,9 @@ namespace TestRunner_
       node.State.ShouldBe(TestNodeState.Error);
       node.Exception.ShouldBeOfType<InvalidOperationException>();
       node.Exception.Message.ShouldBe("cleanup boom");
+      node.Message.ShouldNotBeNull();
+      node.Message.ShouldStartWith("CleanUp ");
+      node.Message.ShouldContain("cleanup boom");
     }
   }
 

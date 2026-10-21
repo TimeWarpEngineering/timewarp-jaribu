@@ -3,7 +3,8 @@
 #:project $(SourceDirectory)timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj
 
 #region Purpose
-// MTP checks for input-row identity, filter precedence, and in-progress publication.
+// MTP checks for input-row identity, filter precedence, in-progress publication,
+// and cleanup text on Failed, Timeout, and Error explanations.
 #endregion
 
 #region Design
@@ -81,6 +82,57 @@ namespace Mtp_
         TestFileLocationProperty present = location.ShouldNotBeNull();
         present.FilePath.ShouldContain("mtp-node-identity.cs");
       }
+    }
+
+    public static async Task CleanupMessage_Should_ReachFailedTimeoutAndErrorExplanations()
+    {
+      RecordingBus bus = new();
+      MtpSink sink = new(new FakeProducer(), bus, new SessionUid("session"));
+      ArgumentException body = new("body boom");
+      const string FailedMessage = "body boom; CleanUp InvalidOperationException: cleanup boom";
+      const string TimeoutMessage = "Timeout after 1ms; CleanUp InvalidOperationException: cleanup boom";
+      const string ErrorMessage =
+        "InvalidOperationException: body boom; CleanUp InvalidOperationException: cleanup boom";
+
+      await sink.OnTestCompletedAsync(new TestNodeInfo(
+        "Probe.Failed",
+        "Failed",
+        TestNodeState.Failed,
+        Exception: body,
+        Message: FailedMessage));
+      await sink.OnTestCompletedAsync(new TestNodeInfo(
+        "Probe.Timeout",
+        "Timeout",
+        TestNodeState.Timeout,
+        Exception: new TimeoutException("timed out"),
+        Message: TimeoutMessage));
+      await sink.OnTestCompletedAsync(new TestNodeInfo(
+        "Probe.Error",
+        "Error",
+        TestNodeState.Error,
+        Exception: new InvalidOperationException("body boom"),
+        Message: ErrorMessage));
+
+      bus.Messages.Count.ShouldBe(3);
+
+      FailedTestNodeStateProperty failed = bus.Messages[0].TestNode.Properties
+        .Single<TestNodeStateProperty>()
+        .ShouldBeOfType<FailedTestNodeStateProperty>();
+      failed.Exception.ShouldBeSameAs(body);
+      failed.Explanation.ShouldBe(FailedMessage);
+
+      TimeoutTestNodeStateProperty timeout = bus.Messages[1].TestNode.Properties
+        .Single<TestNodeStateProperty>()
+        .ShouldBeOfType<TimeoutTestNodeStateProperty>();
+      timeout.Explanation.ShouldBe(TimeoutMessage);
+      timeout.Exception.ShouldBeOfType<TimeoutException>();
+
+      ErrorTestNodeStateProperty error = bus.Messages[2].TestNode.Properties
+        .Single<TestNodeStateProperty>()
+        .ShouldBeOfType<ErrorTestNodeStateProperty>();
+      error.Explanation.ShouldBe(ErrorMessage);
+      Exception errorException = error.Exception.ShouldNotBeNull();
+      errorException.Message.ShouldBe("body boom");
     }
 
     public static async Task FilterClass_Should_OmitOtherClasses()

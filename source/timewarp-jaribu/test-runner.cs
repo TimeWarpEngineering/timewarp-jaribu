@@ -49,12 +49,14 @@ using TimeWarp.Terminal;
 //
 // Per-test CleanUp runs only after the body outcome is stored. A throwing CleanUp
 // cannot replace Failed, Error, or Timeout. The body exception stays on the node
-// and the cleanup failure is appended to Message. A passing body becomes Error.
+// and the cleanup failure is appended to Message, labeled CleanUp. A passing body
+// becomes Error and its message is prefixed with CleanUp.
 //
 // ownsSession teardown catches EndSessionAsync. The dispose failure is a synthetic
-// failed node, so RunTests<T> maps Success to exit code 1. When the class run
-// already threw, the dispose exception is logged and swallowed so it cannot
-// replace the in-flight exception.
+// failed node from the same helper as class-hook failures, with the message
+// "Session fixture dispose failed: …". RunTests<T> maps Success to exit code 1.
+// When the class run already threw, the dispose exception is logged and swallowed
+// so it cannot replace the in-flight exception.
 //
 // DiscoverTests skips open generic method definitions.
 // RunAllTestsCore enumerates a snapshot of RegisteredTestClasses.
@@ -387,6 +389,7 @@ public static class TestRunner
   /// <summary>
   /// Prefers the body outcome. A passing body becomes Error. Any other state keeps its
   /// exception and state, and the cleanup failure is appended to the message.
+  /// Both messages name CleanUp so a passing body is not mistaken for a body failure.
   /// </summary>
   private static TestNodeInfo FoldCleanupFailure(TestNodeInfo outcome, Exception cleanupException)
   {
@@ -397,7 +400,7 @@ public static class TestRunner
       {
         State = TestNodeState.Error,
         Exception = cleanupException,
-        Message = cleanupText
+        Message = $"CleanUp {cleanupText}"
       };
     }
 
@@ -447,22 +450,30 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Records a session-fixture dispose failure as its own failed node.
+  /// Emits a synthetic failed node for a class-hook failure (e.g. CleanUpOnce)
+  /// or a session-fixture dispose failure.
   /// </summary>
-  private static async Task EmitSessionDisposeFailureAsync(
+  private static async Task EmitSyntheticHookFailureAsync(
     Type testClass,
+    string hookName,
     Exception exception,
     ITestResultSink sink,
-    List<TestNodeInfo> results)
+    List<TestNodeInfo> results,
+    string? message = null)
   {
-    const string HookName = "SessionFixtureDispose";
+    string uid = $"{testClass.FullName}.{hookName}";
+    string nodeMessage = message ?? $"{exception.GetType().Name}: {exception.Message}";
+    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
     TestNodeInfo failedNode = new(
-      $"{testClass.FullName}.{HookName}",
-      HookName,
+      uid,
+      hookName,
       TestNodeState.Failed,
       TimeSpan.Zero,
       Exception: exception,
-      Message: $"Session fixture dispose failed: {exception.Message}");
+      Message: nodeMessage,
+      Parameters: null,
+      Method: hook
+    );
     await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
     await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
     results.Add(failedNode);
@@ -636,34 +647,6 @@ public static class TestRunner
   }
 
   /// <summary>
-  /// Emits a synthetic failed node for a class-hook failure (e.g. CleanUpOnce).
-  /// </summary>
-  private static async Task EmitSyntheticHookFailureAsync(
-    Type testClass,
-    string hookName,
-    Exception exception,
-    ITestResultSink sink,
-    List<TestNodeInfo> results)
-  {
-    string uid = $"{testClass.FullName}.{hookName}";
-    string message = $"{exception.GetType().Name}: {exception.Message}";
-    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
-    TestNodeInfo failedNode = new(
-      uid,
-      hookName,
-      TestNodeState.Failed,
-      TimeSpan.Zero,
-      Exception: exception,
-      Message: message,
-      Parameters: null,
-      Method: hook
-    );
-    await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
-    await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
-    results.Add(failedNode);
-  }
-
-  /// <summary>
   /// Runs all tests in the specified test class using the provided sink.
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
@@ -755,7 +738,15 @@ public static class TestRunner
         ownsSession = false;
         if (disposeFailure is not null)
         {
-          await EmitSessionDisposeFailureAsync(testClass, disposeFailure, sink, results).ConfigureAwait(false);
+          await EmitSyntheticHookFailureAsync
+          (
+            testClass,
+            "SessionFixtureDispose",
+            disposeFailure,
+            sink,
+            results,
+            $"Session fixture dispose failed: {disposeFailure.Message}"
+          ).ConfigureAwait(false);
         }
       }
 

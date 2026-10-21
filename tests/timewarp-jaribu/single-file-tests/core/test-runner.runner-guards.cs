@@ -96,13 +96,22 @@ namespace TestRunner_
       TestRunStats.IsFailingState(TestNodeState.Passed).ShouldBeFalse();
       TestRunStats.IsFailingState(TestNodeState.Skipped).ShouldBeFalse();
 
+      TestNodeInfo[] nodes =
+      [
+        new("passed", "passed", TestNodeState.Passed),
+        new("cancelled", "cancelled", TestNodeState.Cancelled)
+      ];
+      int passedCount = nodes.Count(node => node.State == TestNodeState.Passed);
+      int failedCount = nodes.Count(node => TestRunStats.IsFailingState(node.State));
+      int skippedCount = nodes.Count(node => node.State == TestNodeState.Skipped);
       TestRunStats stats = new(
         "Cancelled",
         DateTimeOffset.Now,
         TimeSpan.Zero,
-        PassedCount: 1,
-        FailedCount: 1,
-        SkippedCount: 0);
+        passedCount,
+        failedCount,
+        skippedCount);
+      stats.FailedCount.ShouldBe(1);
       stats.Success.ShouldBeFalse();
       stats.TotalTests.ShouldBe(2);
       await Task.CompletedTask;

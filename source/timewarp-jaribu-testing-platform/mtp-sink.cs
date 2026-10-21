@@ -4,6 +4,18 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.Testing.Platform.Extensions.Messages;
 
+#region Purpose
+// Publishes Jaribu test nodes onto the Microsoft.Testing.Platform message bus.
+#endregion
+
+#region Design
+// Failed, Timeout, and Error carry both the exception and TestNodeInfo.Message.
+// A throwing CleanUp after a failing body keeps the body exception and puts the
+// cleanup text only in Message. The explanation argument is what dotnet test shows,
+// so dropping Message hides that cleanup failure. Cancelled has no state property;
+// it is reported as Error and the message is the cancellation reason.
+#endregion
+
 /// <summary>
 /// Sink implementation that publishes test results to Microsoft.Testing.Platform's IMessageBus.
 /// Translates TestNodeInfo lifecycle events into TestNodeUpdateMessage publications.
@@ -122,15 +134,18 @@ internal sealed class MtpSink : ITestResultSink
       TestNodeState.Skipped => new SkippedTestNodeStateProperty(node.Message),
       TestNodeState.Failed => new FailedTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test failed without exception details")
+        node.Exception ?? new InvalidOperationException("Test failed without exception details"),
+        node.Message
       ),
       TestNodeState.Timeout => new TimeoutTestNodeStateProperty
       (
-        node.Exception ?? new TimeoutException("Test timed out")
+        node.Exception ?? new TimeoutException("Test timed out"),
+        node.Message
       ),
       TestNodeState.Error => new ErrorTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test error without exception details")
+        node.Exception ?? new InvalidOperationException("Test error without exception details"),
+        node.Message
       ),
       // Failing outcome, same bucket as TestRunStats.IsFailingState. There is no
       // CancelledTestNodeStateProperty, so the bus reports an error.
