@@ -79,6 +79,7 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 
 - Round 1: Blocked — open M1, M2
 - Fix pass: M1 and M2 implemented on this branch. Round 2 reviews the diff.
+- Round 2: M1 and M2 fixed, no new findings. Disposition `clean`.
 
 ## Notes
 
@@ -95,6 +96,7 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 - Review oracle round 1: reviewer-claude (claude-opus-5-5), effort 3, roster general, 2026-10-21. 2 open: M1 bug (`run-tests.cs` does not compile), M2 suggestion (PR pipeline runs no MTP test). Fix pass requested.
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 200 — 2026-10-21T03:42:48Z
 - Fix pass (implement-fix-2): implementer-grok (2026-10-21) — `run-tests` is a friend of the testing platform and opts out of a generated MTP entry point. The PR test step calls `RunMtpRunnerAsync`. `./run-tests.cs` exit 0 (101 passed). `dotnet test …/mtp-runner/` exit 0 (101). `ganda repo audit` passed.
+- Review oracle round 2: reviewer-claude (claude-opus-5-5), effort 1, roster general, max-turns 80, session not reported, 2026-10-21. Delta `55ccf71..02c4da3`. M1 and M2 fixed, 0 open. Disposition `clean`.
 
 ## Results
 
@@ -118,7 +120,10 @@ Expect:
 
 ### Review
 
-- Round 1 (effort 3, roster general): M1 bug and M2 suggestion were open. This fix pass implements both. Round 2 disposition is the host review node.
+- Rounds: 2. Round 1: effort 3, roster general. Round 2: effort 1, roster general.
+- Final counts: bug 1 fixed, suggestion 1 fixed, nit 0. Open 0, wontfix 0.
+- Disposition: **clean**. Round 2 re-verified on 2026-10-21. `./run-tests.cs`, ci-runner, and `dotnet test` on mtp-runner each exit 0 with 101 passed, and `dev.cs` builds. The fix delta raised no new findings.
+- Round 1 (effort 3, roster general): M1 (bug) and M2 (suggestion) were open. Fix pass `02c4da3` implemented both.
 - M1: `./run-tests.cs` compiles the shared list. Verified exit 0, 101 passed, on 2026-10-21.
 - M2: the PR pipeline test step runs the CI-safe MTP project through `RunMtpRunnerAsync`. The dev CLI that contains that call compiles (`dotnet run tools/dev-cli/dev.cs -- --help`, exit 0).
-- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.

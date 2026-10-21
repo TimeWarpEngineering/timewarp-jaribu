@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 1242
-- Effort: 3
+- Lines changed: 65
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Framework — task 036-003
 
@@ -25,3 +25,9 @@
 - Do not invent issues to fill space; zero issues is a valid outcome
 - Address the diff and surrounding call sites; re-verify falsifiable claims against the repo
 - Prior rounds are immutable; new work goes in `round-(N+1)/`
+
+## Round 2
+
+- **Diff scope:** fix-pass delta `55ccf71..02c4da3` (product paths; kanban excluded)
+- **Effort:** 1 (by-diff budget, 65 lines). Roster: general (review oracle, claude-opus-5-5)
+- Round 1's framework header above records effort 3 for that round.
