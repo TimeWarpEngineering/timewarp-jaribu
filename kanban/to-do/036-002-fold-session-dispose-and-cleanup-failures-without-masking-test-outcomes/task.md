@@ -103,8 +103,7 @@ Expect:
 
 - Round 1: Blocked — open M1, M2, M3, M4
 - Round 2: Blocked — open M5
-- Round 3: Done — disposition clean
-
+- Round 3: Done
 ## Notes
 
 - Parent: **036** `review/round-1/merged.md` M2, M3, M6, M7, M8, M9, M17
