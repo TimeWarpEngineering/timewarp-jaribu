@@ -20,7 +20,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="run-ci-tests" />
+    <!-- File-based runner tests/timewarp-jaribu/multi-file-runners/run-tests.cs. -->
+    <InternalsVisibleTo Include="run-tests" />
     <InternalsVisibleTo Include="mtp-node-identity" />
+    <!-- Multi-file MTP project; assembly name follows timewarp-jaribu-tests-mtp.csproj. -->
+    <InternalsVisibleTo Include="timewarp-jaribu-tests-mtp" />
   </ItemGroup>
 
   <ItemGroup>

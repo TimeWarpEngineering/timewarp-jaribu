@@ -17,7 +17,7 @@ dev build
 
 ### Run tests
 ```bash
-# Run all tests (multi-file runner)
+# CI-safe multi-file runner (same compile set as ci-runner and mtp-runner)
 chmod +x tests/timewarp-jaribu/multi-file-runners/run-tests.cs
 cd tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
 
@@ -25,7 +25,7 @@ cd tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
 chmod +x tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs
 cd tests/timewarp-jaribu/multi-file-runners/ci-runner && ./run-ci-tests.cs
 
-# Run via dotnet test (MTP mode)
+# Run via dotnet test (MTP mode, CI-safe set)
 dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/
 ```
 
@@ -111,12 +111,12 @@ Scripts in [tests/](tests/) directories use TimeWarp.Amuru for shell commands an
 - Release published
 - Manual workflow_dispatch
 
-Pipeline:
-1. Runs `dotnet build --configuration Release` — Builds TimeWarp.Jaribu
-2. Runs [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs) — CI-safe tests only (no intentional failures)
-3. On release: publishes to NuGet.org
+Pipeline (`dev workflow`):
+1. Clean, then Release build of the solution
+2. CI-safe tests via [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs), then `dotnet test` on the CI-safe MTP project
+3. On release: pack and push
 
-CI-safe tests are configured in [tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props](tests/timewarp-jaribu/multi-file-runners/ci-runner/Directory.Build.props) — only test files with zero intentional failures are included.
+The compile set is [tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props](tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props). Registered meta-tests pass. Intentional failures stay inside nested fixtures, or in `tests/timewarp-jaribu-mtp-validation/`, which `dev test` does not run.
 
 ## Version Management
 

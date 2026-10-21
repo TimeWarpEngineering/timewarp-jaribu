@@ -116,6 +116,20 @@ namespace TestRunner_
       stats.TotalTests.ShouldBe(2);
       await Task.CompletedTask;
     }
+
+#if JARIBU_MULTI
+    public static async Task RegisteredSuites_Should_IncludeCiSafeMetaTests()
+    {
+      string[] names = [.. TestRunner.RegisteredTestClasses.Select(type => type.Name)];
+      names.ShouldContain(nameof(MultiClassRegistration_Given_));
+      names.ShouldContain(nameof(Discovery_Given_));
+      names.ShouldContain(nameof(SkipExceptions_Given_));
+      names.ShouldContain(nameof(Parameterized_Given_));
+      names.ShouldContain(nameof(Edges_Given_));
+      names.ShouldContain(nameof(Reporting_Given_));
+      await Task.CompletedTask;
+    }
+#endif
   }
 
   public class OpenGenericDiscoveryFixture

@@ -1,0 +1,24 @@
+<Project>
+  <!--
+    CI-safe single-file tests. Only the meta-test class in each file is ModuleInitializer-registered.
+    Intentional failures live in nested fixtures driven by RunTestsAsync, so the suite exits 0.
+    Paths use MSBuildThisFileDirectory so every runner that imports this file compiles the same set.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.tag-filtering.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.setup-once.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.session-fixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/terminal-sink.tabular-output.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/api/test-runner.structured-results.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/api/test-runner.multi-class-registration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.input-identity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cleanup-outcome.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.runner-guards.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-node-identity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.discovery.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.skip-exceptions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.parameterized.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.edges.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/test-runner.reporting-cleanup.cs" />
+  </ItemGroup>
+</Project>

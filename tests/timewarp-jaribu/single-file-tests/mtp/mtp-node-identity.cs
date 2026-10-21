@@ -8,9 +8,11 @@
 #endregion
 
 #region Design
-// MtpSink is exercised in-process through InternalsVisibleTo. Filter and list/run parity
-// go through dotnet test on the validation assembly, because those decisions live behind
-// the MTP host. The validation project is allowed to fail; assertions read its report.
+// MtpSink is exercised in-process through InternalsVisibleTo for run-ci-tests,
+// run-tests, mtp-node-identity, and the multi-file project timewarp-jaribu-tests-mtp.
+// Filter and list/run parity go through dotnet test on the validation assembly,
+// because those decisions live behind the MTP host. The validation project is
+// allowed to fail; assertions read its report.
 #endregion
 
 #if !JARIBU_MULTI

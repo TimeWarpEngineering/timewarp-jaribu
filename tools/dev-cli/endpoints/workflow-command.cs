@@ -3,8 +3,10 @@
 #endregion
 
 #region Design
-// For PR: clean -> build -> test
-// For release: clean -> build -> check-version -> pack
+// PR/merge: clean -> build -> test
+// Release: clean -> build -> test -> check-version -> pack, then push when an API key is present
+// Test runs ci-runner and the CI-safe MTP project on both pipelines.
+// Release continues to check-version and pack.
 // Auto-detects mode from GITHUB_EVENT_NAME environment variable
 // Uses OIDC Trusted Publishing for NuGet authentication
 #endregion
@@ -88,26 +90,21 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         .RunAsync(cancellationToken);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
-      // Step 3: Test (run CI-safe tests)
+      // Step 3: Test (ci-runner and the CI-safe MTP project)
       Terminal.WriteLine("\nStep 3/3: Test");
-      string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
-      exitCode = await DotNet.Run()
-        .WithFile(ciTestRunner)
-        .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(cancellationToken);
-      if (exitCode != 0) throw new InvalidOperationException("Tests failed!");
+      await RunCiRunnerAsync(repoRoot, cancellationToken);
+      await RunMtpRunnerAsync(repoRoot, cancellationToken);
 
       Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
     }
 
     private async Task RunReleaseWorkflowAsync(string repoRoot, string? apiKey, CancellationToken ct)
     {
-      Terminal.WriteLine("Release Pipeline: clean -> build -> check-version -> pack");
+      Terminal.WriteLine("Release Pipeline: clean -> build -> test -> check-version -> pack");
       Terminal.WriteLine("");
 
       // Step 1: Clean
-      Terminal.WriteLine("Step 1/4: Clean");
+      Terminal.WriteLine("Step 1/5: Clean");
       int exitCode = await DotNet.Clean(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
         .WithVerbosity("q")
         .WithWorkingDirectory(repoRoot)
@@ -115,15 +112,20 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
 
       // Step 2: Build
-      Terminal.WriteLine("\nStep 2/4: Build");
+      Terminal.WriteLine("\nStep 2/5: Build");
       exitCode = await DotNet.Build(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
         .WithConfiguration("Release")
         .WithWorkingDirectory(repoRoot)
         .RunAsync(ct);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
-      // Step 3: Check Version
-      Terminal.WriteLine("\nStep 3/4: Check Version");
+      // Step 3: Test (same ci-runner and CI-safe MTP project as PR)
+      Terminal.WriteLine("\nStep 3/5: Test");
+      await RunCiRunnerAsync(repoRoot, ct);
+      await RunMtpRunnerAsync(repoRoot, ct);
+
+      // Step 4: Check Version
+      Terminal.WriteLine("\nStep 4/5: Check Version");
       string propsPath = Path.Combine(repoRoot, "source", "Directory.Build.props");
       string? version = null;
       if (File.Exists(propsPath))
@@ -174,8 +176,8 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         Terminal.WriteLine("  Assuming version is available");
       }
 
-      // Step 4: Pack
-      Terminal.WriteLine("\nStep 4/4: Pack");
+      // Step 5: Pack
+      Terminal.WriteLine("\nStep 5/5: Pack");
       string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
       Directory.CreateDirectory(artifactsDir);
 
@@ -229,6 +231,34 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
         Terminal.WriteLine("✓ Packages pushed to NuGet.org");
       }
+    }
+
+    private static async Task RunCiRunnerAsync(string repoRoot, CancellationToken cancellationToken)
+    {
+      string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
+      int exitCode = await DotNet.Run()
+        .WithFile(ciTestRunner)
+        .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync(cancellationToken);
+      if (exitCode != 0) throw new InvalidOperationException("Tests failed!");
+    }
+
+    private static async Task RunMtpRunnerAsync(string repoRoot, CancellationToken cancellationToken)
+    {
+      string mtpProject = Path.Combine(
+        repoRoot,
+        "tests",
+        "timewarp-jaribu",
+        "multi-file-runners",
+        "mtp-runner",
+        "timewarp-jaribu-tests-mtp.csproj");
+      int exitCode = await DotNet.Test()
+        .WithProject(mtpProject)
+        .WithConfiguration("Release")
+        .WithWorkingDirectory(repoRoot)
+        .RunAsync(cancellationToken);
+      if (exitCode != 0) throw new InvalidOperationException("MTP tests failed!");
     }
   }
 }
