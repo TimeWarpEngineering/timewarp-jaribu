@@ -113,8 +113,8 @@ Scripts in [tests/](tests/) directories use TimeWarp.Amuru for shell commands an
 
 Pipeline (`dev workflow`):
 1. Clean, then Release build of the solution
-2. CI-safe tests via [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs)
-3. On release: the same ci-runner, then `dotnet test` on the CI-safe MTP project, then pack and push
+2. CI-safe tests via [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs), then `dotnet test` on the CI-safe MTP project
+3. On release: pack and push
 
 The compile set is [tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props](tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props). Registered meta-tests pass. Intentional failures stay inside nested fixtures, or in `tests/timewarp-jaribu-mtp-validation/`, which `dev test` does not run.
 

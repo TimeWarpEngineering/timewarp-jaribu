@@ -5,7 +5,8 @@
 #region Design
 // PR/merge: clean -> build -> test
 // Release: clean -> build -> test -> check-version -> pack, then push when an API key is present
-// Test runs ci-runner. Release also runs the CI-safe MTP project before pack.
+// Test runs ci-runner and the CI-safe MTP project on both pipelines.
+// Release continues to check-version and pack.
 // Auto-detects mode from GITHUB_EVENT_NAME environment variable
 // Uses OIDC Trusted Publishing for NuGet authentication
 #endregion
@@ -89,9 +90,10 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         .RunAsync(cancellationToken);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
-      // Step 3: Test (run CI-safe tests)
+      // Step 3: Test (ci-runner and the CI-safe MTP project)
       Terminal.WriteLine("\nStep 3/3: Test");
       await RunCiRunnerAsync(repoRoot, cancellationToken);
+      await RunMtpRunnerAsync(repoRoot, cancellationToken);
 
       Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
     }
@@ -117,7 +119,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         .RunAsync(ct);
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
-      // Step 3: Test (same ci-runner as PR, plus the CI-safe MTP project)
+      // Step 3: Test (same ci-runner and CI-safe MTP project as PR)
       Terminal.WriteLine("\nStep 3/5: Test");
       await RunCiRunnerAsync(repoRoot, ct);
       await RunMtpRunnerAsync(repoRoot, ct);

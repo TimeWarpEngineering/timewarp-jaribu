@@ -13,6 +13,8 @@ Acceptance:
 - Push and pull_request path filters include `BannedSymbols.txt` and `msbuild/**`.
 - `verify-samples` exits non-zero and does not print success when `samples/` is missing.
 - `./bin/dev test` and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` both exit 0.
+- `./run-tests.cs` compiles that same CI-safe list, including `mtp-node-identity.cs`, and exits 0. Assembly `run-tests` is a friend of the testing platform, and the runner opts out of a generated MTP entry point. Do not drop `mtp-node-identity.cs` from the shared list.
+- The push and pull_request pipeline runs the CI-safe MTP project in the same test step as ci-runner, so an MTP-only break fails before merge.
 
 ## Description
 
@@ -70,6 +72,13 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 - [x] Workflow path filters include `BannedSymbols.txt` and `msbuild/**`
 - [x] `verify-samples` does not claim success with no samples
 - [x] `./bin/dev test` green; documented `dotnet test …/mtp-runner/` green
+- [x] `./run-tests.cs` exits 0 and compiles `mtp-node-identity.cs` (friend assembly `run-tests`)
+- [x] PR/merge workflow test step runs the CI-safe MTP project
+
+## Review
+
+- Round 1: Blocked — open M1, M2
+- Fix pass: M1 and M2 implemented on this branch. Round 2 reviews the diff.
 
 ## Notes
 
@@ -84,31 +93,32 @@ This child lands **M4**, **M5** (bugs) and **M12–M14**, **M18**.
 - Implementation: implementer-grok (2026-10-21) — shared CI-safe compile list, meta-tests for the five scenario files, release test step before pack, and `verify-samples` fails when `samples/` is missing. No depends-on edge to 036-002: the M7 registry snapshot is already in this tree.
 - Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-21T03:36:06Z
 - Review oracle round 1: reviewer-claude (claude-opus-5-5), effort 3, roster general, 2026-10-21. 2 open: M1 bug (`run-tests.cs` does not compile), M2 suggestion (PR pipeline runs no MTP test). Fix pass requested.
+- Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 200 — 2026-10-21T03:42:48Z
+- Fix pass (implement-fix-2): implementer-grok (2026-10-21) — `run-tests` is a friend of the testing platform and opts out of a generated MTP entry point. The PR test step calls `RunMtpRunnerAsync`. `./run-tests.cs` exit 0 (101 passed). `dotnet test …/mtp-runner/` exit 0 (101). `ganda repo audit` passed.
 
 ## Results
 
-`run-tests.cs`, ci-runner, and mtp-runner compile one list, `tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props`. Discovery, skip/exceptions, parameterized input, edges, and reporting/cleanup are nested-fixture meta-tests. Only those meta classes, plus multi-class registration, use `[ModuleInitializer]`. Each multi-class test restores the live registry after it clears it. `RegisteredSuites_Should_IncludeCiSafeMetaTests` fails the multi-file run if one of those suites is missing. Release `dev workflow` runs ci-runner and `dotnet test` on `timewarp-jaribu-tests-mtp.csproj` before check-version and pack. Push and pull_request path filters include `BannedSymbols.txt` and `msbuild/**`. `verify-samples` exits 1 when `samples/` is absent. `MtpSink` is friend-visible to assembly `timewarp-jaribu-tests-mtp` so the MTP project can compile `mtp-node-identity.cs`. Adapter demos stay in `tests/timewarp-jaribu-mtp-validation/`.
+`run-tests.cs`, ci-runner, and mtp-runner compile one list, `tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props`, including `mtp-node-identity.cs`. `run-tests.cs` references `timewarp-jaribu-testing-platform` and sets `IsTestingPlatformApplication`, `GenerateTestingPlatformEntryPoint`, `GenerateTestingPlatformConfigurationFile`, and `GenerateSelfRegisteredExtensions` to false, matching ci-runner. `InternalsVisibleTo` names assembly `run-tests`. Discovery, skip/exceptions, parameterized input, edges, and reporting/cleanup are nested-fixture meta-tests. Only those meta classes, plus multi-class registration, use `[ModuleInitializer]`. Each multi-class test restores the live registry after it clears it. PR and release `dev workflow` both run ci-runner and `dotnet test` on `timewarp-jaribu-tests-mtp.csproj` in the test step. Release then checks the version and packs. Push and pull_request path filters include `BannedSymbols.txt` and `msbuild/**`. `verify-samples` exits 1 when `samples/` is absent. Adapter demos stay in `tests/timewarp-jaribu-mtp-validation/`.
 
 ### How to validate
 
 Smoke:
 
 ```bash
-./bin/dev test
+cd tests/timewarp-jaribu/multi-file-runners && ./run-tests.cs
 dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/
-dotnet run tools/dev-cli/dev.cs /p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true -- verify-samples
+dotnet run tools/dev-cli/dev.cs -- --help
 ```
 
 Expect:
 
-- `./bin/dev test` exits 0. Grand total 101 passed, including `MultiClassRegistration_Given_`, `Discovery_Given_`, `SkipExceptions_Given_`, `Parameterized_Given_`, `Edges_Given_`, `Reporting_Given_`, and `RunnerGuards_Given_`.
-- `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0. Summary: 101 succeeded, 0 failed. Nested runs of `timewarp-jaribu-mtp-validation` may print failures; the MTP project itself passes.
-- `verify-samples` prints `verify-samples: no samples/ directory exists.` and exits 1. It does not print `Samples verified successfully!`.
+- `./run-tests.cs` exits 0. Grand total 101 passed, including `NodeIdentity_Given_` (5). Nested runs of `timewarp-jaribu-mtp-validation` may print failures; the runner itself passes.
+- `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/` exits 0. Summary: 101 succeeded, 0 failed.
+- `dev --help` lists `workflow`. `RunPrWorkflowAsync` step 3 calls `RunCiRunnerAsync` and `RunMtpRunnerAsync`. The release test step calls the same two helpers before check-version and pack.
 
 ### Review
 
-- Round 1 (effort 3, roster general): 1 bug open, 1 suggestion open, 0 nit. Disposition is pending until the fix pass and round 2.
-- M1 (bug): the documented `./run-tests.cs` fails to build with `CS0122 'MtpSink' is inaccessible`. The shared list compiles `mtp-node-identity.cs`, and `run-tests` has no friend access to the testing platform.
-- M2 (suggestion): only the release pipeline runs the MTP project. The PR pipeline runs ci-runner alone.
-- Reviewer re-ran: `./bin/dev test` exit 0 (101 passed), `dotnet test …/mtp-runner/` exit 0 (101), and the MTP project in Release exit 0. `verify-samples` exit 1. All six rewritten files exit 0 in single-file mode.
+- Round 1 (effort 3, roster general): M1 bug and M2 suggestion were open. This fix pass implements both. Round 2 disposition is the host review node.
+- M1: `./run-tests.cs` compiles the shared list. Verified exit 0, 101 passed, on 2026-10-21.
+- M2: the PR pipeline test step runs the CI-safe MTP project through `RunMtpRunnerAsync`. The dev CLI that contains that call compiles (`dotnet run tools/dev-cli/dev.cs -- --help`, exit 0).
 - Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
