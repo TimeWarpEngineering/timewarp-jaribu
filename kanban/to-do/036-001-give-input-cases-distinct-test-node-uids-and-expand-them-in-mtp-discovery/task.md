@@ -50,7 +50,8 @@ This child lands **M1** (bug) and the related MTP node-identity suggestions **M1
 ## Review
 
 - Round 1: Blocked — open M1, M2, M3, M4, M5
-- Fix pass: M1–M5 implemented. Round 2 review has not run.
+- Fix pass: M1–M5 implemented.
+- Round 2: all five verified fixed, no new findings. Disposition `clean`.
 
 ## Notes
 
@@ -108,7 +109,9 @@ Expect: `failed FailThenPass(fail)` is in the log, with `total: 2`, `failed: 1`,
 
 ### Review
 
-Round 1 (effort 3, roster: general) found 2 bugs, 1 suggestion, and 2 nits. This fix pass implements them. Round 2 has not dispositioned them.
+Round 1 (effort 3, roster: general) found 2 bugs, 1 suggestion, and 2 nits. The fix pass (`8b0032c`, `82083a2`) implemented them. Round 2 (effort 2, roster: general) reviewed the delta `50ce534..82083a2` and verified all five as fixed. It raised no new findings.
+
+Final counts: bug 0 open / 2 fixed, suggestion 0 open / 1 fixed, nit 0 open / 2 fixed, 0 wontfix. **Disposition: clean.** Round 2 checks: `./bin/dev test` passed 58/58, and the MTP `--list-tests` smoke exited 0 with 7 tests.
 
 - M1: bad once-hook fan-out uses `EnumerateReportedCases` plus the case predicate. `BadHook_Should_MatchDiscoveryForSkippedAndTaggedInputs` locks the skipped and tag-mismatched rows.
 - M2: `TypeName` drops the namespace prefix. The in-progress meta-test expects `Namespace == "Mtp_"` and `TypeName == "NodeIdentity_Given_+Probe"`.
@@ -116,7 +119,7 @@ Round 1 (effort 3, roster: general) found 2 bugs, 1 suggestion, and 2 nits. This
 - M4: when the assembly PDB exists, the meta-test requires `TestFileLocationProperty`. Async methods resolve that span from `MoveNext`.
 - M5: the list smoke command puts `--list-tests` before `--`.
 
-Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Session
 
@@ -126,6 +129,11 @@ Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-
 - Review oracle round 1: reviewer claude (claude-opus-5-5), session not exposed in print mode, effort 3, roster general. Found 2 bugs, 1 suggestion, and 2 nits, all open. A fix pass is requested — 2026-10-21
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 200 — 2026-10-21T01:47:54Z
 - 2026-10-21: fix pass for round 1. Bad once-hook fan-out matches discovery. TypeName omits the namespace. PDB spans are cached, and async methods follow MoveNext. CI runner 58 passed. Parameterized list exits 0 with 7 tests. The run summary is total 7, failed 2, succeeded 5. `ganda repo audit --fix` restored the executable bit on the two edited runfiles after the rewrite cleared it.
+- Review oracle round 2: reviewer claude (claude-opus-5-5), session not exposed in print mode, effort 2, roster general, delta `50ce534..82083a2`. M1–M5 verified fixed, no new findings, disposition clean — 2026-10-21
+
+## Learnings
+
+- Restatement scope (minor misread): the fix-pass `## Goal (implementer restatement)` covers M1, M10, and the round-1 fixes, but it drops M11 (the `--filter-class` omit test, CLI `--filter-tag` beating `JARIBU_FILTER_TAG`, and always-`InProgress`). The implementation still covers M11 (`FilterClass_Should_OmitOtherClasses`, `FilterTagCli_Should_WinOverEnvironment`, `StartedFailure_Should_PublishInProgressAndParameters`), so nothing is missing. A rewritten restatement should keep every original requirement. (review round 2, 2026-10-21)
 
 ## Interruptions
 

@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 1522
-- Effort: 3
+- Lines changed: 373
+- Effort: 2
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 120 (--max-turns; cursor uncapped)
 
 ## Framework — task 036-001
 
@@ -26,3 +26,10 @@
 - Address the diff and surrounding call sites; re-verify falsifiable claims against the repo
 - Prior rounds are immutable; new work goes in `round-(N+1)/`
 - `ganda repo audit --fix` changes in the diff (hooks, `.memsearch.toml` removal, `.gitignore`, workflow, SourceGenerators pin) are policy baseline and are not reviewed as findings
+
+## Round 2
+
+- **Date:** 2026-10-21
+- **Diff scope:** fix delta `50ce534..82083a2` (commits `8b0032c`, `82083a2`), re-verifying round-1 M1–M5
+- **Effort:** 2 (by-diff budget, 373 lines); roster general only
+- **Reviewer:** general (review oracle, claude-opus-5-5), session not exposed in print mode
