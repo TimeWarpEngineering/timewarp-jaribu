@@ -2,7 +2,7 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 185
+- Lines changed: 43
 - Effort: 1
 - TCB hits: none
 - Roster axes: general
@@ -22,6 +22,11 @@
 
 - Diff scope: fix delta `14ba1b5..bba08ba` (commit `bba08ba`), with M1–M4 re-checked against it
 - Effort: 1. Roster: general (review oracle, Claude Opus 5.5)
+
+## Round 3 scope
+
+- Diff scope: fix delta `9039f88..44619ee` (commit `44619ee`), with M5 re-checked against it
+- Effort: 1 (43 lines changed). Roster: general (review oracle, Claude Opus 5.5)
 
 ## Ground rules
 

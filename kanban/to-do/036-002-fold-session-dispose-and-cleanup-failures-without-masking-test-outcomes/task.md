@@ -93,11 +93,17 @@ Expect:
 - Final counts so far (round 2): bug 0 open / 1 fixed, suggestion 1 open, nit 0 open / 3 fixed.
 - `./bin/dev test` re-run by the round-2 reviewer: exit 0, 72 passed.
 - Paths: `review/round-2/general.md`, `review/round-2/merged.md`
+- Round 3 (effort 1, roster: general, scope `44619ee` fix delta): M5 is fixed and there are no new findings.
+- Round-3 reviewer re-ran both checks. `./bin/dev test`: exit 0, 72 passed. MTP runner: exit 2, 92 total / 10 failed / 81 succeeded / 1 skipped, no `Collection was modified`. All 10 failures are intentional tests that 036-003 owns.
+- Final counts: bug 0 open / 1 fixed, suggestion 0 open / 1 fixed, nit 0 open / 3 fixed, 0 wontfix.
+- **Disposition: clean** (3 rounds, final open count 0, no exceptions or escalations).
+- Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`
 
 ## Review
 
 - Round 1: Blocked — open M1, M2, M3, M4
 - Round 2: Blocked — open M5
+- Round 3: Done — disposition clean
 
 ## Notes
 
@@ -120,3 +126,4 @@ Acceptance for this fix pass: `JaribuTestFramework.ExecuteRequestAsync` copies `
 - Fix pass (review round 1 M1–M4): implement-fix-2 (grok, model grok-4.7) — 2026-10-21. `./bin/dev test` exit 0, 72 passed.
 - Review oracle round 2: general reviewer (claude, model claude-opus-5-5), effort 1, max-turns 80, session not reported. Result: M1–M4 fixed. Fix pass needed for M5 — 2026-10-21
 - Fix pass (review round 2 M5): implement-fix-3 (grok, model grok-4.7) — 2026-10-21. `ExecuteRequestAsync` snapshots `RegisteredTestClasses`. `./bin/dev test` exit 0, 72 passed. MTP runner exit 2, 92 total / 10 failed / 81 succeeded / 1 skipped, no collection-modified crash. `ganda repo audit` passed.
+- Review oracle round 3: general reviewer (claude, model claude-opus-5-5), effort 1, max-turns 80, session not reported. Result: M5 fixed, no new findings. Disposition clean — 2026-10-21
