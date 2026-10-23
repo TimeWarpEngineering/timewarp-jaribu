@@ -64,6 +64,8 @@ The final art and derived cards are already built.  Do not regenerate or redraw 
 - Implementation: grok `01a167a9-69b7-75e0-8d9f-475ebb67b81f` (2026-10-23)
 - Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-23T07:33:07Z
 - Review oracle: Claude Code (claude-opus-5-5), effort 1, roster general, round 1. Session id not exposed. Blocked on an operator decision (M1). — 2026-10-23
+- Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 80 — 2026-10-23T07:35:02Z
+- Review oracle: Claude Code (claude-opus-5-5), effort 2, roster general, round 2. Session id not exposed. Blocked: fix pass needed for M1 (the end-card re-copy). — 2026-10-23
 
 ## Results
 
@@ -91,6 +93,14 @@ Copied the finished Jaribu kit into `assets/mascot/` byte for byte and placed th
 - Checked: `cmp` and SHA-256 match the kit for all five files. Dimensions are correct. The README diff is only the two added lines. The art carries only the chest letter J. The goal restatement matches the task (no misread).
 - M1 (bug, open): in `jaribu-end-card.png`, the code-drawn URL `github.com/TimeWarpEngineering/timewarp-jaribu` runs into the hero sticker and boot. The cause is in the kit's `build.py:64-67`. The task forbids regenerating the art, so the implementer cannot fix it on this id. Masoko / Steven must decide: (a) fix `build.py`, regenerate, and allow the re-copy here, or (b) accept the card as it is, and mark M1 `wontfix` with that rationale.
 - Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`. `review/disposition.md` is not written yet.
+
+**Review (round 2, effort 2, roster general)**
+
+- Status: **no disposition yet**. A fix pass is needed for M1.
+- Final counts so far: bug 1 open, suggestion 0, nit 0.
+- M1 (bug, open): Masoko chose option (a). The corrected kit card `/home/steve/masoko/mascot-kit/jaribu-end-card.png` (SHA-256 `7c4d76740aafd04c382694901551fd910d7785a6a1ce431b2c408b9850b440a6`) is clean. I checked it visually. It has not been copied in: the repo file is still `236ae90b…7bba`, and `cmp` differs. Fix: re-copy that one file byte for byte, update the end-card hash above, and commit.
+- The other four assets still match the kit. README and goal restatement are unchanged, and there is no misread.
+- Paths: `review/round-2/general.md`, `review/round-2/merged.md` (live ledger).
 
 ### How to validate
 
@@ -176,3 +186,11 @@ PY
 - The Python corner line for `jaribu-hero-dark.png` is `(6, 22, 30)` (`#06161E`).
 - The Python corner line for `jaribu-hero-transparent.png` ends in alpha `0`.
 - On a machine that still has the kit, `cmp /home/steve/masoko/mascot-kit/<file> assets/mascot/<file>` is silent for all five names.
+
+## Blocked
+
+2026-10-23: operator decision needed: Masoko/Steven to choose between fixing the end-card URL overlap in the external mascot-kit build.py and re-copying it, or accepting the card as-is (task forbids regenerating, so no fix pass can resolve it)
+
+## Operator decision (Masoko, 2026-10-23): review M1 end-card URL overlap
+
+Option (a), fix it.  The kit generator was fixed (the repo URL is now two lines, 34 px, left of the hero, hero scaled down) and the corrected end card is at `/home/steve/masoko/mascot-kit/jaribu-end-card.png`.  Re-copy that one file over `assets/mascot/jaribu-end-card.png` byte for byte and nothing else; this is an allowed re-copy on this id.  Then mark M1 as fixed and continue the walk.

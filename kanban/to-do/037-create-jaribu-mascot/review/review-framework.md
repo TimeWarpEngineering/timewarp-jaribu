@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 148
-- Effort: 1
+- Lines changed: 226
+- Effort: 2
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 80 (--max-turns; cursor uncapped)
+- Turn cap: 120 (--max-turns; cursor uncapped)
 
 ## Scope
 
