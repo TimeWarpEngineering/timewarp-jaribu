@@ -12,6 +12,8 @@ Acceptance:
 - Mark checklist items 1 through 5 done. Leave Steven's approval of the final art unticked.
 - Change only `assets/mascot/`, `readme.md`, and this task file, unless `ganda repo audit` requires a fix.
 
+Round-2 fix acceptance: replace only `assets/mascot/jaribu-end-card.png` with the corrected kit file at `/home/steve/masoko/mascot-kit/jaribu-end-card.png` (SHA-256 `7c4d76740aafd04c382694901551fd910d7785a6a1ce431b2c408b9850b440a6`) so the code-drawn repository URL no longer overlaps the hero. Leave the other four assets and `readme.md` unchanged.
+
 ## Description
 
 Create **Jaribu**, the original TimeWarp mascot hero for this repo.  Jaribu means *try / test ("experimentation and validation")* in Swahili, and the hero is themed on that meaning.
@@ -38,6 +40,10 @@ Proposed look (from the roster; a proposal, adjust with Steven): Lab-goggle hero
 - [x] Use in the OG card (1200x630, code-drawn text)
 - [x] Use in the video end card
 - [ ] Steven approves the final art
+
+## Review
+
+- Round 2: Blocked — open M1
 
 ## Notes
 
@@ -66,6 +72,8 @@ The final art and derived cards are already built.  Do not regenerate or redraw 
 - Review oracle: Claude Code (claude-opus-5-5), effort 1, roster general, round 1. Session id not exposed. Blocked on an operator decision (M1). — 2026-10-23
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 80 — 2026-10-23T07:35:02Z
 - Review oracle: Claude Code (claude-opus-5-5), effort 2, roster general, round 2. Session id not exposed. Blocked: fix pass needed for M1 (the end-card re-copy). — 2026-10-23
+- Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 120 — 2026-10-23T07:41:30Z
+- Implement-fix-2: grok session `01a167b5-3282-7693-9b5a-9d15ec45c93a` (2026-10-23)
 
 ## Results
 
@@ -77,7 +85,7 @@ Copied the finished Jaribu kit into `assets/mascot/` byte for byte and placed th
 - `assets/mascot/jaribu-hero-dark.png` — 1024x1024 RGB on Night `#06161E`, white sticker outline. SHA-256 `8c403a47b78d18f5eac893b54896e0e2a427a169d58b4dcee65468c8c9f6ee7f`.
 - `assets/mascot/jaribu-hero-transparent.png` — 1024x1024 RGBA, corner alpha 0. SHA-256 `3d435555714be41b0611e7aaa2c3c5c739f88972e64d7a39aa4c12c60178932c`.
 - `assets/mascot/jaribu-og-card.png` — 1200x630 RGB, code-drawn words already in the file. SHA-256 `211d08eecd0afbf86b0b309574f1159fe27f789dd236463d932e24edb2fb632d`.
-- `assets/mascot/jaribu-end-card.png` — 1920x1080 RGB still. SHA-256 `236ae90b936614106f11b8becfb5dfc798ddc74976572aea0d92516411fb7bba`.
+- `assets/mascot/jaribu-end-card.png` — 1920x1080 RGB still. SHA-256 `7c4d76740aafd04c382694901551fd910d7785a6a1ce431b2c408b9850b440a6`.
 - `readme.md` — two lines added at the top (centered hero, then a blank line). Every previous line is unchanged. Chest letter in the art is J.
 
 **Checks**
@@ -102,6 +110,14 @@ Copied the finished Jaribu kit into `assets/mascot/` byte for byte and placed th
 - The other four assets still match the kit. README and goal restatement are unchanged, and there is no misread.
 - Paths: `review/round-2/general.md`, `review/round-2/merged.md` (live ledger).
 
+**Fix pass (implement-fix-2)**
+
+- M1 is fixed on the live ledger. The corrected kit end card was copied over `assets/mascot/jaribu-end-card.png` byte for byte. `cmp` against `/home/steve/masoko/mascot-kit/jaribu-end-card.png` is silent. SHA-256 is `7c4d76740aafd04c382694901551fd910d7785a6a1ce431b2c408b9850b440a6` (the previous file was `236ae90b936614106f11b8becfb5dfc798ddc74976572aea0d92516411fb7bba`).
+- The URL is two lines on the left (`github.com/TimeWarpEngineering/` and `timewarp-jaribu`) and does not meet the sticker or the boots. The chest letter is still J. The other four assets still match the kit. `readme.md` was not edited.
+- Live ledger counts after this pass: bug 0 open, 1 fixed, 0 wontfix. Disposition is not written; the host re-reviews next.
+- The earlier park (operator decision on the overlapping card) is resolved by Masoko's option (a) and this re-copy.
+- `ganda repo audit` on this pass: Passed 31, Failed 0, Skipped 1 (`self-hosted`, public repository). No `--fix` edits. Docs and assets only, so `./bin/dev test` was not run.
+
 ### How to validate
 
 **Smoke**
@@ -113,6 +129,8 @@ file assets/mascot/jaribu-hero.png \
   assets/mascot/jaribu-og-card.png \
   assets/mascot/jaribu-end-card.png
 head -n 3 readme.md
+sha256sum assets/mascot/jaribu-end-card.png
+cmp /home/steve/masoko/mascot-kit/jaribu-end-card.png assets/mascot/jaribu-end-card.png
 python3 - <<'PY'
 import struct, zlib
 from pathlib import Path
@@ -181,15 +199,13 @@ PY
 **Expect**
 
 - `file` reports `jaribu-hero.png` and `jaribu-hero-dark.png` as 1024x1024 RGB, `jaribu-hero-transparent.png` as 1024x1024 RGBA, `jaribu-og-card.png` as 1200x630 RGB, and `jaribu-end-card.png` as 1920x1080 RGB.
+- `sha256sum` prints `7c4d76740aafd04c382694901551fd910d7785a6a1ce431b2c408b9850b440a6` for `assets/mascot/jaribu-end-card.png`.
+- `cmp` of the end card against the kit is silent. On a machine that still has the kit, the same is true for the other four names.
 - `head` prints the centered `assets/mascot/jaribu-hero.png` image, a blank line, then `# TimeWarp.Jaribu`.
 - The Python corner line for `jaribu-hero.png` is `(255, 255, 255)`.
 - The Python corner line for `jaribu-hero-dark.png` is `(6, 22, 30)` (`#06161E`).
 - The Python corner line for `jaribu-hero-transparent.png` ends in alpha `0`.
 - On a machine that still has the kit, `cmp /home/steve/masoko/mascot-kit/<file> assets/mascot/<file>` is silent for all five names.
-
-## Blocked
-
-2026-10-23: operator decision needed: Masoko/Steven to choose between fixing the end-card URL overlap in the external mascot-kit build.py and re-copying it, or accepting the card as-is (task forbids regenerating, so no fix pass can resolve it)
 
 ## Operator decision (Masoko, 2026-10-23): review M1 end-card URL overlap
 
