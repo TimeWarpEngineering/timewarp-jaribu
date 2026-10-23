@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/mascot/jaribu-hero.png" alt="Jaribu, the TimeWarp Jaribu mascot" width="240" /></p>
+
 # TimeWarp.Jaribu
 
 Lightweight test framework for .NET with two execution modes:
