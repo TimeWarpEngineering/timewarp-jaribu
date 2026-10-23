@@ -62,6 +62,8 @@ The final art and derived cards are already built.  Do not regenerate or redraw 
 ## Session
 
 - Implementation: grok `01a167a9-69b7-75e0-8d9f-475ebb67b81f` (2026-10-23)
+- Implement oracle: implemented by implementer-grok (grok, model grok-4.7), session not reported, max-turns 500, Done — 2026-10-23T07:33:07Z
+- Review oracle: Claude Code (claude-opus-5-5), effort 1, roster general, round 1. Session id not exposed. Blocked on an operator decision (M1). — 2026-10-23
 
 ## Results
 
@@ -81,6 +83,14 @@ Copied the finished Jaribu kit into `assets/mascot/` byte for byte and placed th
 - `cmp` of each file against `/home/steve/masoko/mascot-kit/` was silent (byte match).
 - `ganda repo audit` — Passed 31, Failed 0, Skipped 1 (`self-hosted`, public repository). No `--fix` edits.
 - Docs and assets only, so `./bin/dev test` was not run.
+
+**Review (round 1, effort 1, roster general)**
+
+- Status: **no disposition yet**. Waiting on an operator decision.
+- Final counts so far: bug 1 open, suggestion 0, nit 0.
+- Checked: `cmp` and SHA-256 match the kit for all five files. Dimensions are correct. The README diff is only the two added lines. The art carries only the chest letter J. The goal restatement matches the task (no misread).
+- M1 (bug, open): in `jaribu-end-card.png`, the code-drawn URL `github.com/TimeWarpEngineering/timewarp-jaribu` runs into the hero sticker and boot. The cause is in the kit's `build.py:64-67`. The task forbids regenerating the art, so the implementer cannot fix it on this id. Masoko / Steven must decide: (a) fix `build.py`, regenerate, and allow the re-copy here, or (b) accept the card as it is, and mark M1 `wontfix` with that rationale.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`. `review/disposition.md` is not written yet.
 
 ### How to validate
 
