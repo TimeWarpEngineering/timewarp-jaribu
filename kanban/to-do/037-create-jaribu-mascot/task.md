@@ -44,8 +44,7 @@ Proposed look (from the roster; a proposal, adjust with Steven): Lab-goggle hero
 ## Review
 
 - Round 2: Blocked — open M1
-- Round 3: Done — M1 fixed, disposition clean
-
+- Round 3: Done
 ## Notes
 
 - Filed by Masoko (marketing) on 2026-10-22 at Steven's request.
