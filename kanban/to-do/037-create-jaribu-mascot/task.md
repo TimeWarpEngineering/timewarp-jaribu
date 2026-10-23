@@ -44,6 +44,7 @@ Proposed look (from the roster; a proposal, adjust with Steven): Lab-goggle hero
 ## Review
 
 - Round 2: Blocked — open M1
+- Round 3: Done — M1 fixed, disposition clean
 
 ## Notes
 
@@ -74,6 +75,7 @@ The final art and derived cards are already built.  Do not regenerate or redraw 
 - Review oracle: Claude Code (claude-opus-5-5), effort 2, roster general, round 2. Session id not exposed. Blocked: fix pass needed for M1 (the end-card re-copy). — 2026-10-23
 - Review oracle: review by reviewer-claude (claude, model claude-opus-5-5), session not reported, max-turns 120 — 2026-10-23T07:41:30Z
 - Implement-fix-2: grok session `01a167b5-3282-7693-9b5a-9d15ec45c93a` (2026-10-23)
+- Review oracle: Claude Code (claude-opus-5-5), effort 1, roster general, round 3. Session id not exposed. Disposition clean (M1 fixed, 0 open). — 2026-10-23
 
 ## Results
 
@@ -117,6 +119,14 @@ Copied the finished Jaribu kit into `assets/mascot/` byte for byte and placed th
 - Live ledger counts after this pass: bug 0 open, 1 fixed, 0 wontfix. Disposition is not written; the host re-reviews next.
 - The earlier park (operator decision on the overlapping card) is resolved by Masoko's option (a) and this re-copy.
 - `ganda repo audit` on this pass: Passed 31, Failed 0, Skipped 1 (`self-hosted`, public repository). No `--fix` edits. Docs and assets only, so `./bin/dev test` was not run.
+
+**Review (round 3, effort 1, roster general) — disposition: clean**
+
+- Rounds run: 3. The roster was general only in every round: effort 1, then 2, then 1.
+- Final counts: bug 0 open, 1 fixed, 0 wontfix. Suggestion 0. Nit 0.
+- M1 (bug, fixed): fix commit `015ee7e` changed only `assets/mascot/jaribu-end-card.png`. Its SHA-256 is `7c4d7674…40a6`, and `cmp` against the kit is silent. Visually, the URL is two lines left of the hero with no overlap. All five assets match the kit. The goal restatement, including the round-2 fix acceptance, matches the task (no misread).
+- No wontfix findings. The only escalation was Masoko's option (a) decision on M1.
+- Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
 
 ### How to validate
 
