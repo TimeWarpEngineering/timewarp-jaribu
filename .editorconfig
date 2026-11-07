@@ -29,8 +29,8 @@ resharper_html_attribute_indent = single_indent
 resharper_convert_to_primary_constructor_highlighting = false
 
 # Development files
-[*.{cs,csx,cshtml,csproj,razor,sln,props,targets,json,yml,gitignore,}]
-charset = "utf-8"
+[*.{cs,csx,cshtml,csproj,razor,sln,props,targets,json,yml,gitignore}]
+charset = utf-8
 trim_trailing_whitespace = true
 
 #### .NET Coding Conventions ####
@@ -437,7 +437,5 @@ csharp_style_prefer_primary_constructors = false
 # TW0007 file-level usings (TimeWarp.SourceGenerators)
 dotnet_diagnostic.TW0007.filename = global-usings.cs
 [ganda.audit]
-# This IS the TimeWarp.Nuru repo, so it cannot reference TimeWarp.Nuru as a package.
-nuru.severity = off
 # IDE0005 requires GenerateDocumentationFile; not enabled for this package
 dotnet_diagnostic.IDE0005.severity = none

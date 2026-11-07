@@ -4,6 +4,8 @@
 #region Design
 // samples/ is optional. A missing directory, or one with nothing to compile, exits non-zero.
 // The command reports success only after dotnet build of a samples solution, project, or script exits 0.
+// The route stays registered because dev-cli-capabilities requires verify-samples.
+// The CI workflow does not call it, so a repository with no samples still passes the pipeline.
 #endregion
 
 namespace DevCli.Commands;
@@ -20,7 +22,7 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       Terminal = terminal;
     }
 
-    public async ValueTask<Unit> Handle(VerifySamplesCommand command, CancellationToken ct)
+    public async Task<Unit> Handle(VerifySamplesCommand command, CancellationToken ct)
     {
       _ = command;
       ct.ThrowIfCancellationRequested();
@@ -30,7 +32,7 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       {
         Terminal.WriteErrorLine("Error: could not find repository root.");
         Environment.ExitCode = 1;
-        return Value;
+        return Unit.Value;
       }
 
       string samplesDirectory = Path.Combine(repoRoot, "samples");
@@ -38,7 +40,7 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       {
         Terminal.WriteErrorLine("verify-samples: no samples/ directory exists.");
         Environment.ExitCode = 1;
-        return Value;
+        return Unit.Value;
       }
 
       string[] targets = FindCompileTargets(samplesDirectory);
@@ -46,7 +48,7 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       {
         Terminal.WriteErrorLine("verify-samples: samples/ has nothing to compile.");
         Environment.ExitCode = 1;
-        return Value;
+        return Unit.Value;
       }
 
       Terminal.WriteLine($"Verifying {targets.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)} sample target(s)...");
@@ -54,20 +56,22 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       {
         ct.ThrowIfCancellationRequested();
         Terminal.WriteLine($"  Building {Path.GetRelativePath(repoRoot, target)}");
-        int exitCode = await DotNet.Build(target)
+        CommandOutput result = await DotNet.Build(target)
           .WithConfiguration("Release")
           .WithWorkingDirectory(repoRoot)
-          .RunAsync(ct);
-        if (exitCode != 0)
+          .WithNoValidation()
+          .CaptureAsync(ct);
+        if (!result.Success)
         {
+          Terminal.WriteErrorLine(result.Combined);
           Terminal.WriteErrorLine($"verify-samples: build failed for {target}");
           Environment.ExitCode = 1;
-          return Value;
+          return Unit.Value;
         }
       }
 
       Terminal.WriteLine("Samples verified successfully!");
-      return Value;
+      return Unit.Value;
     }
 
     private static string[] FindCompileTargets(string samplesDirectory)
