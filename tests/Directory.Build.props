@@ -21,7 +21,6 @@
     <Using Include="System.Globalization" />
     <Using Include="TimeWarp.Jaribu" />
     <Using Include="TimeWarp.Jaribu.TestRunner" Static="true" />
-    <Using Include="TimeWarp.Nuru" />
     <Using Include="TimeWarp.Terminal" />
     <Using Include="TimeWarp.Terminal.Terminal" Static="true" />
     <Using Include="System.Runtime.CompilerServices" />
@@ -30,7 +29,6 @@
   <ItemGroup>
     <!-- Common project references for all test projects -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)../source/timewarp-jaribu/timewarp-jaribu.csproj" />
-    <PackageReference Include="TimeWarp.Nuru" />
     <PackageReference Include="TimeWarp.Terminal" />
   </ItemGroup>
 </Project>

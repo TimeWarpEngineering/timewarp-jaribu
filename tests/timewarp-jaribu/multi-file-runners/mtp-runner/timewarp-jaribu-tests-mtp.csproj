@@ -8,7 +8,16 @@
     <DefineConstants>$(DefineConstants);JARIBU_MULTI</DefineConstants>
   </PropertyGroup>
 
-  <!-- Compile items come from ../ci-safe-tests.props (imported by the parent Directory.Build.props). -->
+  <!-- Compile items come from ../ci-safe-tests.props (imported by the parent Directory.Build.props).
+       Sibling files are not in that list: file-based runners already compile them through
+       #:include, and listing them there duplicates the Compile item. This project ignores #:include. -->
+  <ItemGroup>
+    <Compile Include="../../single-file-tests/core/test-runner.setup-once.fixtures.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.setup-once.inheritance.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.session-fixture.lifecycle.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.session-fixture.failure.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.session-fixture.fixtures.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />

@@ -44,7 +44,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       PackableProjectService = packableProjectService;
     }
 
-    public async ValueTask<Unit> Handle(WorkflowCommand command, CancellationToken ct)
+    public async Task<Unit> Handle(WorkflowCommand command, CancellationToken ct)
     {
       // Auto-detect from GitHub Actions environment
       string? eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME");

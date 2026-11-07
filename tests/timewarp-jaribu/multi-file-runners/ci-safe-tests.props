@@ -6,6 +6,8 @@
   -->
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.tag-filtering.cs" />
+    <!-- Sibling partials are pulled in by #:include on these two files for file-based runners.
+         The MTP csproj lists them itself because a normal project ignores #:include. -->
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.setup-once.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.session-fixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/terminal-sink.tabular-output.cs" />
