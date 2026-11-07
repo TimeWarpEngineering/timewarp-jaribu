@@ -4,7 +4,7 @@
 
 #region Purpose
 // MTP checks for input-row identity, filter precedence, in-progress publication,
-// and cleanup text on Failed, Timeout, and Error explanations.
+// cleanup text on Failed, Timeout, and Error explanations, and --treenode-filter.
 #endregion
 
 #region Design
@@ -188,6 +188,73 @@ namespace Mtp_
       SummaryCount(ranText, "total").ShouldBe(2);
       SummaryCount(ranText, "failed").ShouldBe(1);
       SummaryCount(ranText, "succeeded").ShouldBe(1);
+    }
+
+    public static async Task TreeNodeFilter_Should_SelectTheRequestedSet()
+    {
+      const string PassingPath =
+        "/timewarp-jaribu-mtp-validation/TimeWarp.Jaribu.MtpValidation/BasicTests/PassingTest";
+      const string InputPath =
+        "/timewarp-jaribu-mtp-validation/TimeWarp.Jaribu.MtpValidation/InputIdentityTests/FailThenPass";
+
+      CommandOutput oneMethod = await RunValidationAsync("--list-tests", "--", "--treenode-filter", PassingPath);
+      string oneMethodText = Normalize(oneMethod.Combined);
+      oneMethod.ExitCode.ShouldBe(0, oneMethodText);
+      DiscoveredCount(oneMethodText).ShouldBe(1);
+      oneMethodText.ShouldContain("PassingTest");
+      oneMethodText.ShouldNotContain("AssertionPassingTest");
+      oneMethodText.ShouldNotContain("NullReferenceExceptionTest");
+      oneMethodText.ShouldNotContain("FailThenPass");
+
+      CommandOutput bothRows = await RunValidationAsync("--list-tests", "--", "--treenode-filter", InputPath);
+      string bothRowsText = Normalize(bothRows.Combined);
+      bothRows.ExitCode.ShouldBe(0, bothRowsText);
+      DiscoveredCount(bothRowsText).ShouldBe(2);
+      bothRowsText.ShouldContain("FailThenPass(fail)");
+      bothRowsText.ShouldContain("FailThenPass(pass)");
+      bothRowsText.ShouldNotContain("PassingTest");
+
+      CommandOutput tagged = await RunValidationAsync(
+        "--list-tests",
+        "--",
+        "--treenode-filter",
+        "/**[TestTag=EdgeCases]");
+      string taggedText = Normalize(tagged.Combined);
+      tagged.ExitCode.ShouldBe(0, taggedText);
+      DiscoveredCount(taggedText).ShouldBe(5);
+      taggedText.ShouldContain("NullReferenceExceptionTest");
+      taggedText.ShouldContain("ArgumentExceptionTest");
+      taggedText.ShouldNotContain("PassingTest");
+      taggedText.ShouldNotContain("FailThenPass");
+
+      CommandOutput oneRow = await RunValidationAsync(
+        "--list-tests",
+        "--",
+        "--treenode-filter",
+        "/**[jaribu.parameter.0=fail]");
+      string oneRowText = Normalize(oneRow.Combined);
+      oneRow.ExitCode.ShouldBe(0, oneRowText);
+      DiscoveredCount(oneRowText).ShouldBe(1);
+      oneRowText.ShouldContain("FailThenPass(fail)");
+      oneRowText.ShouldNotContain("FailThenPass(pass)");
+
+      CommandOutput none = await RunValidationAsync(
+        "--list-tests",
+        "--",
+        "--treenode-filter",
+        "/timewarp-jaribu-mtp-validation/TimeWarp.Jaribu.MtpValidation/BasicTests/NoSuchMethod");
+      string noneText = Normalize(none.Combined);
+      none.ExitCode.ShouldBe(8, noneText);
+      DiscoveredCount(noneText).ShouldBe(0);
+
+      CommandOutput ran = await RunValidationAsync("--", "--treenode-filter", PassingPath);
+      string ranText = Normalize(ran.Combined);
+      ran.ExitCode.ShouldBe(0, ranText);
+      ranText.ShouldNotContain("AssertionPassingTest");
+      ranText.ShouldNotContain("FailThenPass");
+      SummaryCount(ranText, "total").ShouldBe(1);
+      SummaryCount(ranText, "succeeded").ShouldBe(1);
+      SummaryCount(ranText, "failed").ShouldBe(0);
     }
 
     private static string Normalize(string output)
