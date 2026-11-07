@@ -164,7 +164,7 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(1);
       BadSignatureVoidFixture.BodyCount.ShouldBe(0);
       BadSignatureVoidFixture.CleanUpOnceCount.ShouldBe(0);
-      sink.Results[0].State.ShouldBe(TestNodeState.Failed);
+      sink.Results[0].State.ShouldBe(TestNodeState.Error);
       sink.Results[0].Exception.ShouldNotBeNull();
       sink.Results[0].Exception!.Message.ShouldContain("public static Task");
     }
@@ -179,7 +179,7 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(1);
       BadSignaturePrivateFixture.BodyCount.ShouldBe(0);
       BadSignaturePrivateFixture.CleanUpOnceCount.ShouldBe(0);
-      sink.Results[0].State.ShouldBe(TestNodeState.Failed);
+      sink.Results[0].State.ShouldBe(TestNodeState.Error);
       sink.Results[0].Exception.ShouldNotBeNull();
       sink.Results[0].Exception!.Message.ShouldContain("public static Task");
     }
@@ -274,6 +274,7 @@ namespace TestRunner_
       stats.Success.ShouldBeFalse();
       stats.FailedCount.ShouldBe(1);
       OverloadOnceFixture.BodyCount.ShouldBe(0);
+      sink.Results[0].State.ShouldBe(TestNodeState.Error);
       sink.Results[0].Exception.ShouldNotBeNull();
       sink.Results[0].Exception!.Message.ShouldContain("multiple methods named");
     }

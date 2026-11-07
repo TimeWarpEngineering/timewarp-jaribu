@@ -15,7 +15,11 @@ using System.Reflection;
 // throws before it returns a task, after the token has fired, is traced.
 // It does not leave the class run, so the owned session still ends and the
 // sink still completes. The same failure with no cancellation stays a
-// synthetic node.
+// synthetic node. A class TimeoutAttribute or DefaultHookTimeout also bounds
+// SetupOnce, CleanUpOnce, and session fixture creation for this run.
+// A SetupOnce body failure is Failed. Fixture creation from that hook is
+// Error, and a fixture or hook timeout is Timeout. A CleanUpOnce timeout
+// is a synthetic Timeout node.
 #endregion
 
 public static partial class TestRunner
@@ -112,6 +116,7 @@ public static partial class TestRunner
     CancellationToken cancellationToken = default)
   {
     using CancellationScope scope = new(cancellationToken);
+    using HookTimeoutScope hookTimeout = new(testClass);
     bool ownsSession = false;
     if (!SessionFixture.IsSessionActive)
     {
@@ -206,7 +211,12 @@ public static partial class TestRunner
           List<ReportedTestCase> cases = SelectCases(
             TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
             casePredicate);
-          await ReportCasesFailedDueToHookAsync(cases, resolutionError, sink, results);
+          await ReportCasesFailedDueToHookAsync(
+            cases,
+            resolutionError,
+            TestNodeState.Error,
+            sink,
+            results);
         }
       }
       else
@@ -248,7 +258,21 @@ public static partial class TestRunner
           {
             try
             {
-              await InvokeOnceHookAsync(onceState.CleanUpOnce, cancellationToken).ConfigureAwait(false);
+              WaitKind kind = await InvokeOnceHookAsync(onceState.CleanUpOnce, cancellationToken)
+                .ConfigureAwait(false);
+              if (kind == WaitKind.TimedOut)
+              {
+                int milliseconds = CurrentHookTimeoutMilliseconds ?? 0;
+                TimeoutException timeout = new(TimeoutAfter(milliseconds, "CleanUpOnce"));
+                await EmitSyntheticHookFailureAsync(
+                  testClass,
+                  "CleanUpOnce",
+                  timeout,
+                  sink,
+                  results,
+                  timeout.Message,
+                  TestNodeState.Timeout).ConfigureAwait(false);
+              }
             }
             catch (Exception cleanUpEx) when (!cancellationToken.IsCancellationRequested)
             {
@@ -386,7 +410,13 @@ public static partial class TestRunner
 
     if (onceState.SetupOnceFailure is not null)
     {
-      await ReportCasesFailedDueToHookAsync(cases, onceState.SetupOnceFailure, sink, results);
+      TestNodeState state = FailureMark.StateFor(onceState.SetupOnceFailure, TestNodeState.Failed);
+      await ReportCasesFailedDueToHookAsync(
+        cases,
+        onceState.SetupOnceFailure,
+        state,
+        sink,
+        results);
       return results;
     }
 

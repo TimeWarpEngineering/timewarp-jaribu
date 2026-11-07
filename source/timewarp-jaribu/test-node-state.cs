@@ -11,13 +11,18 @@ public enum TestNodeState
   InProgress,
   /// <summary>Test passed successfully.</summary>
   Passed,
-  /// <summary>Test failed due to assertion or exception.</summary>
+  /// <summary>
+  /// Assertion or other exception thrown by the test, Setup, or a hook body, synchronously or from the returned task.
+  /// </summary>
   Failed,
   /// <summary>Test was skipped.</summary>
   Skipped,
   /// <summary>Test exceeded its timeout.</summary>
   Timeout,
-  /// <summary>Test encountered an unexpected error during setup/teardown.</summary>
+  /// <summary>
+  /// Infrastructure fault: hook resolution, session fixture creation, a runner failure to invoke the test,
+  /// or CleanUp throwing after a passing body.
+  /// </summary>
   Error,
   /// <summary>Test execution was cancelled.</summary>
   Cancelled

@@ -162,14 +162,14 @@ public static async Task CleanUpOnce()
 
 **Rules:**
 
-- Signature must be `public static Task` parameterless — near-misses fail the class (no silent ignore)
+- Signature must be `public static Task` parameterless — near-misses fail the class as Error (no silent ignore)
 - Lazy: all-`[Skip]` or all method-tag-filtered classes never pay the fixture cost
 - `CleanUpOnce` only if `SetupOnce` was invoked; guaranteed via try/finally even when tests fail
-- `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run
+- `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run. Fixture creation from that hook is Error, and a timeout is Timeout
 - `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; test results kept. When the caller token has fired, that throw is traced and the run still returns 1
 - `RunSingleTestAsync` bypasses class hooks (per-test `Setup`/`CleanUp` only)
 - Dispose shared fixtures explicitly in `CleanUpOnce` (no auto field scan)
-- Timeout-abandoned tasks may touch the fixture after dispose; document/avoid if needed
+- A timed-out task is observed and its later fault is traced. It may still touch the fixture after dispose; prefer cooperative cancellation when the body must stop. why: task 045
 
 Use `Setup`/`CleanUp` for per-test state. Use `SetupOnce`/`CleanUpOnce` for shared hosts and other expensive fixtures that need deterministic teardown. Static/`Lazy` remains fine when no dispose is needed.
 
@@ -208,6 +208,7 @@ public static async Task CleanUpOnce()
 
 - Register with `RegisterSessionFixture<T>()` — `T` needs `public static Task<T> CreateAsync()` + `IAsyncDisposable`
 - Resolve with `SessionFixture.GetAsync<T>()` (lazy; unregistered → teaching error)
+- A create failure stays for the session. A create timeout does not: the next class retries under its own hook budget
 - Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / lone RunTestsAsync)
 - Double-register fails fast; never create if no class calls GetAsync
 - Prefer class SetupOnce when the fixture is per-class only
@@ -231,7 +232,7 @@ public static async Task Should_handle_input(string input)
 |-----------|---------|
 | `[TestTag("Name")]` | Tag for filtering (class or method) |
 | `[Skip("reason")]` | Skip test with reason |
-| `[Timeout(ms)]` | Set timeout in milliseconds |
+| `[Timeout(ms)]` | Positive budget. Method: that test. Class or `TestRunner.DefaultHookTimeout`: Setup, CleanUp, once-hooks, and session fixture creation. `DefaultHookTimeout` under 1ms is rejected |
 | `[Input("value")]` | Data-driven test input |
 | `[ModuleInitializer]` | Register class for multi-mode |
 | `[ClearRunfileCache]` | Clear cache (standalone only, removed) |

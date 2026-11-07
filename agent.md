@@ -80,7 +80,7 @@ TestRunner.RunTestsAsync(sink)
 - **[TestTag("tag")]**: Filter tests by tag (class or method level)
 - **[Skip("reason")]**: Skip test execution
 - **[Input(params)]**: Parameterized test data
-- **[Timeout(ms)]**: Test timeout in milliseconds
+- **[Timeout(ms)]**: Positive millisecond budget. On a method it limits that test. On a class, or via `TestRunner.DefaultHookTimeout`, it limits Setup, CleanUp, SetupOnce, CleanUpOnce, and session fixture creation. Zero, negative, and sub-millisecond `DefaultHookTimeout` values throw. A session-fixture create timeout is not sticky across classes.
 
 
 ### Single-File C# Scripts

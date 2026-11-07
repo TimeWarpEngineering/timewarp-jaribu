@@ -63,7 +63,7 @@ namespace TestRunner_
 
       TestNodeInfo failed = sink.Results.Single(node =>
         node.DisplayName == nameof(ReportingMixedFixture.MixedResults_Should_CountFailingTest));
-      failed.State.ShouldBe(TestNodeState.Error);
+      failed.State.ShouldBe(TestNodeState.Failed);
       failed.Exception.ShouldNotBeNull();
       failed.Exception.ShouldBeOfType<InvalidOperationException>();
       failed.Exception.Message.ShouldContain("REPORT-01");

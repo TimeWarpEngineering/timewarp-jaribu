@@ -9,6 +9,7 @@
 #region Design
 // Nested fixtures are driven by RunTestsAsync. Only CleanupOutcome_Given_ registers,
 // so the failing fixtures are not top-level CI tests.
+// An async body failure is Failed, the same as a synchronous one.
 // A passing body becomes Error, and its message starts with CleanUp.
 #endregion
 
@@ -50,8 +51,8 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(1);
 
       TestNodeInfo node = sink.Results.Single();
-      // Awaited async exceptions are Error. CleanUp must not replace that state or exception.
-      node.State.ShouldBe(TestNodeState.Error);
+      // Awaited async exceptions are Failed. CleanUp must not replace that state or exception.
+      node.State.ShouldBe(TestNodeState.Failed);
       node.Exception.ShouldBeOfType<ArgumentException>();
       node.Exception.Message.ShouldBe("body boom");
       node.Message.ShouldNotBeNull();

@@ -41,10 +41,24 @@ namespace TimeWarp.Jaribu;
 //     Lone RunTestsAsync → owns session-of-one if none active
 //   Authors must NOT dispose session fixtures in CleanUpOnce.
 //
+// Outcomes:
+//   Exceptions thrown by the test or by Setup, sync or async, are Failed.
+//   Error is hook resolution, session fixture creation, reflection invoke
+//   failures, and a throwing CleanUp after a passing body.
+//
+// Timeouts:
+//   A method TimeoutAttribute limits that body. A class TimeoutAttribute, or
+//   DefaultHookTimeout when the class has none, limits Setup, CleanUp,
+//   SetupOnce, CleanUpOnce, and session fixture creation.
+//   The wait uses CancellationTokenSource and TimeProvider. The timer is
+//   disposed when the wait ends. An abandoned task is observed. A later fault
+//   is traced. A fault already stored on the task is reported instead of Timeout.
+//
 // Per-test CleanUp runs only after the body outcome is stored. A throwing CleanUp
 // cannot replace Failed, Error, or Timeout. The body exception stays on the node
 // and the cleanup failure is appended to Message, labeled CleanUp. A passing body
-// becomes Error and its message is prefixed with CleanUp.
+// becomes Error, or Timeout when CleanUp itself times out. The message is prefixed
+// with CleanUp.
 //
 // ownsSession teardown catches EndSessionAsync. The dispose failure is a synthetic
 // failed node from the same helper as class-hook failures, with the message

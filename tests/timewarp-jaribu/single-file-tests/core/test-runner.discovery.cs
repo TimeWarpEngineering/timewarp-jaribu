@@ -88,7 +88,7 @@ namespace TestRunner_
       stats.Success.ShouldBeFalse();
       TestNodeInfo failed = sink.Results.Single(node =>
         node.DisplayName == nameof(DiscoveryLifecycleFixture.IntentionalFailure_Should_Fail));
-      failed.State.ShouldBe(TestNodeState.Error);
+      failed.State.ShouldBe(TestNodeState.Failed);
       failed.Exception.ShouldNotBeNull();
       failed.Exception.ShouldBeOfType<ArgumentException>();
       failed.Exception.Message.ShouldContain("Intentional failure");

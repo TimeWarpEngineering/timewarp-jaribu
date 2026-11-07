@@ -2,6 +2,7 @@ namespace TimeWarp.Jaribu;
 
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 
 #region Purpose
 // Stops waiting on in-flight tests, hooks, and session fixtures when a run is cancelled.
@@ -14,7 +15,13 @@ using System.Reflection;
 // blocks the thread without awaiting still runs to completion.
 //
 // Cancelled wins over Timeout when both are signaled. A Timeout attribute with
-// no cancellation still reports Timeout.
+// no cancellation still reports Timeout. The wait uses CancellationTokenSource
+// and TimeProvider. Disposing that source disposes the timer when the wait ends.
+// The timeout signal resumes the wait after the timer callback returns.
+// A fault stored before that signal is the node outcome. A task abandoned by timeout
+// is observed. A fault already stored on it is thrown so the node reports that
+// fault. A fault that arrives later is traced. A success that loses to the
+// timeout token is Timeout.
 //
 // The ambient token lets SessionFixture.GetAsync observe the active run without
 // a new argument at every call site. An explicit token on GetAsync wins.
@@ -34,7 +41,7 @@ public static partial class TestRunner
   /// </summary>
   internal static CancellationToken AmbientCancellationToken => AmbientCancellation.Value;
 
-  private enum WaitKind
+  internal enum WaitKind
   {
     Completed,
     Cancelled,
@@ -71,12 +78,16 @@ public static partial class TestRunner
   /// Waits for <paramref name="task"/>. A fired caller token returns
   /// <see cref="WaitKind.Cancelled"/>. A timeout with no cancellation returns
   /// <see cref="WaitKind.TimedOut"/>. The task itself is not aborted.
+  /// When <paramref name="disposeAbandonedResult"/> is true, a late successful
+  /// result that implements <see cref="IAsyncDisposable"/> is disposed.
   /// </summary>
-  private static async Task<WaitKind> WaitForCompletionAsync(
+  internal static async Task<WaitKind> WaitForCompletionAsync(
     Task task,
     int? timeoutMilliseconds,
-    CancellationToken cancellationToken)
+    CancellationToken cancellationToken,
+    bool disposeAbandonedResult = false)
   {
+    ArgumentNullException.ThrowIfNull(task);
     if (!cancellationToken.CanBeCanceled && timeoutMilliseconds is null)
     {
       await task.ConfigureAwait(false);
@@ -88,48 +99,68 @@ public static partial class TestRunner
       try
       {
         await task.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return cancellationToken.IsCancellationRequested ? MarkCancelled(task) : WaitKind.Completed;
+        return cancellationToken.IsCancellationRequested
+          ? MarkCancelled(task, disposeAbandonedResult)
+          : WaitKind.Completed;
       }
       catch (Exception) when (cancellationToken.IsCancellationRequested)
       {
-        return MarkCancelled(task);
+        return MarkCancelled(task, disposeAbandonedResult);
       }
     }
 
-    using CancellationTokenSource timeoutSource = new(timeoutMilliseconds.Value);
-    if (!cancellationToken.CanBeCanceled)
-    {
-      try
-      {
-        await task.WaitAsync(timeoutSource.Token).ConfigureAwait(false);
-        return WaitKind.Completed;
-      }
-      catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
-      {
-        return WaitKind.TimedOut;
-      }
-    }
-
-    using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
-      cancellationToken,
-      timeoutSource.Token);
+    using CancellationTokenSource timeoutSource = new(
+      TimeSpan.FromMilliseconds(timeoutMilliseconds.Value),
+      TimeProvider);
+    CancellationTokenRegistration timeoutRegistration = default;
+    CancellationTokenRegistration callerRegistration = default;
     try
     {
-      await task.WaitAsync(linked.Token).ConfigureAwait(false);
-      if (cancellationToken.IsCancellationRequested)
+      // Resume after the timer callback returns. A fault stored in that callback
+      // is then visible to MarkTimedOut, instead of racing the callback's stack.
+      TaskCompletionSource<bool> signaled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+      timeoutRegistration = timeoutSource.Token.UnsafeRegister(
+        static state => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+        signaled);
+      if (cancellationToken.CanBeCanceled)
       {
-        return MarkCancelled(task);
+        callerRegistration = cancellationToken.UnsafeRegister(
+          static state => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+          signaled);
       }
 
+      if (task.IsCompleted)
+      {
+        signaled.TrySetResult(true);
+      }
+      else
+      {
+        _ = task.ContinueWith(
+          static (_, state) => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+          signaled,
+          CancellationToken.None,
+          TaskContinuationOptions.ExecuteSynchronously,
+          TaskScheduler.Default);
+      }
+
+      await signaled.Task.ConfigureAwait(false);
+      if (cancellationToken.IsCancellationRequested)
+      {
+        return MarkCancelled(task, disposeAbandonedResult);
+      }
+
+      if (timeoutSource.IsCancellationRequested)
+      {
+        return MarkTimedOut(task, disposeAbandonedResult);
+      }
+
+      await task.ConfigureAwait(false);
       return WaitKind.Completed;
     }
-    catch (Exception) when (cancellationToken.IsCancellationRequested)
+    finally
     {
-      return MarkCancelled(task);
-    }
-    catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
-    {
-      return WaitKind.TimedOut;
+      await timeoutRegistration.DisposeAsync().ConfigureAwait(false);
+      await callerRegistration.DisposeAsync().ConfigureAwait(false);
     }
   }
 
@@ -165,15 +196,38 @@ public static partial class TestRunner
       TaskScheduler.Default);
   }
 
-  private static WaitKind MarkCancelled(Task task)
+  private static WaitKind MarkCancelled(Task task, bool disposeResult = false)
   {
-    ObserveAbandoned(task);
+    ObserveAbandoned(task, disposeResult);
     return WaitKind.Cancelled;
+  }
+
+  /// <summary>
+  /// A fault already stored on the task is rethrown so the caller reports it.
+  /// A task that is still running is observed, and a later fault is traced.
+  /// </summary>
+  private static WaitKind MarkTimedOut(Task task, bool disposeResult)
+  {
+    if (task.IsFaulted)
+    {
+      Exception fault = task.Exception?.GetBaseException()
+        ?? new TimeoutException("Timed out.");
+      _ = task.Exception;
+      ExceptionDispatchInfo.Capture(fault).Throw();
+    }
+
+    ObserveAbandoned(task, disposeResult);
+    return WaitKind.TimedOut;
   }
 
   private static void ObserveCompleted(Task completed, bool disposeResult)
   {
-    _ = completed.Exception;
+    Exception? fault = completed.Exception;
+    if (fault is not null)
+    {
+      Trace.TraceError("Abandoned task faulted: {0}", fault.GetBaseException());
+    }
+
     if (disposeResult && completed.Status == TaskStatus.RanToCompletion)
     {
       DisposeAbandonedResult(completed);

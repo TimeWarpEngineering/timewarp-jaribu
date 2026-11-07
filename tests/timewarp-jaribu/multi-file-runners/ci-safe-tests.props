@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.parameterized.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.edges.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cancellation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.timeout-policy.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/test-runner.reporting-cleanup.cs" />
   </ItemGroup>
 </Project>

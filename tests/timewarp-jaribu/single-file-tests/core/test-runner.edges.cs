@@ -141,6 +141,53 @@ namespace TestRunner_
       node.Exception.ShouldBeOfType<TargetParameterCountException>();
     }
 
+    public static async Task AmbiguousSetup_Should_BeError()
+    {
+      EdgesAmbiguousSetupFixture.BodyRuns = 0;
+      EdgesCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<EdgesAmbiguousSetupFixture>(sink);
+
+      stats.Success.ShouldBeFalse();
+      stats.FailedCount.ShouldBe(1);
+      EdgesAmbiguousSetupFixture.BodyRuns.ShouldBe(0);
+      TestNodeInfo node = sink.Results.Single();
+      node.State.ShouldBe(TestNodeState.Error);
+      node.Exception.ShouldBeOfType<AmbiguousMatchException>();
+    }
+
+    public static async Task ParameterisedSetup_Should_BeError()
+    {
+      EdgesSetupParameterFixture.BodyRuns = 0;
+      EdgesCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<EdgesSetupParameterFixture>(sink);
+
+      stats.Success.ShouldBeFalse();
+      stats.FailedCount.ShouldBe(1);
+      EdgesSetupParameterFixture.BodyRuns.ShouldBe(0);
+      TestNodeInfo node = sink.Results.Single();
+      node.State.ShouldBe(TestNodeState.Error);
+      node.Exception.ShouldBeOfType<TargetParameterCountException>();
+    }
+
+    public static async Task SetupThrow_Should_StayFailed()
+    {
+      EdgesCollectingSink sink = new();
+      TestRunStats syncStats = await TestRunner.RunTestsAsync<EdgesSetupThrowFixture>(sink);
+      TestRunStats asyncStats = await TestRunner.RunTestsAsync<EdgesSetupAsyncThrowFixture>(sink);
+
+      syncStats.Success.ShouldBeFalse();
+      asyncStats.Success.ShouldBeFalse();
+      TestNodeInfo syncNode = sink.Results.Single(node => node.DisplayName == "Sync");
+      syncNode.State.ShouldBe(TestNodeState.Failed);
+      syncNode.Exception.ShouldBeOfType<InvalidOperationException>();
+      syncNode.Exception.Message.ShouldBe("setup boom");
+
+      TestNodeInfo asyncNode = sink.Results.Single(node => node.DisplayName == "Async");
+      asyncNode.State.ShouldBe(TestNodeState.Failed);
+      asyncNode.Exception.ShouldBeOfType<InvalidOperationException>();
+      asyncNode.Exception.Message.ShouldBe("setup async");
+    }
+
     public static async Task EmptyClass_Should_SucceedWithoutInvokingCleanUp()
     {
       EdgesEmptyFixture.CleanUpCount = 0;
@@ -233,6 +280,60 @@ namespace TestRunner_
       ct.ThrowIfCancellationRequested();
       await Task.CompletedTask;
     }
+  }
+
+  public class EdgesAmbiguousSetupFixture
+  {
+    public static int BodyRuns;
+
+    public static Task Setup() => Task.CompletedTask;
+
+    public static Task Setup(int value)
+    {
+      _ = value;
+      return Task.CompletedTask;
+    }
+
+    public static async Task Only()
+    {
+      BodyRuns++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class EdgesSetupParameterFixture
+  {
+    public static int BodyRuns;
+
+    public static Task Setup(int value)
+    {
+      _ = value;
+      return Task.CompletedTask;
+    }
+
+    public static async Task Only()
+    {
+      BodyRuns++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class EdgesSetupThrowFixture
+  {
+    public static Task Setup() => throw new InvalidOperationException("setup boom");
+
+    public static async Task Sync() => await Task.CompletedTask;
+  }
+
+  public class EdgesSetupAsyncThrowFixture
+  {
+    public static async Task Setup()
+    {
+      await Task.Yield();
+      throw new InvalidOperationException("setup async");
+    }
+
+    public static async Task Async() => await Task.CompletedTask;
   }
 
   public class EdgesEmptyFixture
