@@ -12,6 +12,10 @@
 // for every project that references that consumer, and when both folders contain
 // the package props it imports the buildTransitive copy for the direct reference
 // as well. The package therefore ships build/ only.
+// Packing the adapter does not emit the TimeWarp.Jaribu nupkg for its project
+// reference into the -o directory. GeneratePackageOnBuild writes that package
+// to the repo package output. The test packs the core project into the feed so
+// sandbox restore resolves TimeWarp.Jaribu from the feed.
 // The sandbox has its own Directory.Build.props and Directory.Packages.props so
 // the repo's central package versions and analyzers do not apply. Packages restore
 // into the sandbox, not the global NuGet cache.
@@ -49,6 +53,22 @@ namespace TestingPlatformProps_
         string feed = Path.Combine(sandbox, "feed");
         string packages = Path.Combine(sandbox, "packages");
         Directory.CreateDirectory(feed);
+
+        string coreProject = Path.Combine(
+          root,
+          "source",
+          "timewarp-jaribu",
+          "timewarp-jaribu.csproj");
+        CommandOutput corePack = await RunDotNetAsync(
+          root,
+          "pack",
+          coreProject,
+          "-c",
+          "Release",
+          "-o",
+          feed,
+          "--nologo");
+        corePack.ExitCode.ShouldBe(0, corePack.Combined);
 
         string project = Path.Combine(
           root,
