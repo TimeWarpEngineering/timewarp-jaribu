@@ -13,6 +13,10 @@ using Microsoft.Testing.Platform.Services;
 // A class may call ClearRegisteredTests or RegisterTests while it runs.
 // Enumerating the live list throws Collection was modified and drops every
 // later class. RunAllTestsCore uses the same snapshot.
+// DiscoverTestExecutionRequest and RunTestExecutionRequest are the only
+// requests that select or run cases. Any other request type throws, and the
+// handler publishes an error node for that failure. Tree and uid filters go
+// through MtpTreeFilter; a filter this adapter does not recognize throws too.
 #endregion
 
 /// <summary>
@@ -75,8 +79,23 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
   {
     try
     {
-      bool isDiscovery = context.Request is DiscoverTestExecutionRequest;
-      ITestExecutionFilter? filter = GetFilter(context);
+      bool isDiscovery;
+      ITestExecutionFilter filter;
+      switch (context.Request)
+      {
+        case DiscoverTestExecutionRequest discover:
+          isDiscovery = true;
+          filter = discover.Filter;
+          break;
+        case RunTestExecutionRequest run:
+          isDiscovery = false;
+          filter = run.Filter;
+          break;
+        default:
+          throw new NotSupportedException(
+            $"Unsupported MTP request type '{context.Request.GetType().FullName}'.");
+      }
+
       MtpSink sink = new(this, context.MessageBus, context.Request.Session.SessionUid);
 
       ICommandLineOptions commandLine = ServiceProvider.GetCommandLineOptions();
@@ -116,7 +135,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
             foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
             {
-              if (filter is not null && !MatchesFilter(testCase.Uid, filter))
+              if (!MtpTreeFilter.Matches(testClass, testCase, filter))
               {
                 continue;
               }
@@ -142,9 +161,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
             sink,
             filterTag,
             methodNameContains: filterMethod,
-            casePredicate: filter is null
-              ? null
-              : testCase => MatchesFilter(testCase.Uid, filter)
+            casePredicate: testCase => MtpTreeFilter.Matches(testClass, testCase, filter)
           ).ConfigureAwait(false);
         }
       }
@@ -214,23 +231,4 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
     ).ConfigureAwait(false);
   }
 
-  private static ITestExecutionFilter? GetFilter(ExecuteRequestContext context)
-    => context.Request switch
-    {
-      RunTestExecutionRequest r => r.Filter,
-      DiscoverTestExecutionRequest d => d.Filter,
-      _ => null
-    };
-
-#pragma warning disable TPEXP // TreeNodeFilter is experimental
-  private static bool MatchesFilter(string testNodeUid, ITestExecutionFilter filter)
-    => filter switch
-    {
-      TestNodeUidListFilter uidFilter =>
-        uidFilter.TestNodeUids.Any(u => u.Value == testNodeUid),
-      TreeNodeFilter treeFilter =>
-        treeFilter.MatchesFilter(testNodeUid, new PropertyBag()),
-      _ => true
-    };
-#pragma warning restore TPEXP
 }

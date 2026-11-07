@@ -1,5 +1,14 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
+#region Purpose
+// Registers Jaribu with the Microsoft.Testing.Platform application builder.
+#endregion
+
+#region Design
+// AddTreeNodeFilterService publishes --treenode-filter. Without that provider
+// the host rejects the option before Jaribu can match a tree path.
+#endregion
+
 public static class TestingPlatformBuilderHook
 {
   public static void AddExtensions
@@ -13,6 +22,7 @@ public static class TestingPlatformBuilderHook
     JaribuExtension extension = new();
 
     builder.CommandLine.AddProvider(() => new JaribuCommandLineOptionsProvider(extension));
+    builder.AddTreeNodeFilterService(extension);
 
     builder.RegisterTestFramework
     (
