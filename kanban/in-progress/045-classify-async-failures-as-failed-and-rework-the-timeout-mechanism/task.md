@@ -34,6 +34,7 @@ Findings: CORE-1, CORE-2, CORE-3 in task 038 report.
 - Review oracle round 1 (2026-11-08): Claude Opus 5.5 review oracle, effort 3, general roster, with an independent Sonnet subagent read. Ran `./bin/dev test` (127/127). Found 6 open findings (1 bug, 2 suggestions, 3 nits) and requested a fix pass. The Goal restatement matches the task, so there is no misread.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 60f1ba88-2b4f-4b0b-8df9-31eeca1617c2, max-turns 200, artifacts general.md, merged.md — 2026-11-07T21:20:25Z
 - Implement-fix-2: 01a1b7e2-5643-7682-ade2-9257c53e857c (2026-11-08). Setup reflection failures are Error and a thrown Setup stays Failed. A CreateAsync timeout is not sticky. DefaultHookTimeout rejects spans under one millisecond. Wrong-type and orphaned-session GetAsync faults are fixture-creation errors. `./bin/dev test` reported Total 133, Passed 133.
+- Review oracle round 2 (2026-11-08): Claude Opus 5.5 review oracle, effort 2, general roster, reviewed the fix delta `c62e2f1..8e803c4`. Ran `./bin/dev test` (133/133). It confirmed M1–M6 fixed and found nothing new. The disposition is clean. The updated Goal restatement still matches the task; its new CreateAsync-timeout clause comes from review M2, so this is not a misread.
 
 ## Results
 
@@ -59,7 +60,13 @@ Expect:
 
 ### Review
 
-Round 1 (2026-11-08) ran at effort 3 with the general roster and left six findings open. The fix pass addressed all six. Round 2 has not confirmed them. `review/round-1/merged.md` stays the round-1 record.
+There were two rounds, both with the general roster:
+
+- Round 1 (2026-11-08) ran at effort 3 and left six findings open.
+- The fix pass (8e803c4) addressed all six.
+- Round 2 (2026-11-08) ran at effort 2 on the fix delta. It confirmed all six fixed and raised no new findings. `./bin/dev test` passed 133 of 133.
+
+**Disposition: clean.** The final open count is 0, with no wontfix and no escalations. The final counts below come from `review/round-2/merged.md`.
 
 | Severity | open | fixed | wontfix |
 |----------|------|-------|---------|
@@ -74,8 +81,9 @@ Round 1 (2026-11-08) ran at effort 3 with the general roster and left six findin
 - M5: DefaultHookTimeout under one millisecond is rejected.
 - M6: wrong-type and orphaned-session GetAsync faults are fixture-creation errors. The orphan-from-body path is tested.
 
-Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`. `review/disposition.md` is not written yet.
+Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Review
 
-- Round 1: fix pass addressed M1, M2, M3, M4, M5, M6. Confirmation is review round 2.
+- Round 1: the fix pass addressed M1, M2, M3, M4, M5, and M6.
+- Round 2: Done
