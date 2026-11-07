@@ -31,6 +31,8 @@ Finding: MTP-8 in task 038 report. Fix before the next package release.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session a72c9e55-f2e5-4d9b-a66e-856fbebcbc8a, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-07T16:49:06Z
 - CI fix: pack `TimeWarp.Jaribu` into the sandbox feed before the adapter. `dotnet pack -o` does not emit the referenced core nupkg, and CI had only the adapter package, so `corePackageCount` was 0. `dotnet tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` passed 1/1. `./bin/dev test` passed 102. `dotnet test` on the MTP runner succeeded 102. `ganda repo audit` passed with 0 failures.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b6ef-318f-7b92-8965-ac1abb0140ea, max-turns 500, Done — 2026-11-07T17:05:37Z
+- Review oracle: claude-opus-5-5 (ganda task work review node), effort 2, roster general, turn cap 120. Round 2 re-reviewed the CI fix and found nothing new. Disposition is accepted-exceptions. Artifacts: `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`. 2026-11-08.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 6be8b9c0-9cb0-42fa-9b47-4f44668eeb99, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-07T17:08:30Z
 
 ## Results
 
@@ -59,15 +61,17 @@ Expect:
 
 ### Review disposition
 
-- Rounds: 1. Effort 2, roster: general.
-- Final counts: bug 0 (open 0), suggestion 1 (wontfix 1), nit 0. Open findings: 0.
-- Disposition: **accepted-exceptions**. M1 (suggestion) is wontfix. The transitive library still evaluates `IsTestingPlatformApplication=true`, which comes from upstream `Microsoft.Testing.Platform` targets, not this package. The acceptance criteria are met. A follow-up task is recommended for an adapter-side opt-in that suppresses the generated MTP entry point on transitive libraries.
-- Reviewer verification: `dotnet tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` passed (1/1).
-- Artifacts: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+- Rounds: 2. Each used effort 2 with a general reviewer. Round 2 reviewed the CI fix `00a3316`, which packs the core project into the sandbox feed, and found nothing new.
+- Final counts (round 2): bug 0 (open 0), suggestion 1 (wontfix 1), nit 0. Open findings: 0.
+- Disposition: **accepted-exceptions**. M1 (suggestion) is wontfix. The transitive library still evaluates `IsTestingPlatformApplication=true`, which comes from upstream `Microsoft.Testing.Platform` targets, not this package. The acceptance criteria are met. A follow-up task is recommended for an adapter-side opt-in that suppresses the generated MTP entry point on transitive libraries. That task does not exist yet.
+- Reviewer verification: `dotnet tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` passed in round 1 and again in round 2 (1/1, 24.8 s). `1.0.0-beta.16` is not on nuget.org, so the sandbox restore cannot pull a published adapter.
+- Risk: CI has not run on `00a3316`. The only run on the branch is the failed run 42393315900. Do not merge PR #36 until CI passes on the fix.
+- Artifacts: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Review
 
 - Round 1: Done
+- Round 2: Done
 
 - CI red on PR #36 (run 42393315900), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-07: `ClassLibrary_Should_StayALibrary` fails at `tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs:65` with `ShouldAssertException: 0`. The sandbox feed contains only `TimeWarp.Jaribu.TestingPlatform.1.0.0-beta.16.nupkg`; `dotnet pack` of the adapter project does not pack the core `TimeWarp.Jaribu` project it references, so `corePackageCount` is 0. Locally the core nupkg was present for another reason. Fix: pack the core project into the feed explicitly in the test (or drop the core-count assertion and let the consumer restore core from the project reference), then confirm on CI.
 - CI fix: the test now packs `source/timewarp-jaribu/timewarp-jaribu.csproj` into the sandbox feed before the adapter. `dotnet pack -o` writes only the project being packed. `GeneratePackageOnBuild` on the project reference writes `TimeWarp.Jaribu` to `artifacts/packages`, which is why CI saw a core count of 0.

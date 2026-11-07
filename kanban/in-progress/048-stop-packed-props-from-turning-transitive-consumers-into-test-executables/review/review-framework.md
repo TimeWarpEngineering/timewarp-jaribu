@@ -2,7 +2,7 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 334
+- Lines changed: 468
 - Effort: 2
 - TCB hits: none
 - Roster axes: general
@@ -25,3 +25,10 @@
 - Do not invent issues to fill space; zero issues is a valid outcome
 - Address the diff and surrounding call sites; re-verify falsifiable claims against the repo
 - Prior rounds are immutable; new work goes in `round-(N+1)/`
+
+### Round 2
+
+- **Date:** 2026-11-08
+- **Diff scope:** the round-1 diff plus the CI fix `00a3316` (the test packs the core project into the sandbox feed). The branch HEAD is `5cc496f`.
+- **Effort / roster:** 2 / general. The turn cap is 120.
+- **Reviewer:** claude-opus-5-5 review oracle (ganda task work).

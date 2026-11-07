@@ -1,20 +1,29 @@
 # Disposition — task 048
 
-**Date:** 2026-11-07
+**Date:** 2026-11-08 (round 2; round 1 was 2026-11-07)
 **Outcome:** accepted-exceptions
-**Rounds:** 1
+**Rounds:** 2
 **Final open count:** 0
 
 ## Summary
 
-Round 1 (effort 2, general reviewer) found no bugs. The change packs the adapter props to `build/` only, which is the first fix option the task names. The new pack test passed locally (1/1, ~20.5 s). It shows that a project-referencing class library stays `OutputType=Library` with `IsTestProject` not set, and that the direct consumer keeps `Exe`, `IsTestProject=true`, and `IsTestingPlatformApplication=true`. One suggestion (M1) was raised and accepted as wontfix: the residual `IsTestingPlatformApplication=true` on the transitive library comes from upstream Microsoft.Testing.Platform. The restatement matches the task; no misread.
+Both rounds used effort 2 with one general reviewer. Neither round found a bug.
+
+The change packs the adapter props to `build/` only, which is the first fix option the task names. Round 2 reviewed the CI fix `00a3316`, which packs `TimeWarp.Jaribu` into the sandbox feed so the test no longer depends on `artifacts/packages`. That fix raised no new findings. The pack test passed locally in round 2 (1/1, 24.8 s):
+
+- The project-referencing class library keeps `OutputType=Library` and does not set `IsTestProject`.
+- The direct consumer keeps `Exe`, `IsTestProject=true`, and `IsTestingPlatformApplication=true`.
+
+Round 1 raised one suggestion, M1, and accepted it as wontfix. Round 2 carried it forward unchanged. The restatement matches the task, so there was no misread.
 
 ## Exception log (if accepted-exceptions)
 
 | ID | Severity | Rationale | Decided by |
 |----|----------|-----------|------------|
-| M1 | suggestion | The residual `IsTestingPlatformApplication=true` comes from upstream `Microsoft.Testing.Platform` targets, not this package. The acceptance criteria (`OutputType` and `IsTestProject`) are met. Suppressing it needs a separate adapter-side opt-in design; follow-up task recommended. | review oracle |
+| M1 | suggestion | The library's residual `IsTestingPlatformApplication=true` comes from upstream `Microsoft.Testing.Platform` targets, not from this package. The acceptance criteria are met: `OutputType` and `IsTestProject` stay library values. Suppressing the flag needs a separate adapter-side opt-in design, so a follow-up task is recommended. | review oracle |
 
 ## Escalations
 
-- None. Follow-up recommended: open a kanban task to stop upstream MTP from marking transitive libraries as MTP applications (generated entry point plus `Microsoft.Testing.Platform.Application` metadata).
+- None.
+- Follow-up still open: no kanban task exists yet for M1 (stop upstream MTP from marking transitive libraries as MTP applications).
+- CI has not run on `00a3316`. The only run on the branch is the failed run 42393315900. The merge gate must see a green CI run on the fix before it merges.
