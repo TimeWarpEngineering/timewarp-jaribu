@@ -11,10 +11,14 @@ using System.Reflection;
 // The caller token stops the wait. The test method stays parameterless, so a
 // method that blocks inside Task.Delay without the token is left running and
 // the node is Cancelled. Timeout stays Timeout unless the caller token has
-// also fired, in which case Cancelled wins. CleanUp still runs after a body
-// outcome. A CleanUp interrupted by the same token does not rewrite a failing
-// body, and a passing body becomes Cancelled. CleanUp may overlap a body that
-// is still running after the wait was cancelled. That abandoned body task is observed.
+// also fired, in which case Cancelled wins. A method TimeoutAttribute limits
+// the body. Exceptions from the body or from Setup are Failed, sync or async.
+// Reflection failures that prevent Invoke are Error. Fixture creation marks
+// are Error, and a fixture create timeout is Timeout.
+// CleanUp still runs after a body outcome. A CleanUp interrupted by the same
+// token does not rewrite a failing body, and a passing body becomes Cancelled.
+// CleanUp may overlap a body that is still running after the wait was cancelled.
+// That abandoned body task is observed.
 #endregion
 
 public static partial class TestRunner
@@ -46,6 +50,7 @@ public static partial class TestRunner
     ArgumentNullException.ThrowIfNull(method);
 
     using CancellationScope scope = new(cancellationToken);
+    using HookTimeoutScope hookTimeout = new(testClass);
     parameters ??= [];
 
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
@@ -92,89 +97,98 @@ public static partial class TestRunner
         stopwatch.Stop();
         return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
       }
+
+      if (setupKind == WaitKind.TimedOut)
+      {
+        stopwatch.Stop();
+        int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
+        string message = TimeoutAfter(milliseconds, "Setup");
+        return Complete(
+          TestNodeState.Timeout,
+          stopwatch.Elapsed,
+          new TimeoutException(message),
+          message);
+      }
     }
     catch (Exception ex) when (cancellationToken.IsCancellationRequested)
     {
       stopwatch.Stop();
       return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
     }
-    catch (TargetInvocationException ex) when (ex.InnerException is not null)
-    {
-      stopwatch.Stop();
-      return Complete(
-        TestNodeState.Failed,
-        stopwatch.Elapsed,
-        ex.InnerException,
-        $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-    }
     catch (Exception ex)
     {
       stopwatch.Stop();
-      return Complete(
-        TestNodeState.Error,
-        stopwatch.Elapsed,
-        ex,
-        $"{ex.GetType().Name}: {ex.Message}");
+      return BodyFault(Complete, stopwatch.Elapsed, ex);
     }
 
-    TestNodeInfo outcome;
+    TestNodeInfo? outcome = null;
+    Task? testTask = null;
     try
     {
-      Task? testTask = method.Invoke(null, parameters) as Task;
-      if (testTask is not null)
-      {
-        TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
-        WaitKind kind = await WaitForCompletionAsync(
-          testTask,
-          timeoutAttr?.Milliseconds,
-          cancellationToken).ConfigureAwait(false);
-        stopwatch.Stop();
-        if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
-        {
-          outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
-        }
-        else if (kind == WaitKind.TimedOut)
-        {
-          int milliseconds = timeoutAttr?.Milliseconds ?? 0;
-          outcome = Complete(
-            TestNodeState.Timeout,
-            stopwatch.Elapsed,
-            new TimeoutException($"Test exceeded timeout of {milliseconds}ms"),
-            $"Timeout after {milliseconds}ms");
-        }
-        else
-        {
-          outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-        }
-      }
-      else
-      {
-        stopwatch.Stop();
-        outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-      }
+      testTask = method.Invoke(null, parameters) as Task;
     }
     catch (Exception ex) when (cancellationToken.IsCancellationRequested)
     {
       stopwatch.Stop();
       outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
     }
-    catch (TargetInvocationException ex) when (ex.InnerException is not null)
-    {
-      stopwatch.Stop();
-      outcome = Complete(
-        TestNodeState.Failed,
-        stopwatch.Elapsed,
-        ex.InnerException,
-        $"{ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-    }
     catch (Exception ex)
     {
       stopwatch.Stop();
-      outcome = Complete(
-        TestNodeState.Error,
-        stopwatch.Elapsed,
-        ex,
-        $"{ex.GetType().Name}: {ex.Message}");
+      outcome = InvokeFault(Complete, stopwatch.Elapsed, ex);
+    }
+
+    if (outcome is null)
+    {
+      try
+      {
+        if (testTask is not null)
+        {
+          TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>(inherit: false);
+          WaitKind kind = await WaitForCompletionAsync(
+            testTask,
+            timeoutAttr?.Milliseconds,
+            cancellationToken).ConfigureAwait(false);
+          stopwatch.Stop();
+          if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+          {
+            outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+          }
+          else if (kind == WaitKind.TimedOut)
+          {
+            int milliseconds = timeoutAttr?.Milliseconds ?? 0;
+            outcome = Complete(
+              TestNodeState.Timeout,
+              stopwatch.Elapsed,
+              new TimeoutException($"Test exceeded timeout of {milliseconds}ms"),
+              $"Timeout after {milliseconds}ms");
+          }
+          else
+          {
+            outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+          }
+        }
+        else
+        {
+          stopwatch.Stop();
+          outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+        }
+      }
+      catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+      {
+        stopwatch.Stop();
+        outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
+      }
+      catch (Exception ex)
+      {
+        stopwatch.Stop();
+        outcome = BodyFault(Complete, stopwatch.Elapsed, ex);
+      }
+    }
+
+    if (outcome is null)
+    {
+      throw new InvalidOperationException("Test outcome was not set.");
     }
 
     CleanupOutcome cleanup = await InvokeCleanupIsolatedAsync(testClass, cancellationToken)
@@ -195,6 +209,62 @@ public static partial class TestRunner
     }
 
     return FoldCleanupFailure(outcome, cleanup.Failure);
+  }
+
+  private static TestNodeInfo InvokeFault(
+    Func<TestNodeState, TimeSpan?, Exception?, string?, TestNodeInfo> complete,
+    TimeSpan elapsed,
+    Exception exception)
+  {
+    if (exception is TargetInvocationException)
+    {
+      return BodyFault(complete, elapsed, exception);
+    }
+
+    return complete(
+      TestNodeState.Error,
+      elapsed,
+      exception,
+      $"{exception.GetType().Name}: {exception.Message}");
+  }
+
+  private static TestNodeInfo BodyFault(
+    Func<TestNodeState, TimeSpan?, Exception?, string?, TestNodeInfo> complete,
+    TimeSpan elapsed,
+    Exception exception)
+  {
+    Exception reported = exception;
+    if (reported is TargetInvocationException { InnerException: { } inner })
+    {
+      reported = inner;
+    }
+
+    while (reported is AggregateException { InnerExceptions.Count: 1 } aggregate)
+    {
+      reported = aggregate.InnerExceptions[0];
+    }
+
+    if (FailureMark.Is(exception, FailureMark.FixtureCreationTimeout) ||
+        FailureMark.Is(reported, FailureMark.FixtureCreationTimeout))
+    {
+      return complete(TestNodeState.Timeout, elapsed, reported, reported.Message);
+    }
+
+    if (FailureMark.Is(exception, FailureMark.FixtureCreation) ||
+        FailureMark.Is(reported, FailureMark.FixtureCreation))
+    {
+      return complete(
+        TestNodeState.Error,
+        elapsed,
+        reported,
+        $"{reported.GetType().Name}: {reported.Message}");
+    }
+
+    return complete(
+      TestNodeState.Failed,
+      elapsed,
+      reported,
+      $"{reported.GetType().Name}: {reported.Message}");
   }
 
   private static TestNodeInfo CancelledNode(

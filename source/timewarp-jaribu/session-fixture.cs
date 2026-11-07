@@ -32,6 +32,8 @@ using System.Runtime.ExceptionServices;
 // The in-flight task is observed, and a late instance is disposed.
 // A cancelled end starts dispose for every created fixture, observes each task,
 // and then throws, so a later fixture is not detached and leaked.
+// CreateAsync uses the ambient hook timeout. A timeout or a create fault is
+// marked so the test node stays Timeout or Error. A late instance is disposed.
 //
 // MTP: CreateTestSessionAsync → Begin; CloseTestSessionAsync → End.
 // Standalone: RunAllTests wraps begin/end; lone RunTestsAsync owns session-of-one.
@@ -331,6 +333,7 @@ public static partial class SessionFixture
   private static async Task<object> InvokeCreateAsync(MethodInfo factory, CancellationToken cancellationToken)
   {
     cancellationToken.ThrowIfCancellationRequested();
+    string site = factory.DeclaringType?.Name ?? "session fixture";
     object? invoked;
     try
     {
@@ -338,38 +341,70 @@ public static partial class SessionFixture
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
-      ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-      throw; // unreachable
+      throw FailureMark.Mark(ex.InnerException, FailureMark.FixtureCreation);
     }
 
     if (invoked is not Task task)
     {
-      throw new InvalidOperationException(
-        $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return a Task.");
+      throw FailureMark.Mark(
+        new InvalidOperationException(
+          $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return a Task."),
+        FailureMark.FixtureCreation);
     }
 
     try
     {
-      await task.WaitAsync(cancellationToken).ConfigureAwait(false);
+      TestRunner.WaitKind kind = await TestRunner.WaitForCompletionAsync(
+        task,
+        TestRunner.CurrentHookTimeoutMilliseconds,
+        cancellationToken,
+        disposeAbandonedResult: true).ConfigureAwait(false);
+      if (kind == TestRunner.WaitKind.Cancelled)
+      {
+        throw new OperationCanceledException(cancellationToken);
+      }
+
+      if (kind == TestRunner.WaitKind.TimedOut)
+      {
+        int milliseconds = TestRunner.CurrentHookTimeoutMilliseconds ?? 0;
+        throw FailureMark.Mark(
+          new TimeoutException(TestRunner.TimeoutAfter(milliseconds, $"session fixture '{site}' CreateAsync")),
+          FailureMark.FixtureCreationTimeout);
+      }
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
     {
-      TestRunner.ObserveAbandoned(task, disposeResult: true);
       throw;
+    }
+    catch (Exception ex) when (FailureMark.Is(ex, FailureMark.FixtureCreationTimeout))
+    {
+      throw;
+    }
+    catch (Exception ex) when (FailureMark.Is(ex, FailureMark.FixtureCreation))
+    {
+      throw;
+    }
+    catch (Exception ex)
+    {
+      throw FailureMark.Mark(ex, FailureMark.FixtureCreation);
     }
 
     PropertyInfo? resultProperty = task.GetType().GetProperty("Result");
     if (resultProperty is null)
     {
-      throw new InvalidOperationException(
-        $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return Task<T>.");
+      throw FailureMark.Mark(
+        new InvalidOperationException(
+          $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return Task<T>."),
+        FailureMark.FixtureCreation);
     }
 
     object? result = resultProperty.GetValue(task);
     if (result is null)
     {
-      throw new InvalidOperationException(
-        $"CreateAsync on '{factory.DeclaringType?.FullName}' returned a null fixture instance.");
+      throw FailureMark.Mark(
+        new InvalidOperationException(
+          $"CreateAsync on '{factory.DeclaringType?.FullName}' returned a null fixture instance."),
+        FailureMark.FixtureCreation);
     }
 
     return result;

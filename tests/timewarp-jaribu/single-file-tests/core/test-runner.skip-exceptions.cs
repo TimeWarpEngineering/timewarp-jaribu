@@ -15,7 +15,7 @@
 //
 // SkipExceptionsFixture is not registered. SkipExceptions_Given_ drives it with RunTestsAsync.
 // A synchronous Task method proves TargetInvocationException is unwrapped to the inner exception.
-// An async method's awaited exception is recorded as Error, which still fails the run.
+// An async method's awaited exception is Failed, the same as a synchronous throw.
 #endregion
 
 #if !JARIBU_MULTI
@@ -73,7 +73,7 @@ namespace TestRunner_
 
       TestNodeInfo node = sink.Results.Single(result =>
         result.DisplayName == nameof(SkipExceptionsFixture.RuntimeException_Should_Fail));
-      node.State.ShouldBe(TestNodeState.Error);
+      node.State.ShouldBe(TestNodeState.Failed);
       node.Exception.ShouldNotBeNull();
       node.Exception.ShouldBeOfType<ArgumentException>();
       node.Exception.Message.ShouldContain("Intentional runtime exception");
@@ -99,7 +99,7 @@ namespace TestRunner_
 
       TestNodeInfo node = sink.Results.Single(result =>
         result.DisplayName == nameof(SkipExceptionsFixture.AsyncException_Should_FailAfterAwait));
-      node.State.ShouldBe(TestNodeState.Error);
+      node.State.ShouldBe(TestNodeState.Failed);
       node.Exception.ShouldNotBeNull();
       node.Exception.ShouldBeOfType<NotSupportedException>();
       node.Exception.Message.ShouldContain("Async exception after await");

@@ -20,7 +20,7 @@ public partial class SessionFixture_Given_
       stats.FailedCount.ShouldBeGreaterThanOrEqualTo(1);
       FailingCreateSessionFixture.CreateCount.ShouldBe(1);
       sink.Results.Any(r =>
-        r.State == TestNodeState.Failed &&
+        r.State == TestNodeState.Error &&
         r.Exception?.Message.Contains("create boom", StringComparison.Ordinal) == true).ShouldBeTrue();
     }
     finally
@@ -197,7 +197,7 @@ public partial class SessionFixture_Given_
 
       stats.Success.ShouldBeFalse();
       TestNodeInfo body = sink.Results.Single(node => node.DisplayName == "OnlyTest");
-      body.State.ShouldBe(TestNodeState.Error);
+      body.State.ShouldBe(TestNodeState.Failed);
       body.Exception.ShouldBeOfType<ArgumentException>();
       body.Exception.Message.ShouldBe("body boom");
       sink.Results.Any(node => node.DisplayName == "SessionFixtureDispose").ShouldBeTrue();

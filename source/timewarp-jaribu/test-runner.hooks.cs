@@ -13,7 +13,8 @@ using TimeWarp.Terminal;
 // token fires. A cancellation during SetupOnce still pairs with CleanUpOnce
 // once SetupOnce has been entered. Cancellation is not stored as a hook failure.
 // CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
-// still running. Abandoned hook tasks are observed. A CleanUpOnce that throws
+// still running. Abandoned hook tasks are observed. Hook waits use the class
+// TimeoutAttribute or DefaultHookTimeout. A CleanUpOnce that throws
 // before it returns a task is rethrown here. The class run traces that throw
 // once the caller token has fired, and reports it as a synthetic node otherwise.
 #endregion
@@ -43,8 +44,10 @@ public static partial class TestRunner
       return WaitKind.Completed;
     }
 
-    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
-      .ConfigureAwait(false);
+    return await WaitForCompletionAsync(
+      task,
+      ResolveHookTimeoutMilliseconds(testClass),
+      cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>
@@ -64,8 +67,10 @@ public static partial class TestRunner
       return WaitKind.Completed;
     }
 
-    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
-      .ConfigureAwait(false);
+    return await WaitForCompletionAsync(
+      task,
+      ResolveHookTimeoutMilliseconds(testClass),
+      cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>
@@ -79,6 +84,16 @@ public static partial class TestRunner
     try
     {
       WaitKind kind = await InvokeCleanupForType(testClass, cancellationToken).ConfigureAwait(false);
+      if (kind == WaitKind.TimedOut)
+      {
+        int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
+        return new CleanupOutcome(
+          FailureMark.Mark(
+            new TimeoutException(TimeoutAfter(milliseconds, "CleanUp")),
+            FailureMark.HookTimeout),
+          Cancelled: false);
+      }
+
       return new CleanupOutcome(Failure: null, Cancelled: kind == WaitKind.Cancelled);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
@@ -104,13 +119,25 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Prefers the body outcome. A passing body becomes Error. Any other state keeps its
-  /// exception and state, and the cleanup failure is appended to the message.
-  /// Both messages name CleanUp so a passing body is not mistaken for a body failure.
+  /// Prefers the body outcome. A passing body becomes Error, or Timeout when CleanUp
+  /// timed out. Any other state keeps its exception and state, and the cleanup failure
+  /// is appended to the message. Both messages name CleanUp so a passing body is not
+  /// mistaken for a body failure.
   /// </summary>
   private static TestNodeInfo FoldCleanupFailure(TestNodeInfo outcome, Exception cleanupException)
   {
     string cleanupText = $"{cleanupException.GetType().Name}: {cleanupException.Message}";
+    if (outcome.State is TestNodeState.Passed &&
+        FailureMark.Is(cleanupException, FailureMark.HookTimeout))
+    {
+      return outcome with
+      {
+        State = TestNodeState.Timeout,
+        Exception = cleanupException,
+        Message = $"CleanUp {cleanupText}"
+      };
+    }
+
     if (outcome.State is TestNodeState.Passed)
     {
       return outcome with
@@ -184,7 +211,8 @@ public static partial class TestRunner
     Exception exception,
     ITestResultSink sink,
     List<TestNodeInfo> results,
-    string? message = null)
+    string? message = null,
+    TestNodeState state = TestNodeState.Failed)
   {
     string uid = $"{testClass.FullName}.{hookName}";
     string nodeMessage = message ?? $"{exception.GetType().Name}: {exception.Message}";
@@ -192,7 +220,7 @@ public static partial class TestRunner
     TestNodeInfo failedNode = new(
       uid,
       hookName,
-      TestNodeState.Failed,
+      state,
       TimeSpan.Zero,
       Exception: exception,
       Message: nodeMessage,
@@ -309,8 +337,10 @@ public static partial class TestRunner
       return WaitKind.Completed;
     }
 
-    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
-      .ConfigureAwait(false);
+    return await WaitForCompletionAsync(
+      task,
+      CurrentHookTimeoutMilliseconds,
+      cancellationToken).ConfigureAwait(false);
   }
 
   /// <summary>
@@ -334,6 +364,15 @@ public static partial class TestRunner
     try
     {
       WaitKind kind = await InvokeOnceHookAsync(state.SetupOnce, cancellationToken).ConfigureAwait(false);
+      if (kind == WaitKind.TimedOut)
+      {
+        int milliseconds = CurrentHookTimeoutMilliseconds ?? 0;
+        state.SetupOnceFailure = FailureMark.Mark(
+          new TimeoutException(TimeoutAfter(milliseconds, "SetupOnce")),
+          FailureMark.HookTimeout);
+        return false;
+      }
+
       return kind == WaitKind.Cancelled;
     }
     catch (Exception) when (cancellationToken.IsCancellationRequested)
@@ -348,11 +387,14 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Reports every selected case for a method as Failed due to a class hook error.
+  /// Reports every selected case for a method with the hook outcome.
+  /// Resolution uses <see cref="TestNodeState.Error"/>. A hook body uses
+  /// <see cref="TestNodeState.Failed"/> or <see cref="TestNodeState.Timeout"/>.
   /// </summary>
   private static async Task ReportCasesFailedDueToHookAsync(
     IReadOnlyList<ReportedTestCase> cases,
     Exception hookException,
+    TestNodeState state,
     ITestResultSink sink,
     List<TestNodeInfo> results)
   {
@@ -362,7 +404,7 @@ public static partial class TestRunner
       TestNodeInfo failedNode = new(
         testCase.Uid,
         testCase.DisplayName,
-        TestNodeState.Failed,
+        state,
         TimeSpan.Zero,
         Exception: hookException,
         Message: message,

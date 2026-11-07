@@ -8,8 +8,8 @@
 #region Design
 // Fixtures are not registered. The meta-tests drive them through DiscoverTestCases and RunTestsAsync
 // so a failing row is an expected result, not a suite failure.
-// A bad once-hook fails the same nodes discovery lists, including one node for a skipped
-// or tag-mismatched method that also has [Input] rows.
+// A bad once-hook is an Error on the same nodes discovery lists, including one node
+// for a skipped or tag-mismatched method that also has [Input] rows.
 #endregion
 
 #if !JARIBU_MULTI
@@ -52,8 +52,8 @@ namespace TestRunner_
 
       TestNodeInfo first = sink.Results.Single(result => result.Uid.EndsWith("FailThenPass[0]", StringComparison.Ordinal));
       TestNodeInfo second = sink.Results.Single(result => result.Uid.EndsWith("FailThenPass[1]", StringComparison.Ordinal));
-      // Awaited async exceptions are recorded as Error. FailedCount still includes them.
-      first.State.ShouldBe(TestNodeState.Error);
+      // Awaited async exceptions are Failed. FailedCount includes them.
+      first.State.ShouldBe(TestNodeState.Failed);
       second.State.ShouldBe(TestNodeState.Passed);
       first.Uid.ShouldNotBe(second.Uid);
     }
@@ -70,7 +70,7 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(1);
       stats.PassedCount.ShouldBe(0);
       sink.Results.Single().Uid.ShouldBe(failingUid);
-      sink.Results.Single().State.ShouldBe(TestNodeState.Error);
+      sink.Results.Single().State.ShouldBe(TestNodeState.Failed);
     }
 
     public static async Task BadSetupOnce_Should_FailEachInputRow()
@@ -83,8 +83,8 @@ namespace TestRunner_
       sink.Results.Count.ShouldBe(2);
       sink.Results[0].Uid.ShouldBe($"{typeof(BadSetupOnceFixture).FullName}.Case[0]");
       sink.Results[1].Uid.ShouldBe($"{typeof(BadSetupOnceFixture).FullName}.Case[1]");
-      sink.Results[0].State.ShouldBe(TestNodeState.Failed);
-      sink.Results[1].State.ShouldBe(TestNodeState.Failed);
+      sink.Results[0].State.ShouldBe(TestNodeState.Error);
+      sink.Results[1].State.ShouldBe(TestNodeState.Error);
       sink.Results[0].Uid.ShouldNotBe(sink.Results[1].Uid);
     }
 
@@ -116,8 +116,8 @@ namespace TestRunner_
         $"{prefix}Live[0]",
         $"{prefix}Live[1]"
       ]);
-      sink.Results.Single(result => result.Uid == skippedUid).State.ShouldBe(TestNodeState.Failed);
-      sink.Results.Single(result => result.Uid == taggedUid).State.ShouldBe(TestNodeState.Failed);
+      sink.Results.Single(result => result.Uid == skippedUid).State.ShouldBe(TestNodeState.Error);
+      sink.Results.Single(result => result.Uid == taggedUid).State.ShouldBe(TestNodeState.Error);
 
       CollectingSink selected = new();
       TestRunStats selectedStats = await TestRunner.RunTestsAsync(
