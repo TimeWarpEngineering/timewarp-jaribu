@@ -2,21 +2,21 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 13
-- Effort: 1
+- Lines changed: 1801
+- Effort: 3
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 80 (--max-turns; cursor uncapped)
+- Turn cap: 200 (--max-turns; cursor uncapped)
 
-# Review framework — task 041
+## Round 2 scope
 
 **Date:** 2026-11-08
 **Host task:** kanban/in-progress/041-thread-cancellation-through-the-runner-and-mtp-adapter/
-**Diff scope:** local uncommitted working tree on `task/041-thread-cancellation-through-the-runner-and-mtp-ada` vs HEAD a14dffe (13 modified product/test files plus new `source/timewarp-jaribu/test-runner.cancellation.cs` and `tests/timewarp-jaribu/single-file-tests/core/test-runner.cancellation.cs`). The implementation is not committed on the branch. Only the kanban land commits are.
-**Plan / brief:** task.md Requirements and `## Goal (implementer restatement)`: CancellationToken through RunTestsAsync/RunTests/RunAllTests, hooks, fixtures; Cancelled state; MTP adapter wiring and CancelledTestNodeStateProperty mapping; tests.
-**Effort:** 1 (general only)
+**Diff scope:** branch `task/041-thread-cancellation-through-the-runner-and-mtp-ada` at `0a02cb3` vs round-1 base `a14dffe`, product paths only. Round 1 reviewed the uncommitted tree. The fix pass committed the implementation and the M1–M3 fixes together in `5845df6`, so the round-2 delta is that commit plus `0a02cb3`, which only changed a file mode.
+**Plan / brief:** task.md `## Goal (implementer restatement)` and `review/round-1/merged.md` (M1–M3).
+**Effort:** 3 (budget by diff). Roster axes: general only, so one general reviewer.
 **Reviewer roster:** general
-**Session IDs:** review oracle (claude, claude-opus-5-5), ganda task work headless print mode
+**Session IDs:** review-2 oracle (claude, claude-opus-5-5), ganda task work headless print mode
 
 ## Ground rules
 

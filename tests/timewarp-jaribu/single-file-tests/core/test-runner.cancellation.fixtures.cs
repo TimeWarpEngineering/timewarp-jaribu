@@ -5,6 +5,7 @@
 #region Design
 // Each fixture blocks on a TaskCompletionSource the meta-test releases.
 // A delay would hide a missed cancel behind the runner timeout.
+// SyncThrowCleanUpOnceFixture does not block. It throws before returning a task.
 #endregion
 
 namespace TestRunner_;
@@ -148,6 +149,35 @@ public class SetupOnceHoldFixture
   public static async Task Body_Should_NotRun()
   {
     Body++;
+    await Task.CompletedTask;
+  }
+}
+
+public class SyncThrowCleanUpOnceFixture
+{
+  public static CancellationTokenSource Cancellation = new();
+  public static int Body;
+  public static int CleanUpOnceEntered;
+
+  public static void Bind(CancellationTokenSource cancellation)
+  {
+    Cancellation = cancellation;
+    Body = 0;
+    CleanUpOnceEntered = 0;
+  }
+
+  public static Task SetupOnce() => Task.CompletedTask;
+
+  public static Task CleanUpOnce()
+  {
+    CleanUpOnceEntered++;
+    throw new InvalidOperationException("CleanUpOnce sync");
+  }
+
+  public static async Task Body_Should_Cancel()
+  {
+    Body++;
+    Cancellation.Cancel();
     await Task.CompletedTask;
   }
 }

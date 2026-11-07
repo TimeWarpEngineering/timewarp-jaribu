@@ -13,7 +13,9 @@ using TimeWarp.Terminal;
 // token fires. A cancellation during SetupOnce still pairs with CleanUpOnce
 // once SetupOnce has been entered. Cancellation is not stored as a hook failure.
 // CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
-// still running. Abandoned hook tasks are observed.
+// still running. Abandoned hook tasks are observed. A CleanUpOnce that throws
+// before it returns a task is rethrown here. The class run traces that throw
+// once the caller token has fired, and reports it as a synthetic node otherwise.
 #endregion
 
 public static partial class TestRunner

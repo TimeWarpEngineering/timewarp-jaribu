@@ -11,7 +11,11 @@ using System.Reflection;
 // The caller token is ambient for the class run so session-fixture creation
 // observes it. After a Cancelled node, later methods and input rows are not
 // started. CleanUpOnce still runs when SetupOnce was entered, and it may
-// overlap a SetupOnce that the wait already abandoned.
+// overlap a SetupOnce that the wait already abandoned. A CleanUpOnce that
+// throws before it returns a task, after the token has fired, is traced.
+// It does not leave the class run, so the owned session still ends and the
+// sink still completes. The same failure with no cancellation stays a
+// synthetic node.
 #endregion
 
 public static partial class TestRunner
@@ -249,6 +253,10 @@ public static partial class TestRunner
             catch (Exception cleanUpEx) when (!cancellationToken.IsCancellationRequested)
             {
               await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
+            }
+            catch (Exception cleanUpEx) when (cancellationToken.IsCancellationRequested)
+            {
+              Trace.TraceError("CleanUpOnce failed during cancellation: {0}", cleanUpEx);
             }
           }
         }

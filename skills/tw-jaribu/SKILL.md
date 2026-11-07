@@ -166,7 +166,7 @@ public static async Task CleanUpOnce()
 - Lazy: all-`[Skip]` or all method-tag-filtered classes never pay the fixture cost
 - `CleanUpOnce` only if `SetupOnce` was invoked; guaranteed via try/finally even when tests fail
 - `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run
-- `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; test results kept
+- `CleanUpOnce` failure → synthetic failed node `{ClassFullName}.CleanUpOnce`; test results kept. When the caller token has fired, that throw is traced and the run still returns 1
 - `RunSingleTestAsync` bypasses class hooks (per-test `Setup`/`CleanUp` only)
 - Dispose shared fixtures explicitly in `CleanUpOnce` (no auto field scan)
 - Timeout-abandoned tasks may touch the fixture after dispose; document/avoid if needed
