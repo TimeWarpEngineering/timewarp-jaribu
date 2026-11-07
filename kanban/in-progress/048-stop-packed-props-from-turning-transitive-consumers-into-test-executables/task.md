@@ -63,3 +63,5 @@ Expect:
 ## Review
 
 - Round 1: Done
+
+- CI red on PR #36 (run 42393315900), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-07: `ClassLibrary_Should_StayALibrary` fails at `tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs:65` with `ShouldAssertException: 0`. The sandbox feed contains only `TimeWarp.Jaribu.TestingPlatform.1.0.0-beta.16.nupkg`; `dotnet pack` of the adapter project does not pack the core `TimeWarp.Jaribu` project it references, so `corePackageCount` is 0. Locally the core nupkg was present for another reason. Fix: pack the core project into the feed explicitly in the test (or drop the core-count assertion and let the consumer restore core from the project reference), then confirm on CI.
