@@ -57,6 +57,13 @@ namespace TimeWarp.Jaribu;
 // a snapshot of RegisteredTestClasses.
 // FailedCount includes Failed, Error, Timeout, and Cancelled.
 //
+// Cancellation:
+//   RunTests, RunAllTests, and RunTestsAsync take a CancellationToken
+//   (default None). The token stops waiting for the in-flight test, Setup,
+//   CleanUp, once-hooks, and session-fixture create or dispose. The interrupted
+//   node is Cancelled. Later tests are not started. Timeout stays Timeout
+//   unless the token has also fired. A cancelled run exits non-zero.
+//
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
 //   This ensures existing test files continue to work unchanged.

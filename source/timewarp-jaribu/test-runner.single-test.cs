@@ -4,7 +4,17 @@ using System.Diagnostics;
 using System.Reflection;
 
 #region Purpose
-// Runs one test method: skip, per-test Setup, body, timeout, and CleanUp.
+// Runs one test method: skip, per-test Setup, body, timeout, cancellation, and CleanUp.
+#endregion
+
+#region Design
+// The caller token stops the wait. The test method stays parameterless, so a
+// method that blocks inside Task.Delay without the token is left running and
+// the node is Cancelled. Timeout stays Timeout unless the caller token has
+// also fired, in which case Cancelled wins. CleanUp still runs after a body
+// outcome. A CleanUp interrupted by the same token does not rewrite a failing
+// body, and a passing body becomes Cancelled. CleanUp may overlap a body that
+// is still running after the wait was cancelled. That abandoned body task is observed.
 #endregion
 
 public static partial class TestRunner
@@ -21,16 +31,21 @@ public static partial class TestRunner
   /// <param name="inputOrdinal">
   /// Metadata ordinal of the <see cref="InputAttribute"/> row. When set, the node id matches discovery.
   /// </param>
+  /// <param name="cancellationToken">
+  /// Stops waiting for Setup, the body, and CleanUp. Defaults to <see cref="CancellationToken.None"/>.
+  /// </param>
   /// <returns>A TestNodeInfo with the test outcome.</returns>
   public static async Task<TestNodeInfo> RunSingleTestAsync(
     Type testClass,
     MethodInfo method,
     object?[]? parameters = null,
-    int? inputOrdinal = null)
+    int? inputOrdinal = null,
+    CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
+    using CancellationScope scope = new(cancellationToken);
     parameters ??= [];
 
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
@@ -55,6 +70,12 @@ public static partial class TestRunner
         method);
     }
 
+    if (cancellationToken.IsCancellationRequested)
+    {
+      stopwatch.Stop();
+      return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+    }
+
     // Check for [Skip] attribute
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
@@ -65,8 +86,17 @@ public static partial class TestRunner
 
     try
     {
-      // Run Setup
-      await InvokeSetupForType(testClass);
+      WaitKind setupKind = await InvokeSetupForType(testClass, cancellationToken).ConfigureAwait(false);
+      if (setupKind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+      {
+        stopwatch.Stop();
+        return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+      }
+    }
+    catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+    {
+      stopwatch.Stop();
+      return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
@@ -94,30 +124,26 @@ public static partial class TestRunner
       if (testTask is not null)
       {
         TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>();
-        if (timeoutAttr is not null)
+        WaitKind kind = await WaitForCompletionAsync(
+          testTask,
+          timeoutAttr?.Milliseconds,
+          cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+        if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
         {
-          Task timeoutTask = Task.Delay(timeoutAttr.Milliseconds);
-          Task completedTask = await Task.WhenAny(testTask, timeoutTask);
-          if (completedTask == timeoutTask)
-          {
-            stopwatch.Stop();
-            outcome = Complete(
-              TestNodeState.Timeout,
-              stopwatch.Elapsed,
-              new TimeoutException($"Test exceeded timeout of {timeoutAttr.Milliseconds}ms"),
-              $"Timeout after {timeoutAttr.Milliseconds}ms");
-          }
-          else
-          {
-            await testTask;
-            stopwatch.Stop();
-            outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-          }
+          outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+        }
+        else if (kind == WaitKind.TimedOut)
+        {
+          int milliseconds = timeoutAttr?.Milliseconds ?? 0;
+          outcome = Complete(
+            TestNodeState.Timeout,
+            stopwatch.Elapsed,
+            new TimeoutException($"Test exceeded timeout of {milliseconds}ms"),
+            $"Timeout after {milliseconds}ms");
         }
         else
         {
-          await testTask;
-          stopwatch.Stop();
           outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
         }
       }
@@ -126,6 +152,11 @@ public static partial class TestRunner
         stopwatch.Stop();
         outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
       }
+    }
+    catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+    {
+      stopwatch.Stop();
+      outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
@@ -146,12 +177,36 @@ public static partial class TestRunner
         $"{ex.GetType().Name}: {ex.Message}");
     }
 
-    Exception? cleanupException = await InvokeCleanupIsolatedAsync(testClass);
-    if (cleanupException is null)
+    CleanupOutcome cleanup = await InvokeCleanupIsolatedAsync(testClass, cancellationToken)
+      .ConfigureAwait(false);
+    if (cleanup.Cancelled)
+    {
+      if (outcome.State == TestNodeState.Passed)
+      {
+        return CancelledNode(Complete, outcome.Duration ?? stopwatch.Elapsed, cancellationToken);
+      }
+
+      return outcome;
+    }
+
+    if (cleanup.Failure is null)
     {
       return outcome;
     }
 
-    return FoldCleanupFailure(outcome, cleanupException);
+    return FoldCleanupFailure(outcome, cleanup.Failure);
+  }
+
+  private static TestNodeInfo CancelledNode(
+    Func<TestNodeState, TimeSpan?, Exception?, string?, TestNodeInfo> complete,
+    TimeSpan elapsed,
+    CancellationToken cancellationToken,
+    Exception? exception = null)
+  {
+    return complete(
+      TestNodeState.Cancelled,
+      elapsed,
+      exception ?? new OperationCanceledException("Cancelled", cancellationToken),
+      "Cancelled");
   }
 }

@@ -1,0 +1,210 @@
+namespace TimeWarp.Jaribu;
+
+using System.Diagnostics;
+using System.Reflection;
+
+#region Purpose
+// Stops waiting on in-flight tests, hooks, and session fixtures when a run is cancelled.
+#endregion
+
+#region Design
+// Test methods and once-hooks stay parameterless. Invoke does not supply a
+// CancellationToken argument, so a test that declares one still fails parameter
+// count. The runner stops waiting when the caller token fires. A method that
+// blocks the thread without awaiting still runs to completion.
+//
+// Cancelled wins over Timeout when both are signaled. A Timeout attribute with
+// no cancellation still reports Timeout.
+//
+// The ambient token lets SessionFixture.GetAsync observe the active run without
+// a new argument at every call site. An explicit token on GetAsync wins.
+// Late create and dispose tasks are observed so cancellation does not surface
+// as an unobserved exception, and a create that finishes late is disposed.
+// Body and hook tasks abandoned by the wait are observed the same way, without
+// disposing their result. CleanUp may overlap that still-running body.
+#endregion
+
+public static partial class TestRunner
+{
+  private static readonly AsyncLocal<CancellationToken> AmbientCancellation = new();
+
+  /// <summary>
+  /// Token for the run that is executing on this async flow.
+  /// Session fixture creation reads it when the caller does not pass one.
+  /// </summary>
+  internal static CancellationToken AmbientCancellationToken => AmbientCancellation.Value;
+
+  private enum WaitKind
+  {
+    Completed,
+    Cancelled,
+    TimedOut
+  }
+
+  /// <summary>
+  /// Restores the previous ambient token when disposed.
+  /// </summary>
+  private sealed class CancellationScope : IDisposable
+  {
+    private readonly CancellationToken Previous;
+    private bool Disposed;
+
+    public CancellationScope(CancellationToken cancellationToken)
+    {
+      Previous = AmbientCancellation.Value;
+      AmbientCancellation.Value = cancellationToken;
+    }
+
+    public void Dispose()
+    {
+      if (Disposed)
+      {
+        return;
+      }
+
+      Disposed = true;
+      AmbientCancellation.Value = Previous;
+    }
+  }
+
+  /// <summary>
+  /// Waits for <paramref name="task"/>. A fired caller token returns
+  /// <see cref="WaitKind.Cancelled"/>. A timeout with no cancellation returns
+  /// <see cref="WaitKind.TimedOut"/>. The task itself is not aborted.
+  /// </summary>
+  private static async Task<WaitKind> WaitForCompletionAsync(
+    Task task,
+    int? timeoutMilliseconds,
+    CancellationToken cancellationToken)
+  {
+    if (!cancellationToken.CanBeCanceled && timeoutMilliseconds is null)
+    {
+      await task.ConfigureAwait(false);
+      return WaitKind.Completed;
+    }
+
+    if (timeoutMilliseconds is null)
+    {
+      try
+      {
+        await task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return cancellationToken.IsCancellationRequested ? MarkCancelled(task) : WaitKind.Completed;
+      }
+      catch (Exception) when (cancellationToken.IsCancellationRequested)
+      {
+        return MarkCancelled(task);
+      }
+    }
+
+    using CancellationTokenSource timeoutSource = new(timeoutMilliseconds.Value);
+    if (!cancellationToken.CanBeCanceled)
+    {
+      try
+      {
+        await task.WaitAsync(timeoutSource.Token).ConfigureAwait(false);
+        return WaitKind.Completed;
+      }
+      catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
+      {
+        return WaitKind.TimedOut;
+      }
+    }
+
+    using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+      cancellationToken,
+      timeoutSource.Token);
+    try
+    {
+      await task.WaitAsync(linked.Token).ConfigureAwait(false);
+      if (cancellationToken.IsCancellationRequested)
+      {
+        return MarkCancelled(task);
+      }
+
+      return WaitKind.Completed;
+    }
+    catch (Exception) when (cancellationToken.IsCancellationRequested)
+    {
+      return MarkCancelled(task);
+    }
+    catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
+    {
+      return WaitKind.TimedOut;
+    }
+  }
+
+  private static int ExitCodeFor(TestRunStats stats, CancellationToken cancellationToken)
+  {
+    if (cancellationToken.IsCancellationRequested || !stats.Success)
+    {
+      return 1;
+    }
+
+    return 0;
+  }
+
+  /// <summary>
+  /// Observes a task the run stopped waiting on.
+  /// When <paramref name="disposeResult"/> is true, a late fixture instance is disposed.
+  /// Body and hook tasks pass false so their result is left alone.
+  /// </summary>
+  internal static void ObserveAbandoned(Task task, bool disposeResult = false)
+  {
+    ArgumentNullException.ThrowIfNull(task);
+    if (task.IsCompleted)
+    {
+      ObserveCompleted(task, disposeResult);
+      return;
+    }
+
+    _ = task.ContinueWith(
+      static (completed, state) => ObserveCompleted(completed, state is true),
+      disposeResult,
+      CancellationToken.None,
+      TaskContinuationOptions.ExecuteSynchronously,
+      TaskScheduler.Default);
+  }
+
+  private static WaitKind MarkCancelled(Task task)
+  {
+    ObserveAbandoned(task);
+    return WaitKind.Cancelled;
+  }
+
+  private static void ObserveCompleted(Task completed, bool disposeResult)
+  {
+    _ = completed.Exception;
+    if (disposeResult && completed.Status == TaskStatus.RanToCompletion)
+    {
+      DisposeAbandonedResult(completed);
+    }
+  }
+
+  private static void DisposeAbandonedResult(Task task)
+  {
+    PropertyInfo? resultProperty = task.GetType().GetProperty("Result");
+    if (resultProperty?.GetValue(task) is not IAsyncDisposable disposable)
+    {
+      return;
+    }
+
+    try
+    {
+      ValueTask pending = disposable.DisposeAsync();
+      if (!pending.IsCompletedSuccessfully)
+      {
+        _ = pending.AsTask().ContinueWith(
+          static inner => _ = inner.Exception,
+          CancellationToken.None,
+          TaskContinuationOptions.OnlyOnFaulted,
+          TaskScheduler.Default);
+      }
+    }
+#pragma warning disable CA1031 // Late dispose is not a node. Record it so the abandoned path cannot crash the process.
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      Trace.TraceError("Abandoned fixture dispose failed: {0}", exception);
+    }
+  }
+}

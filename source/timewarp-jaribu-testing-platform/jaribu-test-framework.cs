@@ -17,6 +17,10 @@ using Microsoft.Testing.Platform.Services;
 // requests that select or run cases. Any other request type throws, and the
 // handler publishes an error node for that failure. Tree and uid filters go
 // through MtpTreeFilter; a filter this adapter does not recognize throws too.
+//
+// context.CancellationToken is passed into the class run and into session
+// close. A fired token stops the class loop. Cooperative cancellation is not
+// republished as an Error node.
 #endregion
 
 /// <summary>
@@ -52,6 +56,15 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
   public Task<CreateTestSessionResult> CreateTestSessionAsync(CreateTestSessionContext context)
   {
+    if (context.CancellationToken.IsCancellationRequested)
+    {
+      return Task.FromResult(new CreateTestSessionResult
+      {
+        IsSuccess = false,
+        ErrorMessage = "Test session creation was cancelled."
+      });
+    }
+
     TestRunner.BeginTestSession();
     return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
   }
@@ -60,8 +73,25 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
   {
     try
     {
-      await TestRunner.EndTestSessionAsync().ConfigureAwait(false);
+      await TestRunner.EndTestSessionAsync(context.CancellationToken).ConfigureAwait(false);
+      if (context.CancellationToken.IsCancellationRequested)
+      {
+        return new CloseTestSessionResult
+        {
+          IsSuccess = false,
+          ErrorMessage = "Test session close was cancelled."
+        };
+      }
+
       return new CloseTestSessionResult { IsSuccess = true };
+    }
+    catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+    {
+      return new CloseTestSessionResult
+      {
+        IsSuccess = false,
+        ErrorMessage = "Test session close was cancelled."
+      };
     }
 #pragma warning disable CA1031 // Host boundary: any dispose failure must become IsSuccess=false
     catch (Exception ex)
@@ -105,9 +135,15 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
       // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
       Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
+      CancellationToken cancellationToken = context.CancellationToken;
 
       foreach (Type testClass in registeredClasses)
       {
+        if (cancellationToken.IsCancellationRequested)
+        {
+          break;
+        }
+
         if (filterClass is not null &&
             testClass.FullName?.Contains(filterClass, StringComparison.OrdinalIgnoreCase) != true)
         {
@@ -127,6 +163,11 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
           foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
           {
+            if (cancellationToken.IsCancellationRequested)
+            {
+              break;
+            }
+
             if (filterMethod is not null &&
                 !method.Name.Contains(filterMethod, StringComparison.OrdinalIgnoreCase))
             {
@@ -135,6 +176,11 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
 
             foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
             {
+              if (cancellationToken.IsCancellationRequested)
+              {
+                break;
+              }
+
               if (!MtpTreeFilter.Matches(testClass, testCase, filter))
               {
                 continue;
@@ -161,10 +207,15 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
             sink,
             filterTag,
             methodNameContains: filterMethod,
-            casePredicate: testCase => MtpTreeFilter.Matches(testClass, testCase, filter)
+            casePredicate: testCase => MtpTreeFilter.Matches(testClass, testCase, filter),
+            cancellationToken: cancellationToken
           ).ConfigureAwait(false);
         }
       }
+    }
+    catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+    {
+      // The in-flight node is already Cancelled. Do not publish a synthetic Error.
     }
     catch (Exception ex)
     {

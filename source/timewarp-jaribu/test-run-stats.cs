@@ -35,7 +35,7 @@ public record TestRunStats
   /// <summary>
   /// True when <paramref name="state"/> counts toward <see cref="FailedCount"/>.
   /// Failed, Error, Timeout, and Cancelled all fail the run. Skipped does not.
-  /// MTP reports Cancelled as an error, and this bucket keeps the terminal exit code aligned.
+  /// MTP 2.3.3 counts CancelledTestNodeStateProperty toward the failed-test exit code.
   /// </summary>
   /// <param name="state">The node state to classify.</param>
   /// <returns>True when the state fails the run.</returns>

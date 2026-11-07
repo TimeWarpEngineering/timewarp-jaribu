@@ -137,6 +137,28 @@ namespace Mtp_
       errorException.Message.ShouldBe("body boom");
     }
 
+    public static async Task Cancelled_Should_MapToCancelledStateProperty()
+    {
+      RecordingBus bus = new();
+      MtpSink sink = new(new FakeProducer(), bus, new SessionUid("session"));
+      OperationCanceledException cancelled = new("stopped");
+      await sink.OnTestCompletedAsync(new TestNodeInfo(
+        "Probe.Cancelled",
+        "Cancelled",
+        TestNodeState.Cancelled,
+        Exception: cancelled,
+        Message: "stopped"));
+
+      bus.Messages.Count.ShouldBe(1);
+#pragma warning disable MTP0001 // MTP 2.3.3 still exposes this property. The sink maps Cancelled to it.
+      CancelledTestNodeStateProperty state = bus.Messages[0].TestNode.Properties
+        .Single<TestNodeStateProperty>()
+        .ShouldBeOfType<CancelledTestNodeStateProperty>();
+#pragma warning restore MTP0001
+      state.Explanation.ShouldBe("stopped");
+      state.Exception.ShouldBeSameAs(cancelled);
+    }
+
     public static async Task FilterClass_Should_OmitOtherClasses()
     {
       CommandOutput basic = await RunValidationAsync("--list-tests", "--", "--filter-class", "Basic");

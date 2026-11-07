@@ -11,9 +11,9 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 // MTP's ITestNodesTreeFilterTestFrameworkCapability is internal to the platform
 // assembly, so a framework outside that assembly cannot implement it. The host
 // logs that interface and still sends TreeNodeFilter when the option is registered.
-// Omitted IGracefulStopTestExecutionCapability. Stop requires the runner
-// cancellation path in task 041. Advertising the capability turns on
-// --maximum-failed-tests, which calls StopTestExecutionAsync.
+// Omitted IGracefulStopTestExecutionCapability. The request CancellationToken
+// is honored. Advertising graceful stop turns on --maximum-failed-tests, which
+// calls StopTestExecutionAsync. That is a separate stop from the request token.
 // Omitted IBannerMessageOwnerCapability. The platform banner is the message.
 // Omitted the VSTest provider. INamedFeatureCapability is internal, and Jaribu
 // does not bridge VSTest.
