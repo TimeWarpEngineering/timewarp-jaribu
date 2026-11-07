@@ -27,6 +27,12 @@ using System.Runtime.ExceptionServices;
 // Authors must not dispose session fixtures in CleanUpOnce — the session owns
 // dispose. CleanUpOnce may null local references only.
 //
+// Create and dispose observe the caller token, or the run's ambient token when
+// GetAsync is called without one. A cancelled wait does not cache the fixture.
+// The in-flight task is observed, and a late instance is disposed.
+// A cancelled end starts dispose for every created fixture, observes each task,
+// and then throws, so a later fixture is not detached and leaked.
+//
 // MTP: CreateTestSessionAsync → Begin; CloseTestSessionAsync → End.
 // Standalone: RunAllTests wraps begin/end; lone RunTestsAsync owns session-of-one.
 #endregion
@@ -36,7 +42,7 @@ using System.Runtime.ExceptionServices;
 /// <see cref="TestRunner.RegisterSessionFixture{T}"/>.
 /// Resolve with <see cref="GetAsync{T}"/> from SetupOnce (or tests); the session owns disposal.
 /// </summary>
-public static class SessionFixture
+public static partial class SessionFixture
 {
   private static readonly Lock RegistryLock = new();
   private static readonly Dictionary<Type, FixtureEntry> Registry = [];
@@ -62,12 +68,20 @@ public static class SessionFixture
   /// Must be called while a test session is active.
   /// </summary>
   /// <typeparam name="T">Fixture type registered via <see cref="TestRunner.RegisterSessionFixture{T}"/>.</typeparam>
+  /// <param name="cancellationToken">
+  /// Stops waiting for creation. When this token cannot be cancelled, the active run's token is used.
+  /// </param>
   /// <returns>The shared fixture instance for the current session.</returns>
   /// <exception cref="InvalidOperationException">
   /// Thrown when no session is active, the type is not registered, or create fails.
   /// </exception>
-  public static async Task<T> GetAsync<T>() where T : class, IAsyncDisposable
+  /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> fires.</exception>
+  public static async Task<T> GetAsync<T>(CancellationToken cancellationToken = default)
+    where T : class, IAsyncDisposable
   {
+    CancellationToken effectiveToken = cancellationToken.CanBeCanceled
+      ? cancellationToken
+      : TestRunner.AmbientCancellationToken;
     Type fixtureType = typeof(T);
     FixtureEntry entry;
     int generation;
@@ -102,7 +116,7 @@ public static class SessionFixture
       }
     }
 
-    await entry.CreateGate.WaitAsync().ConfigureAwait(false);
+    await entry.CreateGate.WaitAsync(effectiveToken).ConfigureAwait(false);
     try
     {
       lock (RegistryLock)
@@ -120,7 +134,7 @@ public static class SessionFixture
 
       try
       {
-        object created = await InvokeCreateAsync(entry.Factory).ConfigureAwait(false);
+        object created = await InvokeCreateAsync(entry.Factory, effectiveToken).ConfigureAwait(false);
         if (created is not T typed)
         {
           throw new InvalidOperationException(
@@ -150,6 +164,10 @@ public static class SessionFixture
         }
 
         return typed;
+      }
+      catch (OperationCanceledException) when (effectiveToken.IsCancellationRequested)
+      {
+        throw;
       }
       catch (Exception ex)
       {
@@ -249,69 +267,6 @@ public static class SessionFixture
     }
   }
 
-  /// <summary>
-  /// Ends a test session. When nesting reaches zero, disposes all created fixtures
-  /// and clears instance references (registrations are kept).
-  /// </summary>
-  internal static async Task EndSessionAsync()
-  {
-    List<(Type Type, IAsyncDisposable Instance)> toDispose = [];
-
-    lock (RegistryLock)
-    {
-      if (Nesting <= 0)
-      {
-        return;
-      }
-
-      Nesting--;
-      if (Nesting != 0)
-      {
-        return;
-      }
-
-      Generation++;
-
-      foreach (KeyValuePair<Type, FixtureEntry> pair in Registry)
-      {
-        if (pair.Value.Instance is IAsyncDisposable disposable)
-        {
-          toDispose.Add((pair.Key, disposable));
-          pair.Value.Instance = null;
-        }
-
-        // Sticky create failures are session-scoped; clear when session fully ends.
-        pair.Value.CreateFailure = null;
-      }
-    }
-
-    List<Exception> errors = [];
-    foreach ((Type type, IAsyncDisposable instance) in toDispose)
-    {
-      try
-      {
-        await instance.DisposeAsync().ConfigureAwait(false);
-      }
-      catch (Exception ex)
-      {
-        errors.Add(new InvalidOperationException(
-          $"Session fixture '{type.FullName}' DisposeAsync failed: {ex.Message}",
-          ex));
-      }
-    }
-
-    if (errors.Count == 1)
-    {
-      ExceptionDispatchInfo.Capture(errors[0]).Throw();
-    }
-    else if (errors.Count > 1)
-    {
-      throw new AggregateException(
-        "One or more session fixtures failed to dispose.",
-        errors);
-    }
-  }
-
   private static MethodInfo ResolveCreateFactory(Type fixtureType)
   {
     const BindingFlags Flags =
@@ -373,8 +328,9 @@ public static class SessionFixture
     return candidate;
   }
 
-  private static async Task<object> InvokeCreateAsync(MethodInfo factory)
+  private static async Task<object> InvokeCreateAsync(MethodInfo factory, CancellationToken cancellationToken)
   {
+    cancellationToken.ThrowIfCancellationRequested();
     object? invoked;
     try
     {
@@ -392,7 +348,15 @@ public static class SessionFixture
         $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return a Task.");
     }
 
-    await task.ConfigureAwait(false);
+    try
+    {
+      await task.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+      TestRunner.ObserveAbandoned(task, disposeResult: true);
+      throw;
+    }
 
     PropertyInfo? resultProperty = task.GetType().GetProperty("Result");
     if (resultProperty is null)

@@ -68,8 +68,15 @@ public static partial class TestRunner
   /// Ends a host-owned test session. When the outermost session ends, disposes all
   /// created session fixtures (registrations are kept).
   /// </summary>
-  public static Task EndTestSessionAsync()
+  /// <param name="cancellationToken">
+  /// Stops waiting for fixture disposal. Defaults to <see cref="CancellationToken.None"/>.
+  /// </param>
+  /// <exception cref="OperationCanceledException">
+  /// Thrown when <paramref name="cancellationToken"/> fires after dispose has been started
+  /// for every created fixture.
+  /// </exception>
+  public static Task EndTestSessionAsync(CancellationToken cancellationToken = default)
   {
-    return SessionFixture.EndSessionAsync();
+    return SessionFixture.EndSessionAsync(cancellationToken);
   }
 }

@@ -8,60 +8,96 @@ using TimeWarp.Terminal;
 // Resolves and invokes per-test Setup/CleanUp and class-scoped SetupOnce/CleanUpOnce.
 #endregion
 
+#region Design
+// Hook methods stay parameterless. The runner stops waiting when the caller
+// token fires. A cancellation during SetupOnce still pairs with CleanUpOnce
+// once SetupOnce has been entered. Cancellation is not stored as a hook failure.
+// CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
+// still running. Abandoned hook tasks are observed.
+#endregion
+
 public static partial class TestRunner
 {
+  /// <summary>
+  /// CleanUp outcome. <see cref="Cancelled"/> means the caller token fired.
+  /// That is not a cleanup failure.
+  /// </summary>
+  private readonly record struct CleanupOutcome(Exception? Failure, bool Cancelled);
+
   /// <summary>
   /// Invokes the Setup method for a given type if it exists.
   /// Non-conforming signatures are silently ignored (legacy per-test behavior).
   /// </summary>
-  private static async Task InvokeSetupForType(Type testClass)
+  private static async Task<WaitKind> InvokeSetupForType(Type testClass, CancellationToken cancellationToken)
   {
     MethodInfo? setupMethod = testClass.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
-    if (setupMethod is not null && setupMethod.ReturnType == typeof(Task))
+    if (setupMethod is null || setupMethod.ReturnType != typeof(Task))
     {
-      if (setupMethod.Invoke(null, null) is Task task)
-      {
-        await task;
-      }
+      return WaitKind.Completed;
     }
+
+    if (setupMethod.Invoke(null, null) is not Task task)
+    {
+      return WaitKind.Completed;
+    }
+
+    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
+      .ConfigureAwait(false);
   }
 
   /// <summary>
   /// Invokes the CleanUp method for a given type if it exists.
   /// Non-conforming signatures are silently ignored (legacy per-test behavior).
   /// </summary>
-  private static async Task InvokeCleanupForType(Type testClass)
+  private static async Task<WaitKind> InvokeCleanupForType(Type testClass, CancellationToken cancellationToken)
   {
     MethodInfo? cleanupMethod = testClass.GetMethod("CleanUp", BindingFlags.Public | BindingFlags.Static);
-    if (cleanupMethod is not null && cleanupMethod.ReturnType == typeof(Task))
+    if (cleanupMethod is null || cleanupMethod.ReturnType != typeof(Task))
     {
-      if (cleanupMethod.Invoke(null, null) is Task task)
-      {
-        await task;
-      }
+      return WaitKind.Completed;
     }
+
+    if (cleanupMethod.Invoke(null, null) is not Task task)
+    {
+      return WaitKind.Completed;
+    }
+
+    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
+      .ConfigureAwait(false);
   }
 
   /// <summary>
-  /// Runs CleanUp without letting its exception escape. Returns null when cleanup succeeds
-  /// or no conforming CleanUp exists.
+  /// Runs CleanUp without letting its exception escape. Failure is null when cleanup
+  /// succeeds, no conforming CleanUp exists, or the caller token cancelled the wait.
   /// </summary>
-  private static async Task<Exception?> InvokeCleanupIsolatedAsync(Type testClass)
+  private static async Task<CleanupOutcome> InvokeCleanupIsolatedAsync(
+    Type testClass,
+    CancellationToken cancellationToken)
   {
     try
     {
-      await InvokeCleanupForType(testClass);
-      return null;
+      WaitKind kind = await InvokeCleanupForType(testClass, cancellationToken).ConfigureAwait(false);
+      return new CleanupOutcome(Failure: null, Cancelled: kind == WaitKind.Cancelled);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
-      return ex.InnerException;
+      if (cancellationToken.IsCancellationRequested)
+      {
+        return new CleanupOutcome(Failure: null, Cancelled: true);
+      }
+
+      return new CleanupOutcome(ex.InnerException, Cancelled: false);
     }
 #pragma warning disable CA1031 // Cleanup failure is data for the node, not a crash
     catch (Exception ex)
 #pragma warning restore CA1031
     {
-      return ex;
+      if (cancellationToken.IsCancellationRequested)
+      {
+        return new CleanupOutcome(Failure: null, Cancelled: true);
+      }
+
+      return new CleanupOutcome(ex, Cancelled: false);
     }
   }
 
@@ -93,11 +129,15 @@ public static partial class TestRunner
   /// <summary>
   /// Ends an owned session. Returns the dispose exception instead of throwing.
   /// </summary>
-  private static async Task<Exception?> TryEndOwnedSessionAsync()
+  private static async Task<Exception?> TryEndOwnedSessionAsync(CancellationToken cancellationToken)
   {
     try
     {
-      await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+      await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+      return null;
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
       return null;
     }
 #pragma warning disable CA1031 // Host boundary: dispose failure becomes a failed node
@@ -111,12 +151,16 @@ public static partial class TestRunner
   /// <summary>
   /// Ends an owned session while another exception is already in flight.
   /// The dispose exception is logged and swallowed so it cannot replace the body exception.
+  /// Cancellation is not a dispose failure.
   /// </summary>
-  private static async Task EndOwnedSessionWithoutMaskingAsync()
+  private static async Task EndOwnedSessionWithoutMaskingAsync(CancellationToken cancellationToken)
   {
     try
     {
-      await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+      await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
     }
 #pragma warning disable CA1031 // Host boundary: do not replace an in-flight exception
     catch (Exception ex)
@@ -243,43 +287,61 @@ public static partial class TestRunner
 
   /// <summary>
   /// Invokes a resolved once-hook and awaits its Task, unwrapping TargetInvocationException.
+  /// Returns <see cref="WaitKind.Cancelled"/> when the caller token fires.
   /// </summary>
-  private static async Task InvokeOnceHookAsync(MethodInfo method)
+  private static async Task<WaitKind> InvokeOnceHookAsync(MethodInfo method, CancellationToken cancellationToken)
   {
+    object? result;
     try
     {
-      object? result = method.Invoke(null, null);
-      if (result is Task task)
-      {
-        await task.ConfigureAwait(false);
-      }
+      result = method.Invoke(null, null);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
       ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
       throw; // unreachable; satisfies definite-assignment analysis
     }
+
+    if (result is not Task task)
+    {
+      return WaitKind.Completed;
+    }
+
+    return await WaitForCompletionAsync(task, timeoutMilliseconds: null, cancellationToken)
+      .ConfigureAwait(false);
   }
 
   /// <summary>
   /// Idempotent: invokes SetupOnce on first call. Sets SetupOnceInvoked before await
-  /// so a throwing SetupOnce still pairs with CleanUpOnce.
+  /// so a throwing or cancelled SetupOnce still pairs with CleanUpOnce.
+  /// Returns true when the caller token cancelled the hook before any test runs.
   /// </summary>
-  private static async Task EnsureSetupOnceAsync(ClassOnceState state)
+  private static async Task<bool> EnsureSetupOnceAsync(ClassOnceState state, CancellationToken cancellationToken)
   {
     if (state.SetupOnceInvoked || state.SetupOnce is null)
     {
-      return;
+      return cancellationToken.IsCancellationRequested;
+    }
+
+    if (cancellationToken.IsCancellationRequested)
+    {
+      return true;
     }
 
     state.SetupOnceInvoked = true;
     try
     {
-      await InvokeOnceHookAsync(state.SetupOnce).ConfigureAwait(false);
+      WaitKind kind = await InvokeOnceHookAsync(state.SetupOnce, cancellationToken).ConfigureAwait(false);
+      return kind == WaitKind.Cancelled;
+    }
+    catch (Exception) when (cancellationToken.IsCancellationRequested)
+    {
+      return true;
     }
     catch (Exception ex)
     {
       state.SetupOnceFailure = ex;
+      return false;
     }
   }
 

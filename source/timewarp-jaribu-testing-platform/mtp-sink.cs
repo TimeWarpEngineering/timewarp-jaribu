@@ -12,8 +12,12 @@ using Microsoft.Testing.Platform.Extensions.Messages;
 // Failed, Timeout, and Error carry both the exception and TestNodeInfo.Message.
 // A throwing CleanUp after a failing body keeps the body exception and puts the
 // cleanup text only in Message. The explanation argument is what dotnet test shows,
-// so dropping Message hides that cleanup failure. Cancelled has no state property;
-// it is reported as Error and the message is the cancellation reason.
+// so dropping Message hides that cleanup failure.
+// Cancelled maps to CancelledTestNodeStateProperty. MTP 2.3.3 still has that
+// type and counts it toward the failed-test exit code. The type is obsolete
+// (MTP0001): the platform text says to throw OperationCanceledException instead.
+// Publishing the node is the report. The adapter does not also throw, because
+// a throw would add a second Error node.
 // Parameter keys use MtpTreeFilter.ParameterKeyPrefix. Parameter text and the
 // metadata type name come from MtpNodeMetadata, the same helpers the filter uses.
 #endregion
@@ -149,17 +153,23 @@ internal sealed class MtpSink : ITestResultSink
         node.Exception ?? new InvalidOperationException("Test error without exception details"),
         node.Message
       ),
-      // Failing outcome, same bucket as TestRunStats.IsFailingState. There is no
-      // CancelledTestNodeStateProperty, so the bus reports an error.
-      TestNodeState.Cancelled => new ErrorTestNodeStateProperty
-      (
-        new OperationCanceledException(node.Message ?? "Test cancelled")
-      ),
+      TestNodeState.Cancelled => CancelledProperty(node),
       _ => new ErrorTestNodeStateProperty
       (
         new InvalidOperationException($"Unknown test state: {node.State}")
       )
     };
+
+  // MTP0001 marks this property obsolete and prefers a thrown OperationCanceledException.
+  // The 2.3.3 host still reads the property for the summary and the exit code.
+#pragma warning disable MTP0001 // Publishing Cancelled is the report. A throw would add a second Error node.
+  private static CancelledTestNodeStateProperty CancelledProperty(TestNodeInfo node)
+  {
+    return new CancelledTestNodeStateProperty(
+      node.Exception ?? new OperationCanceledException(node.Message ?? "Test cancelled"),
+      node.Message);
+  }
+#pragma warning restore MTP0001
 
   private static TestMethodIdentifierProperty CreateMethodIdentifier(MethodInfo method)
   {

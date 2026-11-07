@@ -16,14 +16,20 @@ public static partial class TestRunner
   /// <typeparam name="T">The test class containing test methods.</typeparam>
   /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
   /// <param name="filterTag">Optional tag to filter tests.</param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
-  public static async Task<int> RunTests<T>(bool? clearCache = null, string? filterTag = null) where T : class
+  /// <param name="cancellationToken">
+  /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// </param>
+  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed or the token fired.</returns>
+  public static async Task<int> RunTests<T>(
+    bool? clearCache = null,
+    string? filterTag = null,
+    CancellationToken cancellationToken = default) where T : class
   {
     // clearCache retained for public API compatibility; runfile cache is managed externally.
     _ = clearCache;
     using TerminalSink sink = new();
-    TestRunStats stats = await RunTestsAsync<T>(sink, filterTag);
-    return stats.Success ? 0 : 1;
+    TestRunStats stats = await RunTestsAsync<T>(sink, filterTag, cancellationToken: cancellationToken);
+    return ExitCodeFor(stats, cancellationToken);
   }
 
   /// <summary>
@@ -32,8 +38,14 @@ public static partial class TestRunner
   /// </summary>
   /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
   /// <param name="filterTag">Optional tag to filter tests.</param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed.</returns>
-  public static async Task<int> RunAllTests(bool? clearCache = null, string? filterTag = null)
+  /// <param name="cancellationToken">
+  /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// </param>
+  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed or the token fired.</returns>
+  public static async Task<int> RunAllTests(
+    bool? clearCache = null,
+    string? filterTag = null,
+    CancellationToken cancellationToken = default)
   {
     // clearCache retained for public API compatibility; runfile cache is managed externally.
     _ = clearCache;
@@ -44,13 +56,17 @@ public static partial class TestRunner
     int exitCode = 1;
     try
     {
-      exitCode = await RunAllTestsCore(filterTag);
+      exitCode = await RunAllTestsCore(filterTag, cancellationToken);
     }
     finally
     {
       try
       {
-        await SessionFixture.EndSessionAsync().ConfigureAwait(false);
+        await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+      }
+      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+      {
+        // Cancellation already fails the run. Dispose may finish in the background.
       }
 #pragma warning disable CA1031 // Host boundary: dispose failure must fail the run, not crash it
       catch (Exception ex)
@@ -65,13 +81,18 @@ public static partial class TestRunner
       }
     }
 
-    return disposeFailed ? 1 : exitCode;
+    if (disposeFailed || cancellationToken.IsCancellationRequested)
+    {
+      return 1;
+    }
+
+    return exitCode;
   }
 
   /// <summary>
   /// Runs all registered test classes within the ambient session and returns the exit code.
   /// </summary>
-  private static async Task<int> RunAllTestsCore(string? filterTag)
+  private static async Task<int> RunAllTestsCore(string? filterTag, CancellationToken cancellationToken)
   {
     // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
     Type[] registeredClasses = [.. RegisteredTestClasses];
@@ -80,15 +101,22 @@ public static partial class TestRunner
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
       Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
 #pragma warning restore CA1849
-      return 0;
+      return cancellationToken.IsCancellationRequested ? 1 : 0;
     }
 
     List<TestRunStats> allStats = [];
 
     foreach (Type testClass in registeredClasses)
     {
-      using TerminalSink sink = new();
-      TestRunStats stats = await RunTestsAsync(testClass, sink, filterTag);
+      if (cancellationToken.IsCancellationRequested)
+      {
+        break;
+      }
+
+      TestRunStats stats = await RunRegisteredClassAsync(
+        testClass,
+        filterTag,
+        cancellationToken).ConfigureAwait(false);
       allStats.Add(stats);
     }
 
@@ -148,5 +176,22 @@ public static partial class TestRunner
     }
 
     return allStats.Any(s => !s.Success) ? 1 : 0;
+  }
+
+  /// <summary>
+  /// Runs one registered class on a sink this method owns.
+  /// The sink stays in a straight-line using so the run disposes it on every path.
+  /// </summary>
+  private static async Task<TestRunStats> RunRegisteredClassAsync(
+    Type testClass,
+    string? filterTag,
+    CancellationToken cancellationToken)
+  {
+    using TerminalSink sink = new();
+    return await RunTestsAsync(
+      testClass,
+      sink,
+      filterTag,
+      cancellationToken: cancellationToken).ConfigureAwait(false);
   }
 }

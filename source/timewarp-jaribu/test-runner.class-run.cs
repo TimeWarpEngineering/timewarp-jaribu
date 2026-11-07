@@ -7,6 +7,13 @@ using System.Reflection;
 // Runs one test class through a sink, including filters, once-hooks, and session-of-one.
 #endregion
 
+#region Design
+// The caller token is ambient for the class run so session-fixture creation
+// observes it. After a Cancelled node, later methods and input rows are not
+// started. CleanUpOnce still runs when SetupOnce was entered, and it may
+// overlap a SetupOnce that the wait already abandoned.
+#endregion
+
 public static partial class TestRunner
 {
   /// <summary>
@@ -24,16 +31,27 @@ public static partial class TestRunner
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
   /// </param>
+  /// <param name="cancellationToken">
+  /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync<T>(
     ITestResultSink sink,
     string? filterTag = null,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null) where T : class
+    Func<ReportedTestCase, bool>? casePredicate = null,
+    CancellationToken cancellationToken = default) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(typeof(T), sink, filterTag, methodNameContains, methodPredicate, casePredicate);
+    return RunTestsAsyncCore(
+      typeof(T),
+      sink,
+      filterTag,
+      methodNameContains,
+      methodPredicate,
+      casePredicate,
+      cancellationToken);
   }
 
   /// <summary>
@@ -51,6 +69,9 @@ public static partial class TestRunner
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
   /// </param>
+  /// <param name="cancellationToken">
+  /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync(
     Type testClass,
@@ -58,11 +79,19 @@ public static partial class TestRunner
     string? filterTag = null,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null)
+    Func<ReportedTestCase, bool>? casePredicate = null,
+    CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(testClass, sink, filterTag, methodNameContains, methodPredicate, casePredicate);
+    return RunTestsAsyncCore(
+      testClass,
+      sink,
+      filterTag,
+      methodNameContains,
+      methodPredicate,
+      casePredicate,
+      cancellationToken);
   }
 
   /// <summary>
@@ -75,8 +104,10 @@ public static partial class TestRunner
     string? filterTag = null,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null)
+    Func<ReportedTestCase, bool>? casePredicate = null,
+    CancellationToken cancellationToken = default)
   {
+    using CancellationScope scope = new(cancellationToken);
     bool ownsSession = false;
     if (!SessionFixture.IsSessionActive)
     {
@@ -97,7 +128,7 @@ public static partial class TestRunner
           return;
         }
 
-        Exception? disposeFailure = await TryEndOwnedSessionAsync().ConfigureAwait(false);
+        Exception? disposeFailure = await TryEndOwnedSessionAsync(cancellationToken).ConfigureAwait(false);
         ownsSession = false;
         if (disposeFailure is not null)
         {
@@ -163,7 +194,7 @@ public static partial class TestRunner
       OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
       Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
 
-      if (resolutionError is not null)
+      if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
       {
         // Bad once-hook signature: fail the nodes discovery lists, without invoking CleanUpOnce.
         foreach (MethodInfo method in testMethods)
@@ -186,14 +217,25 @@ public static partial class TestRunner
         {
           foreach (MethodInfo method in testMethods)
           {
+            if (cancellationToken.IsCancellationRequested)
+            {
+              break;
+            }
+
             List<TestNodeInfo> methodResults = await RunTestWithSinkAsync(
               testClass,
               method,
               sink,
               filterTag,
               onceState,
-              casePredicate);
+              casePredicate,
+              cancellationToken);
             results.AddRange(methodResults);
+            if (cancellationToken.IsCancellationRequested ||
+                methodResults.Exists(result => result.State == TestNodeState.Cancelled))
+            {
+              break;
+            }
           }
         }
         finally
@@ -202,9 +244,9 @@ public static partial class TestRunner
           {
             try
             {
-              await InvokeOnceHookAsync(onceState.CleanUpOnce);
+              await InvokeOnceHookAsync(onceState.CleanUpOnce, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception cleanUpEx)
+            catch (Exception cleanUpEx) when (!cancellationToken.IsCancellationRequested)
             {
               await EmitSyntheticHookFailureAsync(testClass, "CleanUpOnce", cleanUpEx, sink, results);
             }
@@ -239,7 +281,7 @@ public static partial class TestRunner
     {
       if (ownsSession)
       {
-        await EndOwnedSessionWithoutMaskingAsync().ConfigureAwait(false);
+        await EndOwnedSessionWithoutMaskingAsync(cancellationToken).ConfigureAwait(false);
       }
     }
   }
@@ -254,9 +296,14 @@ public static partial class TestRunner
     ITestResultSink sink,
     string? filterTag,
     ClassOnceState onceState,
-    Func<ReportedTestCase, bool>? casePredicate)
+    Func<ReportedTestCase, bool>? casePredicate,
+    CancellationToken cancellationToken)
   {
     List<TestNodeInfo> results = [];
+    if (cancellationToken.IsCancellationRequested)
+    {
+      return results;
+    }
 
     // Check for method tag filter if specified
     if (filterTag is not null)
@@ -323,7 +370,12 @@ public static partial class TestRunner
     }
 
     // Lazy class-scoped SetupOnce immediately before first real execution path
-    await EnsureSetupOnceAsync(onceState);
+    bool setupCancelled = await EnsureSetupOnceAsync(onceState, cancellationToken).ConfigureAwait(false);
+    if (setupCancelled)
+    {
+      return results;
+    }
+
     if (onceState.SetupOnceFailure is not null)
     {
       await ReportCasesFailedDueToHookAsync(cases, onceState.SetupOnceFailure, sink, results);
@@ -332,6 +384,11 @@ public static partial class TestRunner
 
     foreach (ReportedTestCase testCase in cases)
     {
+      if (cancellationToken.IsCancellationRequested)
+      {
+        break;
+      }
+
       TestNodeInfo inProgressNode = new(
         testCase.Uid,
         testCase.DisplayName,
@@ -345,10 +402,15 @@ public static partial class TestRunner
         testClass,
         method,
         testCase.ToParameterArray(),
-        testCase.InputOrdinal);
+        testCase.InputOrdinal,
+        cancellationToken);
 
       await sink.OnTestCompletedAsync(result);
       results.Add(result);
+      if (result.State == TestNodeState.Cancelled || cancellationToken.IsCancellationRequested)
+      {
+        break;
+      }
     }
 
     return results;

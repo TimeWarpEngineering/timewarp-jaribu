@@ -132,7 +132,7 @@ namespace TestRunner_
       try
       {
         InvalidOperationException ex = await Should.ThrowAsync<InvalidOperationException>(
-          SessionFixture.GetAsync<CountingSessionFixture>);
+          async () => await SessionFixture.GetAsync<CountingSessionFixture>());
         ex.Message.ShouldContain("is not registered");
         ex.Message.ShouldContain("RegisterSessionFixture");
       }
