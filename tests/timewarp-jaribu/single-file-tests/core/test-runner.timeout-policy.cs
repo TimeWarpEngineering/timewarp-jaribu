@@ -35,6 +35,8 @@ namespace TestRunner_
       Should.Throw<ArgumentOutOfRangeException>(() => TestRunner.DefaultHookTimeout = TimeSpan.Zero);
       Should.Throw<ArgumentOutOfRangeException>(
         () => TestRunner.DefaultHookTimeout = TimeSpan.FromMilliseconds(-1));
+      Should.Throw<ArgumentOutOfRangeException>(
+        () => TestRunner.DefaultHookTimeout = TimeSpan.FromTicks(1));
       await Task.CompletedTask;
     }
 
@@ -45,8 +47,8 @@ namespace TestRunner_
       TestRunStats stats = await TestRunner.RunTestsAsync<FastTimeoutFixture>(sink);
 
       stats.Success.ShouldBeTrue();
-      clock.Provider.Timers.Count.ShouldBe(1);
-      clock.Provider.Timers[0].Disposed.ShouldBeTrue();
+      clock.Provider.TimerCount.ShouldBe(1);
+      clock.Provider.TimerAt(0).Disposed.ShouldBeTrue();
     }
 
     public static async Task NoBudget_Should_NotCreateATimer()
@@ -56,7 +58,7 @@ namespace TestRunner_
       TestRunStats stats = await TestRunner.RunTestsAsync<NoBudgetFixture>(sink);
 
       stats.Success.ShouldBeTrue();
-      clock.Provider.Timers.Count.ShouldBe(0);
+      clock.Provider.TimerCount.ShouldBe(0);
     }
 
     public static async Task ThrownTimeoutException_Should_StayFailed()
@@ -106,7 +108,7 @@ namespace TestRunner_
         TimeoutPolicyCollectingSink sink = new();
         Task<TestRunStats> run = TestRunner.RunTestsAsync<SetupHangFixture>(sink);
         await WaitForTimerAsync(clock.Provider);
-        clock.Provider.Timers.Count.ShouldBe(1);
+        clock.Provider.TimerCount.ShouldBe(1);
         clock.Provider.FireAll();
         TestRunStats stats = await run.WaitAsync(TimeSpan.FromSeconds(2));
 
@@ -117,6 +119,7 @@ namespace TestRunner_
         node.Message.ShouldContain("Setup");
         SetupHangFixture.Body.ShouldBe(0);
         SetupHangFixture.CleanUpCount.ShouldBe(0);
+        clock.Provider.TimerAt(0).Disposed.ShouldBeTrue();
       }
       finally
       {
@@ -198,6 +201,69 @@ namespace TestRunner_
       }
     }
 
+    public static async Task AlreadyFaultedAtFire_Should_ReportTheStoredFault()
+    {
+      FaultAtFireFixture.Reset();
+      using ClockScope clock = new();
+      try
+      {
+        TimeoutPolicyCollectingSink sink = new();
+        Task<TestRunStats> run = TestRunner.RunTestsAsync<FaultAtFireFixture>(sink);
+        await WaitForTimerAsync(clock.Provider);
+        clock.Provider.TimerAt(0).BeforeFire = static () =>
+          FaultAtFireFixture.Gate.TrySetException(new InvalidOperationException("stored fault"));
+        clock.Provider.FireAll();
+        TestRunStats stats = await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        stats.Success.ShouldBeFalse();
+        TestNodeInfo node = sink.Results.Single();
+        node.State.ShouldBe(TestNodeState.Failed);
+        node.Exception.ShouldBeOfType<InvalidOperationException>();
+        node.Exception.Message.ShouldBe("stored fault");
+      }
+      finally
+      {
+        FaultAtFireFixture.Gate.TrySetResult();
+      }
+    }
+
+    public static async Task CreateTimeout_Should_LetTheNextClassRetry()
+    {
+      RetryAfterTimeoutFixture.Reset();
+      TestRunner.ClearRegisteredSessionFixtures();
+      TestRunner.RegisterSessionFixture<RetryAfterTimeoutFixture>();
+      using ClockScope clock = new();
+      try
+      {
+        TestRunner.BeginTestSession();
+        TimeoutPolicyCollectingSink sink = new();
+        Task<TestRunStats> firstRun = TestRunner.RunTestsAsync<TimesOutCreateFixture>(sink);
+        await WaitForTimerAsync(clock.Provider);
+        clock.Provider.FireAll();
+        TestRunStats first = await firstRun.WaitAsync(TimeSpan.FromSeconds(2));
+        TestRunStats second = await TestRunner.RunTestsAsync<RetriesCreateFixture>(sink);
+
+        first.Success.ShouldBeFalse();
+        sink.Results.Single(node => node.DisplayName == "First").State.ShouldBe(TestNodeState.Timeout);
+        second.Success.ShouldBeTrue();
+        sink.Results.Single(node => node.DisplayName == "Second").State.ShouldBe(TestNodeState.Passed);
+        RetryAfterTimeoutFixture.Started.ShouldBe(2);
+      }
+      finally
+      {
+        RetryAfterTimeoutFixture.Gate.TrySetResult();
+        try
+        {
+          await TestRunner.EndTestSessionAsync();
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        TestRunner.ClearRegisteredSessionFixtures();
+      }
+    }
+
     public static async Task CreateAsync_Should_TimeoutAndDisposeTheLateInstance()
     {
       CreateHangFixture.Reset();
@@ -248,7 +314,7 @@ namespace TestRunner_
       Func<bool> entered)
     {
       DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2);
-      while (!entered() || !provider.Timers.Exists(static timer => !timer.Disposed))
+      while (!entered() || !provider.HasLiveTimer())
       {
         if (DateTimeOffset.UtcNow > deadline)
         {

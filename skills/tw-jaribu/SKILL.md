@@ -208,6 +208,7 @@ public static async Task CleanUpOnce()
 
 - Register with `RegisterSessionFixture<T>()` — `T` needs `public static Task<T> CreateAsync()` + `IAsyncDisposable`
 - Resolve with `SessionFixture.GetAsync<T>()` (lazy; unregistered → teaching error)
+- A create failure stays for the session. A create timeout does not: the next class retries under its own hook budget
 - Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / lone RunTestsAsync)
 - Double-register fails fast; never create if no class calls GetAsync
 - Prefer class SetupOnce when the fixture is per-class only
@@ -231,7 +232,7 @@ public static async Task Should_handle_input(string input)
 |-----------|---------|
 | `[TestTag("Name")]` | Tag for filtering (class or method) |
 | `[Skip("reason")]` | Skip test with reason |
-| `[Timeout(ms)]` | Positive budget. Method: that test. Class or `TestRunner.DefaultHookTimeout`: Setup, CleanUp, once-hooks, and session fixture creation |
+| `[Timeout(ms)]` | Positive budget. Method: that test. Class or `TestRunner.DefaultHookTimeout`: Setup, CleanUp, once-hooks, and session fixture creation. `DefaultHookTimeout` under 1ms is rejected |
 | `[Input("value")]` | Data-driven test input |
 | `[ModuleInitializer]` | Register class for multi-mode |
 | `[ClearRunfileCache]` | Clear cache (standalone only, removed) |

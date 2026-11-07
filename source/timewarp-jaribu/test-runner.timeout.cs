@@ -12,7 +12,8 @@ using System.Reflection;
 // for the class run. DefaultHookTimeout fills in when the class has no attribute.
 // Neither default is implicit: a missing class attribute and a null default
 // leave hooks unbounded, because session fixtures include hosts that outlast
-// a short unit-test budget.
+// a short unit-test budget. DefaultHookTimeout rejects spans under one
+// millisecond so the count cannot truncate to zero.
 //
 // The active class budget is ambient so SessionFixture.GetAsync can read it
 // without a new argument. TimeProvider is process-wide so a test can replace
@@ -47,7 +48,7 @@ public static partial class TestRunner
   /// Null applies no hook timeout.
   /// </summary>
   /// <exception cref="ArgumentOutOfRangeException">
-  /// The value is zero, negative, or longer than <see cref="int.MaxValue"/> milliseconds.
+  /// The value is under one millisecond, or longer than <see cref="int.MaxValue"/> milliseconds.
   /// </exception>
   public static TimeSpan? DefaultHookTimeout
   {
@@ -55,12 +56,12 @@ public static partial class TestRunner
     set
     {
       if (value is TimeSpan timeout &&
-          (timeout <= TimeSpan.Zero || timeout.TotalMilliseconds > int.MaxValue))
+          (timeout.TotalMilliseconds < 1d || timeout.TotalMilliseconds > int.MaxValue))
       {
         throw new ArgumentOutOfRangeException(
           nameof(value),
           value,
-          "Hook timeout must be greater than zero and fit in a millisecond count.");
+          "Hook timeout must be at least one millisecond and fit in a millisecond count.");
       }
 
       HookTimeoutDefault = value;

@@ -14,9 +14,11 @@ using TimeWarp.Terminal;
 // once SetupOnce has been entered. Cancellation is not stored as a hook failure.
 // CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
 // still running. Abandoned hook tasks are observed. Hook waits use the class
-// TimeoutAttribute or DefaultHookTimeout. A CleanUpOnce that throws
-// before it returns a task is rethrown here. The class run traces that throw
-// once the caller token has fired, and reports it as a synthetic node otherwise.
+// TimeoutAttribute or DefaultHookTimeout. Setup resolution runs before the
+// wait: a throw from GetMethod or Invoke is an invoke failure, and a fault
+// from the Setup task is a body failure. A CleanUpOnce that throws before it
+// returns a task is rethrown here. The class run traces that throw once the
+// caller token has fired, and reports it as a synthetic node otherwise.
 #endregion
 
 public static partial class TestRunner
@@ -28,26 +30,29 @@ public static partial class TestRunner
   private readonly record struct CleanupOutcome(Exception? Failure, bool Cancelled);
 
   /// <summary>
-  /// Invokes the Setup method for a given type if it exists.
-  /// Non-conforming signatures are silently ignored (legacy per-test behavior).
+  /// A started Setup task. <see cref="Task"/> is null when the type has no conforming Setup.
   /// </summary>
-  private static async Task<WaitKind> InvokeSetupForType(Type testClass, CancellationToken cancellationToken)
+  private readonly record struct SetupStart(Task? Task);
+
+  /// <summary>
+  /// Invokes Setup when the type has one public static parameterless Task method.
+  /// A missing or non-Task Setup is ignored. Overloads and other signatures that
+  /// GetMethod or Invoke cannot call throw here, before a Setup task exists.
+  /// </summary>
+  private static SetupStart StartSetup(Type testClass)
   {
     MethodInfo? setupMethod = testClass.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
     if (setupMethod is null || setupMethod.ReturnType != typeof(Task))
     {
-      return WaitKind.Completed;
+      return new SetupStart(null);
     }
 
     if (setupMethod.Invoke(null, null) is not Task task)
     {
-      return WaitKind.Completed;
+      return new SetupStart(null);
     }
 
-    return await WaitForCompletionAsync(
-      task,
-      ResolveHookTimeoutMilliseconds(testClass),
-      cancellationToken).ConfigureAwait(false);
+    return new SetupStart(task);
   }
 
   /// <summary>

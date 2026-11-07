@@ -17,6 +17,8 @@ using System.Runtime.ExceptionServices;
 // per-type SemaphoreSlim). Classes that never call GetAsync never create.
 // Failed CreateAsync is sticky for the rest of the session (rethrow same
 // exception; no second create attempt) so partial boots do not retry.
+// A create timeout is not sticky. It used the caller class's hook budget,
+// so a later class retries under its own budget or with none.
 //
 // A generation counter guards the create/end race: create holds only the
 // per-type gate, so a session can fully end while CreateAsync is in flight
@@ -33,7 +35,9 @@ using System.Runtime.ExceptionServices;
 // A cancelled end starts dispose for every created fixture, observes each task,
 // and then throws, so a later fixture is not detached and leaked.
 // CreateAsync uses the ambient hook timeout. A timeout or a create fault is
-// marked so the test node stays Timeout or Error. A late instance is disposed.
+// marked so the test node stays Timeout or Error. The timeout is not stored
+// on the entry. A late instance is disposed. A wrong returned instance and an
+// orphan from a session that ended during create are fixture-creation errors.
 //
 // MTP: CreateTestSessionAsync → Begin; CloseTestSessionAsync → End.
 // Standalone: RunAllTests wraps begin/end; lone RunTestsAsync owns session-of-one.
@@ -139,9 +143,11 @@ public static partial class SessionFixture
         object created = await InvokeCreateAsync(entry.Factory, effectiveToken).ConfigureAwait(false);
         if (created is not T typed)
         {
-          throw new InvalidOperationException(
-            $"Session fixture '{fixtureType.Name}' CreateAsync returned " +
-            $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}.");
+          throw FailureMark.Mark(
+            new InvalidOperationException(
+              $"Session fixture '{fixtureType.Name}' CreateAsync returned " +
+              $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}."),
+            FailureMark.FixtureCreation);
         }
 
         bool sessionStillCurrent;
@@ -160,9 +166,11 @@ public static partial class SessionFixture
           // The session ended (or a new one began) while CreateAsync was in
           // flight; the instance belongs to a dead session — dispose the orphan.
           await typed.DisposeAsync().ConfigureAwait(false);
-          throw new InvalidOperationException(
-            $"Test session ended while session fixture '{fixtureType.Name}' was being created. " +
-            "The orphaned instance was disposed.");
+          throw FailureMark.Mark(
+            new InvalidOperationException(
+              $"Test session ended while session fixture '{fixtureType.Name}' was being created. " +
+              "The orphaned instance was disposed."),
+            FailureMark.FixtureCreation);
         }
 
         return typed;
@@ -177,7 +185,10 @@ public static partial class SessionFixture
         {
           // Sticky failures are per-session; never record one against a session
           // that ended (or was replaced) while create was in flight.
-          if (Nesting > 0 && Generation == generation)
+          // A timeout belongs to the caller class's budget, so a later class retries.
+          if (Nesting > 0 &&
+              Generation == generation &&
+              !FailureMark.Is(ex, FailureMark.FixtureCreationTimeout))
           {
             entry.CreateFailure = ex;
           }

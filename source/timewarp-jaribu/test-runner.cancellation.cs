@@ -17,8 +17,11 @@ using System.Runtime.ExceptionServices;
 // Cancelled wins over Timeout when both are signaled. A Timeout attribute with
 // no cancellation still reports Timeout. The wait uses CancellationTokenSource
 // and TimeProvider. Disposing that source disposes the timer when the wait ends.
-// A task abandoned by timeout is observed. A fault already stored on it is
-// thrown so the node reports that fault. A fault that arrives later is traced.
+// The timeout signal resumes the wait after the timer callback returns.
+// A fault stored before that signal is the node outcome. A task abandoned by timeout
+// is observed. A fault already stored on it is thrown so the node reports that
+// fault. A fault that arrives later is traced. A success that loses to the
+// timeout token is Timeout.
 //
 // The ambient token lets SessionFixture.GetAsync observe the active run without
 // a new argument at every call site. An explicit token on GetAsync wins.
@@ -109,38 +112,55 @@ public static partial class TestRunner
     using CancellationTokenSource timeoutSource = new(
       TimeSpan.FromMilliseconds(timeoutMilliseconds.Value),
       TimeProvider);
-    CancellationTokenSource? linked = null;
+    CancellationTokenRegistration timeoutRegistration = default;
+    CancellationTokenRegistration callerRegistration = default;
     try
     {
-      CancellationToken waitToken = timeoutSource.Token;
+      // Resume after the timer callback returns. A fault stored in that callback
+      // is then visible to MarkTimedOut, instead of racing the callback's stack.
+      TaskCompletionSource<bool> signaled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+      timeoutRegistration = timeoutSource.Token.UnsafeRegister(
+        static state => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+        signaled);
       if (cancellationToken.CanBeCanceled)
       {
-        linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
-        waitToken = linked.Token;
+        callerRegistration = cancellationToken.UnsafeRegister(
+          static state => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+          signaled);
       }
 
-      try
+      if (task.IsCompleted)
       {
-        await task.WaitAsync(waitToken).ConfigureAwait(false);
-        if (cancellationToken.IsCancellationRequested)
-        {
-          return MarkCancelled(task, disposeAbandonedResult);
-        }
-
-        return WaitKind.Completed;
+        signaled.TrySetResult(true);
       }
-      catch (Exception) when (cancellationToken.IsCancellationRequested)
+      else
+      {
+        _ = task.ContinueWith(
+          static (_, state) => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
+          signaled,
+          CancellationToken.None,
+          TaskContinuationOptions.ExecuteSynchronously,
+          TaskScheduler.Default);
+      }
+
+      await signaled.Task.ConfigureAwait(false);
+      if (cancellationToken.IsCancellationRequested)
       {
         return MarkCancelled(task, disposeAbandonedResult);
       }
-      catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
+
+      if (timeoutSource.IsCancellationRequested)
       {
         return MarkTimedOut(task, disposeAbandonedResult);
       }
+
+      await task.ConfigureAwait(false);
+      return WaitKind.Completed;
     }
     finally
     {
-      linked?.Dispose();
+      await timeoutRegistration.DisposeAsync().ConfigureAwait(false);
+      await callerRegistration.DisposeAsync().ConfigureAwait(false);
     }
   }
 

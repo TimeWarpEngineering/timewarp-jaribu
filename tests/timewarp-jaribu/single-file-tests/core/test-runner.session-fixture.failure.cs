@@ -135,6 +135,37 @@ public partial class SessionFixture_Given_
     }
   }
 
+  public static async Task SessionEndDuringCreate_Should_ReportErrorFromTheBody()
+  {
+    BlockedCreateSessionFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<BlockedCreateSessionFixture>();
+    try
+    {
+      TestRunner.BeginTestSession();
+      SessionFixtureCollectingSink sink = new();
+      Task<TestRunStats> run = TestRunner.RunTestsAsync<UsesBlockedCreateFromBody>(sink);
+      await BlockedCreateSessionFixture.CreateStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+      await TestRunner.EndTestSessionAsync();
+      BlockedCreateSessionFixture.ReleaseCreate.TrySetResult();
+      TestRunStats stats = await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+      stats.Success.ShouldBeFalse();
+      TestNodeInfo node = sink.Results.Single(result => result.DisplayName == "OnlyTest");
+      node.State.ShouldBe(TestNodeState.Error);
+      node.Exception.ShouldBeOfType<InvalidOperationException>();
+      node.Exception.Message.ShouldContain("ended while");
+      BlockedCreateSessionFixture.DisposeCount.ShouldBe(1);
+    }
+    finally
+    {
+      BlockedCreateSessionFixture.ReleaseCreate.TrySetResult();
+      await EndLeftoverSessionAsync();
+      TestRunner.ClearRegisteredSessionFixtures();
+      BlockedCreateSessionFixture.Reset();
+    }
+  }
+
   public static async Task SessionOfOneDisposeFailure_Should_FailRunWithoutThrowing()
   {
     FailingDisposeSessionFixture.Reset();

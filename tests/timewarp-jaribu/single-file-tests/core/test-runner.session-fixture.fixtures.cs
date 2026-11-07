@@ -228,6 +228,14 @@ public class AllSkipSessionFixtureUser
   }
 }
 
+public class UsesBlockedCreateFromBody
+{
+  public static async Task OnlyTest()
+  {
+    _ = await SessionFixture.GetAsync<BlockedCreateSessionFixture>();
+  }
+}
+
 public class UsesFailingCreateFixture
 {
   public static async Task SetupOnce()

@@ -12,9 +12,10 @@ using System.Reflection;
 // method that blocks inside Task.Delay without the token is left running and
 // the node is Cancelled. Timeout stays Timeout unless the caller token has
 // also fired, in which case Cancelled wins. A method TimeoutAttribute limits
-// the body. Exceptions from the body or from Setup are Failed, sync or async.
-// Reflection failures that prevent Invoke are Error. Fixture creation marks
-// are Error, and a fixture create timeout is Timeout.
+// the body. Exceptions from the body, or from a Setup task, are Failed, sync
+// or async. Reflection failures that prevent Invoke of the body or of Setup
+// are Error. Fixture creation marks are Error, and a fixture create timeout
+// is Timeout.
 // CleanUp still runs after a body outcome. A CleanUp interrupted by the same
 // token does not rewrite a failing body, and a passing body becomes Cancelled.
 // CleanUp may overlap a body that is still running after the wait was cancelled.
@@ -89,26 +90,10 @@ public static partial class TestRunner
       return Complete(TestNodeState.Skipped, stopwatch.Elapsed, exception: null, skipAttr.Reason);
     }
 
+    SetupStart setup;
     try
     {
-      WaitKind setupKind = await InvokeSetupForType(testClass, cancellationToken).ConfigureAwait(false);
-      if (setupKind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
-      {
-        stopwatch.Stop();
-        return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
-      }
-
-      if (setupKind == WaitKind.TimedOut)
-      {
-        stopwatch.Stop();
-        int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
-        string message = TimeoutAfter(milliseconds, "Setup");
-        return Complete(
-          TestNodeState.Timeout,
-          stopwatch.Elapsed,
-          new TimeoutException(message),
-          message);
-      }
+      setup = StartSetup(testClass);
     }
     catch (Exception ex) when (cancellationToken.IsCancellationRequested)
     {
@@ -118,7 +103,45 @@ public static partial class TestRunner
     catch (Exception ex)
     {
       stopwatch.Stop();
-      return BodyFault(Complete, stopwatch.Elapsed, ex);
+      return InvokeFault(Complete, stopwatch.Elapsed, ex);
+    }
+
+    if (setup.Task is not null)
+    {
+      try
+      {
+        WaitKind setupKind = await WaitForCompletionAsync(
+          setup.Task,
+          ResolveHookTimeoutMilliseconds(testClass),
+          cancellationToken).ConfigureAwait(false);
+        if (setupKind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+        {
+          stopwatch.Stop();
+          return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+        }
+
+        if (setupKind == WaitKind.TimedOut)
+        {
+          stopwatch.Stop();
+          int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
+          string message = TimeoutAfter(milliseconds, "Setup");
+          return Complete(
+            TestNodeState.Timeout,
+            stopwatch.Elapsed,
+            new TimeoutException(message),
+            message);
+        }
+      }
+      catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+      {
+        stopwatch.Stop();
+        return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
+      }
+      catch (Exception ex)
+      {
+        stopwatch.Stop();
+        return BodyFault(Complete, stopwatch.Elapsed, ex);
+      }
     }
 
     TestNodeInfo? outcome = null;

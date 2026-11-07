@@ -53,18 +53,56 @@ sealed class ClockScope : IDisposable
 
 sealed class RecordingTimeProvider : TimeProvider
 {
-  public List<RecordingTimer> Timers { get; } = [];
+  private readonly Lock Gate = new();
+  private readonly List<RecordingTimer> StoredTimers = [];
+
+  public int TimerCount
+  {
+    get
+    {
+      lock (Gate)
+      {
+        return StoredTimers.Count;
+      }
+    }
+  }
+
+  public RecordingTimer TimerAt(int index)
+  {
+    lock (Gate)
+    {
+      return StoredTimers[index];
+    }
+  }
+
+  public bool HasLiveTimer()
+  {
+    lock (Gate)
+    {
+      return StoredTimers.Exists(static timer => !timer.Disposed);
+    }
+  }
 
   public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
   {
     RecordingTimer timer = new(callback, state);
-    Timers.Add(timer);
+    lock (Gate)
+    {
+      StoredTimers.Add(timer);
+    }
+
     return timer;
   }
 
   public void FireAll()
   {
-    foreach (RecordingTimer timer in Timers.ToArray())
+    RecordingTimer[] snapshot;
+    lock (Gate)
+    {
+      snapshot = [.. StoredTimers];
+    }
+
+    foreach (RecordingTimer timer in snapshot)
     {
       timer.Fire();
     }
@@ -73,8 +111,10 @@ sealed class RecordingTimeProvider : TimeProvider
 
 sealed class RecordingTimer : ITimer
 {
+  private readonly Lock Gate = new();
   private readonly TimerCallback Callback;
   private readonly object? State;
+  private bool IsDisposed;
 
   public RecordingTimer(TimerCallback callback, object? state)
   {
@@ -82,19 +122,52 @@ sealed class RecordingTimer : ITimer
     State = state;
   }
 
-  public bool Disposed { get; private set; }
+  /// <summary>
+  /// Runs before the timer callback, so a fault stored here is visible when the timeout is signaled.
+  /// </summary>
+  public Action? BeforeFire { get; set; }
+
+  public bool Disposed
+  {
+    get
+    {
+      lock (Gate)
+      {
+        return IsDisposed;
+      }
+    }
+  }
 
   public void Fire()
   {
-    if (!Disposed)
+    lock (Gate)
+    {
+      if (IsDisposed)
+      {
+        return;
+      }
+    }
+
+    BeforeFire?.Invoke();
+    try
     {
       Callback(State);
+    }
+    catch (ObjectDisposedException)
+    {
+      // The wait already observed the stored fault and disposed the source.
     }
   }
 
   public bool Change(TimeSpan dueTime, TimeSpan period) => !Disposed;
 
-  public void Dispose() => Disposed = true;
+  public void Dispose()
+  {
+    lock (Gate)
+    {
+      IsDisposed = true;
+    }
+  }
 
   public ValueTask DisposeAsync()
   {
@@ -105,11 +178,35 @@ sealed class RecordingTimer : ITimer
 
 sealed class LineListener : TraceListener
 {
-  public string Text { get; private set; } = "";
+  private readonly Lock Gate = new();
+  private string Buffer = "";
 
-  public override void Write(string? message) => Text += message;
+  public string Text
+  {
+    get
+    {
+      lock (Gate)
+      {
+        return Buffer;
+      }
+    }
+  }
 
-  public override void WriteLine(string? message) => Text += message;
+  public override void Write(string? message)
+  {
+    lock (Gate)
+    {
+      Buffer += message;
+    }
+  }
+
+  public override void WriteLine(string? message)
+  {
+    lock (Gate)
+    {
+      Buffer += message;
+    }
+  }
 }
 
 public class FastTimeoutFixture
@@ -280,6 +377,59 @@ public class UsesCreateHangFixture
   public static async Task Only()
   {
     _ = await SessionFixture.GetAsync<CreateHangFixture>();
+  }
+}
+
+public class FaultAtFireFixture
+{
+  public static TaskCompletionSource Gate = new();
+
+  public static void Reset() => Gate = new();
+
+  [Timeout(60_000)]
+  public static async Task Only() => await Gate.Task;
+}
+
+public sealed class RetryAfterTimeoutFixture : IAsyncDisposable
+{
+  public static TaskCompletionSource Gate = Gates.New();
+  public static int Started;
+
+  public static void Reset()
+  {
+    Gate = Gates.New();
+    Started = 0;
+  }
+
+  public static async Task<RetryAfterTimeoutFixture> CreateAsync()
+  {
+    int attempt = Interlocked.Increment(ref Started);
+    if (attempt == 1)
+    {
+      await Gate.Task;
+    }
+
+    return new RetryAfterTimeoutFixture();
+  }
+
+  public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+[Timeout(60_000)]
+public class TimesOutCreateFixture
+{
+  public static async Task First()
+  {
+    _ = await SessionFixture.GetAsync<RetryAfterTimeoutFixture>();
+  }
+}
+
+public class RetriesCreateFixture
+{
+  public static async Task Second()
+  {
+    RetryAfterTimeoutFixture fixture = await SessionFixture.GetAsync<RetryAfterTimeoutFixture>();
+    fixture.ShouldNotBeNull();
   }
 }
 
