@@ -30,6 +30,7 @@ Acceptance: the checklist items below are done, `ganda repo audit` exits 0, and 
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implemented: split `TestRunner` and the two over-cap suites, removed `work-thread-report.cs` and `verify-samples`, dropped `SamplesDirectory` and `RunfilesDirectory`, added `glossary.md`, and applied `ganda repo audit --fix` (gitignore, pre-push hook, Nuru 4 pin). Amuru and Amuru.Tools stay at 2.0.0 because 3.x is net11-only. Dev CLI handlers follow Nuru 4's `TimeWarp.Mediator` command types. Test projects no longer reference Nuru, so its mediator generator does not collide with the test compilation.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b676-098d-7b72-b6a5-dc89d6b0ea33, max-turns 500, Done — 2026-11-07T15:20:21Z
 
 ## Results
 
