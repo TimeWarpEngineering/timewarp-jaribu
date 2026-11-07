@@ -28,6 +28,7 @@ Findings: MTP-6, MTP-7, MTP-9 in task 038 report.
 - Review oracle round 1: claude (vendor anthropic, model claude-opus-5-5), ganda task work headless, effort 2, roster general, max-turns 120, 2026-11-08. Open findings M1 (suggestion) and M2 (nit), fix pass requested.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session f1aa84cf-5df1-4ba2-a057-705b2bfa6606, max-turns 120, artifacts general.md, merged.md — 2026-11-07T18:08:59Z
 - Fix pass (implement-fix-2, 2026-11-08): `MtpNodeMetadata` is the only copy of the metadata type name and parameter text. `MtpSink` reads `MtpTreeFilter.ParameterKeyPrefix`. The filter Design region says `TestTag` stays in the filter bag.
+- Review oracle round 2: claude (vendor anthropic, model claude-opus-5-5), ganda task work headless, effort 2, roster general, max-turns 120, 2026-11-08. Reviewed delta e164f0b..f3d7bdc. M1 and M2 are fixed, no new findings. Disposition is clean.
 
 ## Results
 
@@ -59,8 +60,15 @@ Expect:
 
 ### Review
 
-Round 1 (effort 2, general reviewer) found 0 bugs, 1 suggestion, and 1 nit. M1: the filter's parameter key prefix, `FormatParameter`, and `MetadataTypeName` were copies of `MtpSink` code. The fix pass moved the type name and parameter text into `MtpNodeMetadata` and pointed the sink at `MtpTreeFilter.ParameterKeyPrefix`. M2: the Design region said `MtpSink` publishes `TestTag`. It now says `TestTag` exists only in the filter bag and that only `jaribu.parameter.N` is shared. Round 2 still has to disposition the findings. Files: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+Round 1 (effort 2, general reviewer) found 0 bugs, 1 suggestion, and 1 nit. M1: the filter's parameter key prefix, `FormatParameter`, and `MetadataTypeName` were copies of `MtpSink` code. The fix pass moved the type name and parameter text into `MtpNodeMetadata` and pointed the sink at `MtpTreeFilter.ParameterKeyPrefix`. M2: the Design region said `MtpSink` publishes `TestTag`. It now says `TestTag` exists only in the filter bag and that only `jaribu.parameter.N` is shared. Round 2 (effort 2, general reviewer) reviewed the fix delta `e164f0b..f3d7bdc`. It re-verified M1 and M2 as fixed and found nothing new. The reviewer re-ran `dotnet test` on the MTP runner (103 of 103 succeeded) and the testing-platform build (0 warnings, 0 errors).
+
+Final counts: 0 bugs, 1 suggestion (fixed), 1 nit (fixed). 0 open, 0 wontfix.
+
+**Review disposition: clean.** 2 rounds, roster general, effort 2.
+
+Files: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Review
 
-- Round 1: open M1 and M2 were implemented on this branch. Round 2 has not dispositioned them.
+- Round 1: M1 (suggestion) and M2 (nit) were open. The fix pass f3d7bdc fixed both.
+- Round 2: Done
