@@ -14,6 +14,8 @@ using Microsoft.Testing.Platform.Extensions.Messages;
 // cleanup text only in Message. The explanation argument is what dotnet test shows,
 // so dropping Message hides that cleanup failure. Cancelled has no state property;
 // it is reported as Error and the message is the cancellation reason.
+// Parameter keys use MtpTreeFilter.ParameterKeyPrefix. Parameter text and the
+// metadata type name come from MtpNodeMetadata, the same helpers the filter uses.
 #endregion
 
 /// <summary>
@@ -103,9 +105,9 @@ internal sealed class MtpSink : ITestResultSink
       for (int index = 0; index < parameters.Count; index++)
       {
         string key = string.Concat(
-          "jaribu.parameter.",
+          MtpTreeFilter.ParameterKeyPrefix,
           index.ToString(CultureInfo.InvariantCulture));
-        properties.Add(new TestMetadataProperty(key, FormatParameter(parameters[index])));
+        properties.Add(new TestMetadataProperty(key, MtpNodeMetadata.FormatParameter(parameters[index])));
       }
     }
 
@@ -166,7 +168,7 @@ internal sealed class MtpSink : ITestResultSink
       ?? method.Module.Assembly.FullName
       ?? string.Empty;
     string namespaceName = declaringType?.Namespace ?? string.Empty;
-    string typeName = declaringType is null ? string.Empty : MetadataTypeName(declaringType);
+    string typeName = declaringType is null ? string.Empty : MtpNodeMetadata.MetadataTypeName(declaringType);
     ParameterInfo[] parameters = method.GetParameters();
     string[] parameterTypeFullNames = new string[parameters.Length];
     for (int index = 0; index < parameters.Length; index++)
@@ -184,38 +186,5 @@ internal sealed class MtpSink : ITestResultSink
       method.GetGenericArguments().Length,
       parameterTypeFullNames,
       returnTypeFullName);
-  }
-
-  /// <summary>
-  /// Metadata type name without the namespace. Nested types keep <c>+</c>. Generic arity keeps the backtick.
-  /// </summary>
-  private static string MetadataTypeName(Type type)
-  {
-    string fullName = type.FullName ?? type.Name;
-    string namespaceName = type.Namespace ?? string.Empty;
-    if (namespaceName.Length == 0)
-    {
-      return fullName;
-    }
-
-    string prefix = string.Concat(namespaceName, ".");
-    if (fullName.StartsWith(prefix, StringComparison.Ordinal))
-    {
-      return fullName[prefix.Length..];
-    }
-
-    return fullName;
-  }
-
-  private static string FormatParameter(object? value)
-  {
-    return value switch
-    {
-      null => "null",
-      string text => text,
-      bool flag => flag ? "true" : "false",
-      IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-      _ => value.ToString() ?? string.Empty
-    };
   }
 }
