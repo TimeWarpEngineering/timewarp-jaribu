@@ -31,6 +31,8 @@ Acceptance: the checklist items below are done, `ganda repo audit` exits 0, and 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implemented: split `TestRunner` and the two over-cap suites, removed `work-thread-report.cs` and `verify-samples`, dropped `SamplesDirectory` and `RunfilesDirectory`, added `glossary.md`, and applied `ganda repo audit --fix` (gitignore, pre-push hook, Nuru 4 pin). Amuru and Amuru.Tools stay at 2.0.0 because 3.x is net11-only. Dev CLI handlers follow Nuru 4's `TimeWarp.Mediator` command types. Test projects no longer reference Nuru, so its mediator generator does not collide with the test compilation.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b676-098d-7b72-b6a5-dc89d6b0ea33, max-turns 500, Done — 2026-11-07T15:20:21Z
+- Review oracle: tw-implementation-review, effort 3 (by-diff, 5521 lines), roster general, reviewer claude-opus-5-5 (headless Claude Code under `ganda task work`), turn cap 200, round 1 — disposition clean — 2026-11-07
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 9131109b-0f01-4dfb-8192-a11727bf803b, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-07T15:26:06Z
 
 ## Results
 
@@ -49,3 +51,16 @@ dotnet run tools/dev-cli/dev.cs -- --capabilities
 ```
 
 Expect: `ganda repo audit` exits 0 and reports `source-file-line-cap` passing. The CI runner prints `Passed: 101` and exits 0. `dev --capabilities` lists build, test, workflow, check-version, clean, release, and self-install, and does not list `verify-samples`.
+
+### Review disposition
+
+- **Outcome:** clean. 1 round, effort 3, roster general.
+- **Final counts:** bug 0, suggestion 0, nit 0. Open 0, fixed 0, wontfix 0.
+- **Verified:** the three splits are pure moves (line-multiset diff against the originals). Audit exits 0. On SDK 10.0.403 (the SDK CI uses) and SDK 11 rc: CI runner 101/101, setup-once standalone 15/15, session-fixture standalone 20/20. On SDK 10.0.403: MTP `dotnet test` 101/101 and the solution build has 0 errors. `dev --capabilities` has no `verify-samples`.
+- **Restatement check:** the implementer restatement matches the task. No misread.
+- **Follow-up risk:** `ganda repo audit --fix` will raise the Amuru pins to net11-only 3.x again.
+- **Artifacts:** `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
+## Review
+
+- Round 1: Done
