@@ -33,9 +33,14 @@
     <ProjectReference Include="../timewarp-jaribu/timewarp-jaribu.csproj" />
   </ItemGroup>
 
-  <!-- Pack build props/targets -->
+  <!--
+    Pack props to build/ only. NuGet imports build/ for a direct PackageReference
+    and buildTransitive/ into every project that references that consumer.
+    When both folders contain the package props, NuGet imports the buildTransitive
+    copy for the direct reference as well. These props set OutputType=Exe and the
+    test-project flags, so a transitive copy turns a class library into a test executable.
+  -->
   <ItemGroup>
     <None Include="build/**" Pack="true" PackagePath="build/" />
-    <None Include="build/**" Pack="true" PackagePath="buildTransitive/" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- build/timewarp.jaribu.testingplatform.props -->
+<!--
+  build/timewarp.jaribu.testingplatform.props
+  Imported for a direct package reference. Not packed to buildTransitive/.
+-->
 <Project>
 
   <PropertyGroup>
