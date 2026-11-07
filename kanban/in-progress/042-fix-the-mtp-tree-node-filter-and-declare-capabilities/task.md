@@ -22,6 +22,7 @@ Findings: MTP-6, MTP-7, MTP-9 in task 038 report.
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implementation: implementer-grok (grok, vendor xai, model grok-4.7), session 01a1b70b-d1a3-7e43-a7a4-81d8c229ffcc (2026-11-08). Tree path and property bag, capability marker, request-type switch, and the out-of-process filter test.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b70b-d1a3-7e43-a7a4-81d8c229ffcc, max-turns 500, Done — 2026-11-07T18:03:41Z
 
 ## Results
 
