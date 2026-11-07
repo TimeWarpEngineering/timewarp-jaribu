@@ -43,12 +43,15 @@ Done when:
 - Fix pass (implement-fix-2): implementer-grok (grok, vendor xai, model grok-4.7), session 01a1b766-a226-7053-8ade-324c9d548c1e — 2026-11-08
 - Review oracle round 2: general reviewer (claude, claude-opus-5-5), effort 3, roster general, ganda task work headless. M1, M2, and M3 were re-verified as fixed. A new suggestion, M4, is open, so a fix pass was requested for M4. Files: `review/round-2/general.md`, `review/round-2/merged.md` — 2026-11-08
 - Fix pass (implement-fix-3): implementer-grok (grok, vendor xai, model grok-4.7), session 01a1b792-11ab-7ea1-b5cb-0d1de35f8901 — 2026-11-08. M4: a CleanUpOnce that throws before it returns a task, after the token has fired, is traced. `RunTests<T>` returns 1.
+- Review oracle round 3: general reviewer (claude, claude-opus-5-5), effort 2, roster general, ganda task work headless. M4 was re-verified as fixed and no new findings were raised. Disposition is clean. Files: `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md` — 2026-11-08
 
 ## Results
 
 The runner, hooks, session fixtures, and MTP adapter take a `CancellationToken`. A test interrupted by that token is `Cancelled`, later tests do not start, and the exit code is 1. `[Timeout]` without cancellation stays `Timeout`. `Cancelled` is published as `CancelledTestNodeStateProperty`. The obsolete diagnostic on that type is MTP0001, and the suppression names that id.
 
-Review round 1 (effort 1, roster general) raised M1 (bug, build), M2 (bug, cancelled session end leaked every fixture after the first), and M3 (suggestion, abandoned body and hook tasks). The first fix pass fixed those three. Review round 2 added M4. This pass traces a synchronous `CleanUpOnce` throw once the token has fired, so `RunTests<T>` and `RunAllTests` return 1. `review/disposition.md` is not written; the host runs review round 3.
+Review round 1 (effort 1, roster general) raised M1 (bug, build), M2 (bug, cancelled session end leaked every fixture after the first), and M3 (suggestion, abandoned body and hook tasks). The first fix pass fixed those three. Review round 2 added M4. This pass traces a synchronous `CleanUpOnce` throw once the token has fired, so `RunTests<T>` and `RunAllTests` return 1. Review round 3 (effort 2, roster general) re-verified M4 as fixed and raised nothing new.
+
+**Review disposition: clean.** 3 rounds, one general reviewer each. Final counts: bug 2 fixed, suggestion 2 fixed, nit 0, open 0, wontfix 0. Paths: `review/review-framework.md`, `review/round-3/merged.md` (last ledger), `review/disposition.md`.
 
 - M1: `WaitForCompletionAsync` takes the token last. The abandoned-dispose catch records the exception with `Trace`. `RunRegisteredClassAsync` owns the `TerminalSink`. No new suppressions for CA1068, RCS1075, or CA2000.
 - M2: `EndSessionAsync` starts `DisposeAsync` for every created fixture, including a synchronous throw, observes each task that is still running, and then throws. `EndSession_Should_StartDisposeOnEveryFixtureWhenAlreadyCancelled` covers two fixtures.
@@ -75,10 +78,12 @@ dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-
 
 The library build reports 0 warnings and 0 errors. ci-runner prints `Passed: 117` and exits 0. mtp-runner prints `succeeded: 117` and exits 0. `CleanUpOnce_Should_ReturnOneWhenItThrowsBeforeATaskAfterCancel` passes: the body cancels the token, `CleanUpOnce` throws before it returns a task, and `RunTests<T>` returns 1. `EndSession_Should_StartDisposeOnEveryFixtureWhenAlreadyCancelled` passes: a pre-cancelled token enters `DisposeAsync` on both fixtures.
 
-**Not in scope:** `review/disposition.md`. Review round 3 confirms the ledger.
+**Not in scope:** nothing outstanding from review. Disposition is clean (`review/disposition.md`).
 
 ## Review
 
 - Round 1: M1, M2, and M3 fixed in this pass. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
 - Round 2 (effort 3, roster general), 2026-11-08: M1, M2, and M3 were re-verified as fixed. The non-incremental Release build had 0 warnings, ci-runner passed 116, and mtp-runner succeeded 116. New M4 (suggestion, open): `test-runner.class-run.cs:249`. When the token has fired, a CleanUpOnce that throws synchronously escapes the class run. `RunTests<T>` and `RunAllTests` throw instead of returning 1, and MTP publishes a synthetic Error node. Ledger: bug 2 fixed, suggestion 1 fixed and 1 open, nit 0. Disposition is not written because M4 is open and a fix pass was requested. Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
 - Fix pass for round 2 M4, 2026-11-08: the synchronous `CleanUpOnce` throw is traced under cancellation. `RunTests<T>` returns 1. Ledger expected after round 3: bug 2 fixed, suggestion 2 fixed, nit 0, open 0. `review/disposition.md` is not written. The host runs review round 3.
+- Round 3 (effort 2, roster general), 2026-11-08: delta `0a02cb3..0cbe597`. M4 re-verified as fixed: the CleanUpOnce throw under cancellation is traced, and the no-cancellation path still emits a synthetic node. No new findings. Release build had 0 warnings, ci-runner passed 117, mtp-runner succeeded 117, and the cancellation runfile passed 13. Ledger: bug 2 fixed, suggestion 2 fixed, nit 0, open 0. Disposition: clean. Paths: `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
+- Round 3: Done
