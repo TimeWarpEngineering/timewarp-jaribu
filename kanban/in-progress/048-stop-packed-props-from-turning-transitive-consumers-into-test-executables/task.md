@@ -26,6 +26,8 @@ Finding: MTP-8 in task 038 report. Fix before the next package release.
 - Implementation: task-work implementer (2026-11-07). Packed the props under `build/` only and added the transitive-consumer pack test.
 - `ganda repo audit --fix` wrote the ignored VS Code window title. The audit then passed with 0 failures.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b6c6-77a2-7bd0-bb93-258ec3cffdd3, max-turns 500, Done — 2026-11-07T16:45:51Z
+- Review oracle: claude-opus-5-5 (ganda task work review node), effort 2, roster general, turn cap 120 — round 1, disposition accepted-exceptions — 2026-11-07
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session a72c9e55-f2e5-4d9b-a66e-856fbebcbc8a, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-07T16:49:06Z
 
 ## Results
 
@@ -49,3 +51,15 @@ Expect:
 - `TransitiveConsumer_Given_.ClassLibrary_Should_StayALibrary` passes. The packed nupkg contains `build/timewarp.jaribu.testingplatform.props` and no `buildTransitive/` entry. The sandbox library's `OutputType` is `Library`, `IsTestProject` is not `true`, and there is no `transitive-library` apphost. The direct consumer's `OutputType` is `Exe`.
 - `./bin/dev test` reports 102 passed.
 - `dotnet test` on the MTP runner reports 102 succeeded.
+
+### Review disposition
+
+- Rounds: 1. Effort 2, roster: general.
+- Final counts: bug 0 (open 0), suggestion 1 (wontfix 1), nit 0. Open findings: 0.
+- Disposition: **accepted-exceptions**. M1 (suggestion) is wontfix. The transitive library still evaluates `IsTestingPlatformApplication=true`, which comes from upstream `Microsoft.Testing.Platform` targets, not this package. The acceptance criteria are met. A follow-up task is recommended for an adapter-side opt-in that suppresses the generated MTP entry point on transitive libraries.
+- Reviewer verification: `dotnet tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` passed (1/1).
+- Artifacts: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
+## Review
+
+- Round 1: Done
