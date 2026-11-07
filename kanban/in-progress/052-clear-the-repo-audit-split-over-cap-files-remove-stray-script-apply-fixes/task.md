@@ -13,16 +13,18 @@ Findings: TOOL-1, TOOL-2, TOOL-12, TOOL-15, CORE-14 and the audit baseline in ta
 - Audit exits 0.
 ## Goal (implementer restatement)
 
-`ganda repo audit` should exit 0. Apply the fixable baseline (gitignore entries for `bin/dev*`, the resume ledger, and untracking `.vscode/settings.json`, plus a refreshed pre-push hook). Unquote the editorconfig charset, fix the section glob that ends with an empty entry, and replace the copied "this is the TimeWarp.Nuru repo" note. Add `glossary.md`. Delete the unrelated root script `work-thread-report.cs`. Remove the `verify-samples` command and the unused `SamplesDirectory` and `RunfilesDirectory` properties, and leave `BenchmarksDirectory` for task 040. Split `test-runner.cs` into partials for registration, discovery, single-test execution, hooks, class run, and summary. Split the session-fixture and setup-once suites by responsibility so every file is within the 500-line cap. Single-file `dotnet run` still compiles the new siblings, and the runner's behavior stays the same.
+`ganda repo audit` should exit 0. Apply the fixable baseline (gitignore entries for `bin/dev*`, the resume ledger, and untracking `.vscode/settings.json`, plus a refreshed pre-push hook). Unquote the editorconfig charset, fix the section glob that ends with an empty entry, and replace the copied "this is the TimeWarp.Nuru repo" note. Add `glossary.md`. Delete the unrelated root script `work-thread-report.cs`. Drop the unused `SamplesDirectory` and `RunfilesDirectory` properties, and leave `BenchmarksDirectory` for task 040. Split `test-runner.cs` into partials for registration, discovery, single-test execution, hooks, class run, and summary. Split the session-fixture and setup-once suites by responsibility so every file is within the 500-line cap. Single-file `dotnet run` still compiles the new siblings, and the runner's behavior stays the same.
 
-Acceptance: the checklist items below are done, `ganda repo audit` exits 0, and the existing CI-safe tests still pass.
+Follow-up: `dev-cli-capabilities` requires `verify-samples` in `bin/dev --capabilities`. Put that command back. It exits non-zero when `samples/` is missing or has nothing to compile, and it stays off the CI workflow so a repo with no samples does not fail the pipeline. Rebuild `bin/dev` so the audit, which runs the binary, sees the route.
+
+Acceptance: `ganda repo audit` exits 0, `bin/dev --capabilities` lists `verify-samples` with the other required commands, and `bin/dev verify-samples` exits non-zero while `samples/` is absent.
 
 ## Checklist
 - [x] audit --fix applied
 - [x] Stray script removed
 - [x] test-runner.cs split
 - [x] Test files split
-- [x] verify-samples and props removed
+- [x] verify-samples restored for dev-cli-capabilities; unused path props stay removed
 - [x] editorconfig and glossary
 - [x] Audit green
 
@@ -33,10 +35,13 @@ Acceptance: the checklist items below are done, `ganda repo audit` exits 0, and 
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b676-098d-7b72-b6a5-dc89d6b0ea33, max-turns 500, Done — 2026-11-07T15:20:21Z
 - Review oracle: tw-implementation-review, effort 3 (by-diff, 5521 lines), roster general, reviewer claude-opus-5-5 (headless Claude Code under `ganda task work`), turn cap 200, round 1 — disposition clean — 2026-11-07
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 9131109b-0f01-4dfb-8192-a11727bf803b, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-07T15:26:06Z
+- Audit follow-up: `dev-cli-capabilities` failed because `verify-samples` was missing. Restored `tools/dev-cli/endpoints/verify-samples-command.cs` on the Nuru 4 `Task<Unit>` handler shape and rebuilt `bin/dev`. The command exits 1 when `samples/` is absent. It is not on the CI workflow. `ganda repo audit` then exited 0 (39 passed, 1 skipped, 0 failed).
 
 ## Results
 
-`ganda repo audit` exits 0 (39 passed, 1 skipped, 0 failed). Every C# file is within the 500-line cap. `verify-samples` is gone. `BenchmarksDirectory` remains.
+`ganda repo audit` exits 0 (39 passed, 1 skipped, 0 failed). Every C# file is within the 500-line cap. `BenchmarksDirectory` remains. `SamplesDirectory` and `RunfilesDirectory` stay removed.
+
+`dev-cli-capabilities` requires `verify-samples`. The command is back in `tools/dev-cli/endpoints/verify-samples-command.cs`. `bin/dev --capabilities` lists build, check-version, clean, self-install, test, verify-samples, and workflow. `bin/dev verify-samples` prints `verify-samples: no samples/ directory exists.` and exits 1. The CI workflow does not call it.
 
 `ganda repo audit --fix` also tried to pin `TimeWarp.Amuru` and `TimeWarp.Amuru.Tools` to 3.0.0-beta.1. Those packages target net11.0 only, and this repo and CI stay on net10.0. Nuru 4.0.0-beta.11 depends on Amuru 2.0.0, so those two pins are 2.0.0. Running `--fix` again will try to raise them and then fail restore.
 
@@ -50,7 +55,7 @@ dotnet run tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs /p
 dotnet run tools/dev-cli/dev.cs -- --capabilities
 ```
 
-Expect: `ganda repo audit` exits 0 and reports `source-file-line-cap` passing. The CI runner prints `Passed: 101` and exits 0. `dev --capabilities` lists build, test, workflow, check-version, clean, release, and self-install, and does not list `verify-samples`.
+Expect: `ganda repo audit` exits 0 and reports `source-file-line-cap` and `dev-cli-capabilities` passing. The CI runner prints `Passed: 101` and exits 0. `dev --capabilities` lists build, test, workflow, check-version, clean, release, self-install, and `verify-samples`. `dev verify-samples` exits 1 while `samples/` is absent.
 
 ### Review disposition
 
