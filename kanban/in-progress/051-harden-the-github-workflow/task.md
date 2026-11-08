@@ -51,3 +51,5 @@ The CI workflow must prove the library on Ubuntu, Windows, and macOS, and it mus
 ## Review
 
 - Round 1: Done
+
+- CI red on PR #43 (run 42511774834), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-09: `test (windows-latest)` fails; ubuntu passes; macos shows no conclusion (probably cancelled by matrix fail-fast, confirm and set `fail-fast: false` so every OS reports). Failing test: `ClassLibrary_Should_StayALibrary` in `tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` at the apphost assertions (around lines 111-116). It asserts `File.Exists(Path.Combine(consumerOutput, "adapter-consumer"))` is true and `File.Exists(Path.Combine(libraryOutput, "transitive-library"))` is false; on Windows the apphost is `adapter-consumer.exe`, so the "exists" check is false. Fix: compute the apphost name with `OperatingSystem.IsWindows() ? name + ".exe" : name` (or read `TargetPath`/`UseAppHost` via msbuild -getProperty) for both assertions. Sweep the rest of the suite for other POSIX-only assumptions (path separators, `/usr/bin/dotnet` shebang handling, chmod) since this is the first Windows and macOS run.
