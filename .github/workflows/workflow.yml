@@ -1,31 +1,16 @@
 name: CI/CD Workflow
 
+# No paths filter. A filtered workflow never reports a status, so a required
+# check on a docs-only pull request would stay pending.
+
 on:
   push:
     branches:
       - master
-    paths:
-      - 'source/**'
-      - 'tests/**'
-      - 'tools/**'
-      - '.github/workflows/**'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - 'BannedSymbols.txt'
-      - 'msbuild/**'
   pull_request:
     branches:
       - master
       - 'feature/**'
-    paths:
-      - 'source/**'
-      - 'tests/**'
-      - 'tools/**'
-      - '.github/workflows/**'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - 'BannedSymbols.txt'
-      - 'msbuild/**'
   release:
     types: [published]
   workflow_dispatch:
@@ -38,26 +23,69 @@ on:
           - probe
         default: merge
 
-jobs:
-  ci:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write  # Required for NuGet Trusted Publishing (OIDC)
+permissions:
+  contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'release' && (github.event_name != 'workflow_dispatch' || inputs.mode != 'probe')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0  # Required for version detection
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '**/*.props') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Run CI pipeline
+        run: dotnet run tools/dev-cli/dev.cs -- workflow
+
+  release:
+    name: release
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'probe')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        if: github.event_name == 'release'
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        if: github.event_name == 'release'
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '**/*.props') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
       - name: NuGet login (OIDC Trusted Publishing)
-        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'probe')
         id: nuget-login
         uses: nuget/login@v1
         with:
@@ -67,19 +95,16 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'probe'
         run: echo "Trusted publishing OK — OIDC exchange succeeded for this repo + workflow.yml. (A failure of the NuGet login step above means the policy is missing or misconfigured on NuGet.org.)"
 
-      - name: Run CI Pipeline
-        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'probe'
-        run: |
-          if [ "${{ github.event_name }}" == "release" ]; then
-            dotnet run tools/dev-cli/dev.cs -- workflow --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
-          else
-            dotnet run tools/dev-cli/dev.cs -- workflow
-          fi
+      - name: Run release pipeline
+        if: github.event_name == 'release'
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet run tools/dev-cli/dev.cs -- workflow
 
-      - name: Upload Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Upload packages
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v7
         with:
           name: Packages-${{ github.run_number }}
           path: artifacts/packages/*.nupkg
-          if-no-files-found: ignore
+          if-no-files-found: error

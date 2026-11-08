@@ -13,8 +13,10 @@
 // handler decides whether that evaluated version is already published.
 // artifacts/packages is deleted before pack. The push list is the two nupkgs just
 // packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
-// Auto-detects mode from GITHUB_EVENT_NAME environment variable
-// Uses OIDC Trusted Publishing for NuGet authentication
+// Auto-detects mode from GITHUB_EVENT_NAME. A non-empty API key also selects release.
+// The key is NUGET_API_KEY or --api-key. Push forwards it only as NUGET_API_KEY.
+// NuGet 7.6 and later read that variable, so the key is not a child-process argument.
+// OIDC Trusted Publishing supplies the key on the release job.
 #endregion
 
 namespace DevCli.Commands;
@@ -25,7 +27,9 @@ namespace DevCli.Commands;
 [NuruRoute("workflow", Description = "Run full CI/CD pipeline")]
 internal sealed class WorkflowCommand : ICommand<Unit>
 {
-  [Option("api-key", Description = "NuGet API key for publishing (from OIDC Trusted Publishing)")]
+  private const string NuGetApiKeyVariable = "NUGET_API_KEY";
+
+  [Option("api-key", Description = "NuGet API key for publishing. NUGET_API_KEY is preferred so the key is not a process argument.")]
   public string? ApiKey { get; set; }
 
   internal sealed class Handler : ICommandHandler<WorkflowCommand, Unit>
@@ -54,7 +58,8 @@ internal sealed class WorkflowCommand : ICommand<Unit>
     {
       // Auto-detect from GitHub Actions environment
       string? eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME");
-      bool isRelease = eventName == "release" || !string.IsNullOrEmpty(command.ApiKey);
+      string? apiKey = ResolveApiKey(command.ApiKey);
+      bool isRelease = eventName == "release" || !string.IsNullOrWhiteSpace(apiKey);
 
       string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
       if (!File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
@@ -64,7 +69,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       if (isRelease)
       {
-        await RunReleaseWorkflowAsync(repoRoot, command.ApiKey, ct);
+        await RunReleaseWorkflowAsync(repoRoot, apiKey, ct);
       }
       else
       {
@@ -198,9 +203,9 @@ internal sealed class WorkflowCommand : ICommand<Unit>
           Terminal.WriteLine($"  Pushing {packageName}...");
 
           exitCode = await DotNet.NuGet()
+            .WithEnvironmentVariable(NuGetApiKeyVariable, apiKey)
             .Push(packagePath)
             .WithSource("https://api.nuget.org/v3/index.json")
-            .WithApiKey(apiKey)
             .WithSkipDuplicate()
             .RunAsync(ct);
 
@@ -219,6 +224,22 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       {
         Terminal.WriteLine($"  {Path.GetFileName(packagePath)}");
       }
+    }
+
+    private static string? ResolveApiKey(string? optionApiKey)
+    {
+      if (!string.IsNullOrWhiteSpace(optionApiKey))
+      {
+        return optionApiKey;
+      }
+
+      string? environmentApiKey = Environment.GetEnvironmentVariable(NuGetApiKeyVariable);
+      if (string.IsNullOrWhiteSpace(environmentApiKey))
+      {
+        return null;
+      }
+
+      return environmentApiKey;
     }
 
     private static async Task<string> EvaluateReleaseVersionAsync

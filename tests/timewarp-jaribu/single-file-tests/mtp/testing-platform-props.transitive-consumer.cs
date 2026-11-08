@@ -140,11 +140,11 @@ namespace TestingPlatformProps_
 
         string libraryOutput = Path.Combine(libraryDirectory, "bin", "Debug", "net10.0");
         File.Exists(Path.Combine(libraryOutput, "transitive-library.dll")).ShouldBeTrue();
-        File.Exists(Path.Combine(libraryOutput, "transitive-library")).ShouldBeFalse();
+        File.Exists(Path.Combine(libraryOutput, ApphostName("transitive-library"))).ShouldBeFalse();
 
         string consumerOutput = Path.Combine(consumerDirectory, "bin", "Debug", "net10.0");
         File.Exists(Path.Combine(consumerOutput, "adapter-consumer.dll")).ShouldBeTrue();
-        File.Exists(Path.Combine(consumerOutput, "adapter-consumer")).ShouldBeTrue();
+        File.Exists(Path.Combine(consumerOutput, ApphostName("adapter-consumer"))).ShouldBeTrue();
       }
       finally
       {
@@ -252,6 +252,9 @@ namespace TestingPlatformProps_
         .WithNoValidation()
         .RunAndCaptureAsync();
     }
+
+    private static string ApphostName(string name) =>
+      OperatingSystem.IsWindows() ? name + ".exe" : name;
 
     private static string FindRepoRoot()
     {
