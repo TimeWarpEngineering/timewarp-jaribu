@@ -30,6 +30,7 @@ The CI workflow must prove the library on Ubuntu, Windows, and macOS, and it mus
 - Review oracle: Claude Code (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. Round 1 is clean. 2026-11-09
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 639ef7d0-0a69-4362-8e63-3ed6608f5f1b, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-08T18:44:41Z
 - Installed ganda changed during this walk: was 50245520 bytes 6960d933b0215f2d5776a313661be767146c85b1b1580b012d28042e019026ce; now 50404368 bytes 4cddea1b1ea98bf485ebbf9a8de534c3316dead53097be626514fa4b1b7831a0
+- Fix for PR #43 CI (Windows apphost name, macOS cancellation race, fail-fast false) applied directly by sub-agent fix-051 on 2026-11-09 because `ganda task work --restart` refused to restore the journal after a mid-walk ganda upgrade.
 
 ## Results
 

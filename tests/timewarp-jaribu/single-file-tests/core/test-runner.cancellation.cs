@@ -52,6 +52,7 @@ namespace TestRunner_
       finally
       {
         release.TrySetResult();
+        await Hold.DrainAsync();
         cts.Dispose();
       }
     }
@@ -70,6 +71,7 @@ namespace TestRunner_
       finally
       {
         release.TrySetResult();
+        await Hold.DrainAsync();
         cts.Dispose();
       }
     }
@@ -234,6 +236,7 @@ namespace TestRunner_
       finally
       {
         release.TrySetResult();
+        await Hold.DrainAsync();
         cts.Dispose();
         TestRunner.ClearRegisteredTests();
         MethodInfo register = typeof(TestRunner).GetMethod(nameof(TestRunner.RegisterTests))!;
@@ -360,6 +363,18 @@ namespace TestRunner_
 
   file static class Hold
   {
+    // The abandoned bodies finish after release. Wait for them so a late increment
+    // cannot land after the next test resets the shared counters.
+    public static async Task DrainAsync()
+    {
+      DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+      while (Volatile.Read(ref HoldPairFixture.Finished) < Volatile.Read(ref HoldPairFixture.Entered)
+        && DateTime.UtcNow < deadline)
+      {
+        await Task.Delay(10);
+      }
+    }
+
     public static (CancellationTokenSource Cts, TaskCompletionSource Release) Reset()
     {
       CancellationTokenSource cts = new();
