@@ -35,6 +35,16 @@ Acceptance for this pass:
 - When that predicate selects a real test in the same class, strict mode still emits the near-miss Error nodes.
 - `dotnet test -- --treenode-filter <BasicTests/PassingTest> --strict-signatures` on the validation project exits 0. The summary is one succeeded test, and the output does not mention `ReturnsTaskOfInt`.
 
+The review is clean, and CI on pull request 40 is not. `SignatureWarnings_Should_ShowAndHonorMtpFlags` looks for the word Near-miss in the `dotnet test` report. SDK 11 forwards `WarningMessageOutputDeviceData` and the line is there. The GitHub runner uses SDK 10.0.403, whose `dotnet test` host speaks protocol 1.0.0 only. That host drops the warning, so the captured report is a passing summary and nothing else. A green run on that SDK still hides the method the author wrote.
+
+Acceptance for the CI failure:
+
+- A default `dotnet test` of a class that has one real test and a near-miss prints the warning text on SDK 10.0.403 and on SDK 11. Exit code stays 0. Succeeded stays 1 and failed stays 0.
+- SDK 11 still prints the warning through the output device and does not add a skipped node for it.
+- SDK 10.0.403, which drops output-device warnings, publishes that same text as a skipped node so the report contains it.
+- Strict mode still fails through the Error node. It does not add the skipped node.
+- A tree filter that did not select the class still hides the warning and does not fail the run.
+
 ## Checklist
 - [x] Near-miss diagnostics
 - [x] Zero-tests failure
@@ -47,12 +57,15 @@ Acceptance for this pass:
 - [x] Selection filter skips empty-run nodes
 - [x] RunSingleTestAsync null-guard cleanup
 - [x] Strict near-miss nodes honor method and case predicates
+- [x] Signature warnings survive an SDK 10 dotnet test host
 
 ## Results
 
 A public static near-miss (`Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, or an open generic `Task`) is a warning on `TestRunStats.SignatureWarnings`. `strictSignatures: true` records each as an Error. Ordinary `void` stays silent. The terminal sink prints each warning. Two near-miss methods may share a name. Each strict Error carries that method, and its id includes the near-miss index.
 
 A method predicate or case predicate that selects no nodes omits those strict Error nodes. The warning text stays on `SignatureWarnings`, and the run succeeds when nothing else failed. A `methodNameContains` filter still reports the Error nodes. Under `dotnet test`, a tree filter plus `--strict-signatures` does not fail an unselected class, and the warning for that class stays hidden.
+
+SDK 11 forwards that warning through the output device, and the run does not gain a skipped node. SDK 10.0.403 speaks dotnet test protocol 1.0.0 and drops `WarningMessageOutputDeviceData`, which is why CI run 42452007606 saw a passing summary and no Near-miss line. On that host the same text is published as a skipped node named for the method. The run still exits 0, with succeeded 1 and failed 0. Strict mode keeps the Error node and does not add the skipped node.
 
 `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are resolved once per class. A bad signature is an Error that names the declaring type, and the body does not run. An empty class with a bad hook is still an Error when `allowEmpty` is set. A case filter that selects nothing stays empty.
 
@@ -62,9 +75,9 @@ A class with no discoverable tests, and `RunAllTests` with nothing registered, f
 
 ### How to validate
 
-Smoke: `./bin/dev test`
+Smoke: `./bin/dev test`, and `dotnet test` of the MTP runner with `--filter-class Mtp_` under SDK 10.0.403 (`global.json` pins `10.0.403` with `rollForward` disable and the Microsoft.Testing.Platform test runner).
 
-Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Given_` 15 and the MTP identity class 8 (`SignatureWarnings_Should_ShowAndHonorMtpFlags` covers the tree filter plus `--strict-signatures`). `ganda repo audit` passes (39 passed, 0 failed). `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
+Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Given_` 15 and `NodeIdentity_Given_` 8. The same MTP class passed 8 under SDK 10.0.403. A direct SDK 10 run of `--filter-class SignatureWarning` prints `skipped ReturnsTaskOfInt` and the Near-miss line, exits 0, succeeded 1, failed 0. The same command on SDK 11 prints the warning line and `skipped: 0`. `ganda repo audit` passes (39 passed, 0 failed). `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
 
 ### Review
 
@@ -102,6 +115,8 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Review oracle round 2: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. M1 through M4 are fixed and the new M5 (suggestion) is open. Blocked for a fix pass — 2026-11-08
 - Implement-fix-3: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b99e-50a5-7cc0-915d-f8159718f5f8, GANDA_SESSION 3691322. M5 closed — 2026-11-08
 - Review oracle round 3: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 2, roster general, turn cap 120. M5 is fixed, there are no new findings, and the disposition is clean. Done — 2026-11-08
+- CI fix: SDK 10.0.403 drops output-device warnings (protocol 1.0.0, run 42452007606). The adapter publishes that text as a skipped node. Identity class passed under SDK 10.0.403 and SDK 11. — 2026-11-08
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b9b4-92fb-7f71-8328-921fa9a96479, max-turns 500, Done — 2026-11-08T06:22:43Z
 
 ## Review
 
