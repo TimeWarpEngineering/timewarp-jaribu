@@ -9,11 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The MTP adapter calls internal TestFilter. The assembly name is the project file name. -->
-    <InternalsVisibleTo Include="timewarp-jaribu-testing-platform" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
     <PackageReference Include="TimeWarp.Terminal" />

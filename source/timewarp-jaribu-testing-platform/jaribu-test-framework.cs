@@ -24,10 +24,12 @@ using Microsoft.Testing.Platform.Services;
 // context.CancellationToken is passed into the class run and into session
 // close. A fired token stops the class loop. Cooperative cancellation is not
 // republished as an Error node.
-// Tag, method-name, and uid selection go through TestFilter. A class or
+// The adapter passes the raw --filter-tag argument, or null when that option
+// is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
+// and read JARIBU_FILTER_TAG only when the argument is null. A class or
 // method whose tags exist and none match is one method-level node.
-// Discovery lists that node. The run reports it as Skipped. A blank
-// JARIBU_FILTER_TAG is not a filter. The CLI value wins and is trimmed.
+// Discovery lists that node. The run reports it as Skipped. Uid-list
+// equality stays in MtpTreeFilter. This assembly does not call core internals.
 // --strict-signatures and --allow-empty are passed to RunTestsAsync.
 // Signature warnings go to the output device when the class produced nodes,
 // or when the MTP filter is NopFilter and no method filter is set.
@@ -269,13 +271,8 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
   private static string? ResolveFilterTag(ICommandLineOptions commandLine)
   {
-    string? cliTag = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
-    if (cliTag is not null)
-    {
-      return TestFilter.Normalize(cliTag);
-    }
-
-    return TestFilter.ReadEnvironmentTag();
+    // Validation rejects a blank argument. Core trims a set value and reads the environment only for null.
+    return GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
   }
 
   private static string? GetOptionArgument(ICommandLineOptions commandLine, string optionName)

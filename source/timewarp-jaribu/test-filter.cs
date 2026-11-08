@@ -3,7 +3,7 @@ namespace TimeWarp.Jaribu;
 using System.Reflection;
 
 #region Purpose
-// One filter for class tags, method tags, method name, and uid, shared by discovery, run, and the MTP adapter.
+// One filter for class tags, method tags, and method name, shared by discovery and the class run.
 #endregion
 
 #region Design
@@ -14,7 +14,10 @@ using System.Reflection;
 // when any tag equals the filter.
 // A class tag miss and a method tag miss both contribute one method-level
 // Skipped node, with the same message. They do not expand [Input] rows.
-// Method-name and uid filters omit non-matches and do not emit Skipped nodes.
+// Method-name filters and a caller's case predicate omit non-matches and do
+// not emit Skipped nodes. The MTP adapter does not call this type. It passes
+// a raw tag or null into the public discovery and run methods, and it
+// compares uid lists itself.
 // [Skip] stays a Skipped node. Its reason is the attribute text.
 // SkippedNode is the factory for those short-circuit nodes.
 // RunSingleTestAsync keeps its own node because that call measures duration
@@ -75,16 +78,6 @@ internal static class TestFilter
   }
 
   /// <summary>
-  /// Returns whether the method passes <paramref name="filterTag"/>.
-  /// No tags, or a null filter, passes. Tags that exist must include the filter.
-  /// </summary>
-  public static bool MethodTagMatches(MethodInfo method, string? filterTag)
-  {
-    ArgumentNullException.ThrowIfNull(method);
-    return TagMatches(method, Normalize(filterTag));
-  }
-
-  /// <summary>
   /// Returns the shared tag-miss message, or null when the class and the method both pass.
   /// </summary>
   public static string? TagSkipReason(Type testClass, MethodInfo method, string? filterTag)
@@ -125,29 +118,6 @@ internal static class TestFilter
     }
 
     return method.Name.Contains(methodNameContains, StringComparison.OrdinalIgnoreCase);
-  }
-
-  /// <summary>
-  /// Returns whether <paramref name="uid"/> is in <paramref name="uids"/>.
-  /// A null list matches every uid. An empty list matches none.
-  /// </summary>
-  public static bool UidMatches(string uid, IEnumerable<string>? uids)
-  {
-    ArgumentException.ThrowIfNullOrEmpty(uid);
-    if (uids is null)
-    {
-      return true;
-    }
-
-    foreach (string candidate in uids)
-    {
-      if (string.Equals(candidate, uid, StringComparison.Ordinal))
-      {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   /// <summary>

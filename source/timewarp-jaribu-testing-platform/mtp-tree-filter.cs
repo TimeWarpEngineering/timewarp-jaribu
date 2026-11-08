@@ -17,7 +17,8 @@ using System.Reflection;
 // same key prefix and the same MtpNodeMetadata text MtpSink publishes.
 // Property filters read only TestMetadataProperty. NopFilter and the uid list
 // stay on this switch so an unrecognized filter fails the request instead of
-// running every case.
+// running every case. A uid list matches by ordinal equality on the reported
+// uid. An empty list matches nothing. That compare stays in this assembly.
 #endregion
 
 /// <summary>
@@ -44,7 +45,7 @@ internal static class MtpTreeFilter
     {
       NopFilter => true,
       TestNodeUidListFilter uidFilter =>
-        TestFilter.UidMatches(testCase.Uid, uidFilter.TestNodeUids.Select(static uid => uid.Value)),
+        uidFilter.TestNodeUids.Any(uid => string.Equals(uid.Value, testCase.Uid, StringComparison.Ordinal)),
       TreeNodeFilter treeFilter =>
         treeFilter.MatchesFilter(BuildPath(testClass, testCase.Method), BuildProperties(testClass, testCase)),
       _ => throw new NotSupportedException(
