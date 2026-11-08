@@ -42,8 +42,28 @@ Smoke: `./bin/dev test`
 
 Expect: exit 0. Grand total 165 passed and 0 failed. That total includes `CaseDisplay_Given_` 6 (`Overloads_Should_KeepDistinctUids`, `GenericOverloads_Should_UseParameterTypeNames`, `Arguments_Should_FormatInvariantlyUnderGermanCulture`, `FormatTestName_Should_TouchTheMethodNameOnly`, `NullInput_Should_BindOneNullArgument`, `InputOrder_Should_FollowSourceOrder`) and `NodeIdentity_Given_` 9, including `UnhandledError_Should_UseStableUid`. `ganda repo audit` passes 40 checks, with 0 failed and 1 skipped.
 
+### Review disposition
+
+- Rounds: 1. Effort 3, roster: general (review oracle, claude-opus-5-5).
+- Final counts: bug 0. Suggestion 2 (wontfix 2). Nit 3 (wontfix 3). Open 0.
+- Disposition: **accepted-exceptions**. No bugs were found. The wontfix rationales are in `review/disposition.md`. In short:
+  - M1: the hand-written blob decoder could use `DecodeValue`. It is a refactor that changes no behavior, so it can be a follow-up.
+  - M2: the order test cannot tell the metadata path from the reflection fallback, which give the same order on CoreCLR.
+  - M3: the overload scan repeats on every call.
+  - M4: cached attribute argument objects are shared between runs.
+  - M5: `char` arguments are not quoted. This can go with task 055.
+- Reviewer verification: `./bin/dev test` passed 165 of 165. An out-of-tree probe confirmed that the metadata decoder orders rows of strings, enums, mixed primitives, null, `int[]`, `typeof`, and `[Input(null)]`.
+- Goal restatement matches the task. No misread.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implementation: 01a1bce9-eb79-79e1-91b5-0280965e4cb7 (2026-11-09). Disambiguated overload uids, stable error uids, invariant quoted arguments, method-only `FormatTestName`, `[Input(null)]`, and metadata `[Input]` order.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bce9-eb79-79e1-91b5-0280965e4cb7, max-turns 500, Done — 2026-11-08T21:24:59Z
+- Review oracle: reviewer (claude, model claude-opus-5-5), session 54a270cc-224a-4e6e-b475-8bca09ef74c0, effort 3, roster general, max-turns 200. Round 1 ended accepted-exceptions with 0 open — 2026-11-09
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 54a270cc-224a-4e6e-b475-8bca09ef74c0, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-08T21:31:39Z
+
+## Review
+
+- Round 1: Done
