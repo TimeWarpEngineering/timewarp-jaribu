@@ -286,6 +286,17 @@ namespace Mtp_
       warned.ExitCode.ShouldBe(0, warnedText);
       warnedText.ShouldContain("Near-miss");
       warnedText.ShouldContain("ReturnsTaskOfInt");
+      // One Near-miss sentence names ReturnsTaskOfInt. A forwarding host prints the
+      // warning, and a host that drops it prints the skipped message. Printing both
+      // means HostDropsOutputDeviceWarnings misread ProxyOutputDevice.OriginalOutputDevice,
+      // DotnetTestPassthroughOutputDevice, or IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
+      int nearMissSentences = Regex.Count
+      (
+        warnedText,
+        "Near-miss test '[^']*ReturnsTaskOfInt'"
+      );
+      nearMissSentences.ShouldBe(1, warnedText);
+      SummaryCount(warnedText, "skipped").ShouldBeLessThanOrEqualTo(1);
       SummaryCount(warnedText, "succeeded").ShouldBe(1);
       SummaryCount(warnedText, "failed").ShouldBe(0);
 
@@ -298,6 +309,7 @@ namespace Mtp_
       strict.ExitCode.ShouldNotBe(0, strictText);
       strictText.ShouldContain("ReturnsTaskOfInt");
       SummaryCount(strictText, "failed").ShouldBeGreaterThan(0);
+      SummaryCount(strictText, "skipped").ShouldBe(0);
 
       CommandOutput empty = await RunValidationAsync("--", "--filter-class", "AllowEmptyProbe");
       string emptyText = Normalize(empty.Combined);

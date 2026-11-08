@@ -34,6 +34,10 @@ using Microsoft.Testing.Platform.Services;
 // The dotnet test pipe replaces the terminal device. Protocol 1.3.0 and
 // later forward WarningMessageOutputDeviceData. SDK 10.0.403 speaks only
 // 1.0.0 and drops that message, so a passing run would hide the near-miss.
+// HostDropsOutputDeviceWarnings reads ProxyOutputDevice.OriginalOutputDevice,
+// DotnetTestPassthroughOutputDevice, and
+// IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
+// An unresolved IPushOnlyProtocol counts as a host that drops the warning.
 // When the host drops it, and strict mode did not already publish an Error,
 // the same text is published as a skipped node. That is the line the SDK 10
 // reporter prints. A host that forwards the warning does not get the node.
