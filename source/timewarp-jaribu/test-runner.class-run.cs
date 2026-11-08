@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 
 #region Purpose
-// Runs one test class through a sink, including filters, once-hooks, and session-of-one.
+// Runs one test class through a sink, including filters, once-hooks, and a run lease.
 #endregion
 
 #region Design
@@ -168,12 +168,7 @@ public static partial class TestRunner
   {
     using CancellationScope scope = new(cancellationToken);
     using HookTimeoutScope hookTimeout = new(testClass);
-    bool ownsSession = false;
-    if (!SessionFixture.IsSessionActive)
-    {
-      SessionFixture.BeginSession();
-      ownsSession = true;
-    }
+    bool ownsSession = SessionFixture.TryBeginRunLease(out long runEpoch);
 
     try
     {
@@ -188,7 +183,8 @@ public static partial class TestRunner
           return;
         }
 
-        Exception? disposeFailure = await TryEndOwnedSessionAsync(cancellationToken).ConfigureAwait(false);
+        Exception? disposeFailure = await TryEndOwnedSessionAsync(runEpoch, cancellationToken)
+          .ConfigureAwait(false);
         ownsSession = false;
         if (disposeFailure is not null)
         {
@@ -427,7 +423,7 @@ public static partial class TestRunner
     {
       if (ownsSession)
       {
-        await EndOwnedSessionWithoutMaskingAsync(cancellationToken).ConfigureAwait(false);
+        await EndOwnedSessionWithoutMaskingAsync(runEpoch, cancellationToken).ConfigureAwait(false);
       }
     }
   }

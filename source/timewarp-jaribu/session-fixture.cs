@@ -10,8 +10,16 @@ using System.Runtime.ExceptionServices;
 #endregion
 
 #region Design
-// Nesting counter: BeginSession/EndSessionAsync. Dispose all created instances
-// only when nesting hits 0; registrations survive across sessions.
+// Host depth (BeginSession / End) and run leases (lone RunTestsAsync) share one
+// lock. A run lease is taken only when host depth is zero, inside that lock.
+// Overlapping lone runs each take a lease. Dispose starts when both depths hit
+// zero, in reverse creation order. Registrations survive across sessions.
+//
+// Clear() is the process-wide meta-test reset. It drops registrations, zeroes
+// both depths, and bumps the clear epoch and the create generation. It does not
+// dispose, and it throws while an instance is live. A host end that captured
+// the epoch from before Clear returns without throwing. EndTestSessionAsync has
+// no captured epoch and throws when host depth is already zero.
 //
 // Create is lazy on first GetAsync per type within a session (single-flight via
 // per-type SemaphoreSlim). Classes that never call GetAsync never create.
@@ -40,7 +48,8 @@ using System.Runtime.ExceptionServices;
 // orphan from a session that ended during create are fixture-creation errors.
 //
 // MTP: CreateTestSessionAsync → Begin; CloseTestSessionAsync → End.
-// Standalone: RunAllTests wraps begin/end; lone RunTestsAsync owns session-of-one.
+// Standalone: RunAllTests wraps begin/end; lone RunTestsAsync takes a run lease
+// when no host session is active. Inner runs under a host do not.
 #endregion
 
 /// <summary>
@@ -52,21 +61,18 @@ public static partial class SessionFixture
 {
   private static readonly Lock RegistryLock = new();
   private static readonly Dictionary<Type, FixtureEntry> Registry = [];
-  private static int Nesting;
+  private static readonly List<Type> CreationOrder = [];
+  private static int HostDepth;
+  private static int RunDepth;
+  private static long ClearEpoch;
   private static int Generation;
 
   /// <summary>
-  /// True when at least one session has been begun and not yet fully ended.
+  /// Caller holds <see cref="RegistryLock"/>.
   /// </summary>
-  internal static bool IsSessionActive
+  private static bool SessionIsOpen()
   {
-    get
-    {
-      lock (RegistryLock)
-      {
-        return Nesting > 0;
-      }
-    }
+    return HostDepth > 0 || RunDepth > 0;
   }
 
   /// <summary>
@@ -95,7 +101,7 @@ public static partial class SessionFixture
     lock (RegistryLock)
     {
       generation = Generation;
-      if (Nesting <= 0)
+      if (!SessionIsOpen())
       {
         throw new InvalidOperationException(
           $"No active test session. SessionFixture.GetAsync<{fixtureType.Name}>() " +
@@ -153,11 +159,12 @@ public static partial class SessionFixture
         bool sessionStillCurrent;
         lock (RegistryLock)
         {
-          sessionStillCurrent = Nesting > 0 && Generation == generation;
+          sessionStillCurrent = SessionIsOpen() && Generation == generation;
           if (sessionStillCurrent)
           {
             entry.Instance = typed;
             entry.CreateFailure = null;
+            CreationOrder.Add(fixtureType);
           }
         }
 
@@ -186,7 +193,7 @@ public static partial class SessionFixture
           // Sticky failures are per-session; never record one against a session
           // that ended (or was replaced) while create was in flight.
           // A timeout belongs to the caller class's budget, so a later class retries.
-          if (Nesting > 0 &&
+          if (SessionIsOpen() &&
               Generation == generation &&
               !FailureMark.Is(ex, FailureMark.FixtureCreationTimeout))
           {
@@ -238,10 +245,14 @@ public static partial class SessionFixture
   }
 
   /// <summary>
-  /// Clears all registrations and resets session nesting to zero — a full
-  /// reset-the-world escape hatch for meta-tests. Throws when any fixture
-  /// instance is still live (that would silently leak an undisposed fixture);
-  /// end the session first so instances are disposed.
+  /// Drops every registration and zeroes host depth and run depth.
+  /// This is a process-wide reset for meta-tests. It does not dispose.
+  /// A live instance throws so the caller ends the session first.
+  /// The clear epoch and the create generation both advance, so an in-flight
+  /// create cannot join the next session, and a host end that captured the
+  /// previous epoch returns without throwing or disposing.
+  /// <see cref="TestRunner.EndTestSessionAsync"/> has no captured epoch and
+  /// throws when host depth is zero, including after this reset.
   /// </summary>
   /// <exception cref="InvalidOperationException">A created fixture instance is still live.</exception>
   internal static void Clear()
@@ -264,19 +275,45 @@ public static partial class SessionFixture
       }
 
       Registry.Clear();
-      Nesting = 0;
+      CreationOrder.Clear();
+      HostDepth = 0;
+      RunDepth = 0;
+      ClearEpoch++;
       Generation++;
     }
   }
 
   /// <summary>
-  /// Begins a (possibly nested) test session.
+  /// Begins a host session. Nested begins each add one level of host depth.
+  /// The returned epoch lets the matching end ignore a later <see cref="Clear"/>.
   /// </summary>
-  internal static void BeginSession()
+  internal static long BeginSession()
   {
     lock (RegistryLock)
     {
-      Nesting++;
+      HostDepth++;
+      return ClearEpoch;
+    }
+  }
+
+  /// <summary>
+  /// Pins a run lease when no host session is active.
+  /// Returns false when a host session is active; the caller must not end it.
+  /// Overlapping lone runs each receive a lease and each must end.
+  /// The check and the pin share <see cref="RegistryLock"/>.
+  /// </summary>
+  internal static bool TryBeginRunLease(out long clearEpoch)
+  {
+    lock (RegistryLock)
+    {
+      clearEpoch = ClearEpoch;
+      if (HostDepth > 0)
+      {
+        return false;
+      }
+
+      RunDepth++;
+      return true;
     }
   }
 

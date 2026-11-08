@@ -48,11 +48,13 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Clears all session fixture registrations and resets session nesting to zero —
-  /// a reset-the-world escape hatch for meta-tests only. Throws when a created
-  /// fixture instance is still live; end the session first so it is disposed.
-  /// Do not call from ordinary test code: resetting nesting silently unbalances
-  /// any outer session (MTP or RunAllTests).
+  /// Drops every session-fixture registration and zeroes host depth and run depth.
+  /// This is a process-wide reset for meta-tests. It does not dispose.
+  /// A live instance throws; end the session first so it is disposed.
+  /// The clear epoch advances, so a host that began before this call can end
+  /// without throwing and without disposing. <see cref="EndTestSessionAsync"/>
+  /// throws when host depth is already zero, including after this reset.
+  /// Do not call from ordinary test code: it abandons an outer MTP or RunAllTests session.
   /// </summary>
   /// <exception cref="InvalidOperationException">A created fixture instance is still live.</exception>
   public static void ClearRegisteredSessionFixtures()
@@ -71,12 +73,16 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Ends a host-owned test session. When the outermost session ends, disposes all
-  /// created session fixtures (registrations are kept).
+  /// Ends a host-owned test session. When host depth and any run leases are both
+  /// zero, disposes created session fixtures in reverse creation order
+  /// (registrations are kept).
   /// </summary>
   /// <param name="cancellationToken">
   /// Stops waiting for fixture disposal. Defaults to <see cref="CancellationToken.None"/>.
   /// </param>
+  /// <exception cref="InvalidOperationException">
+  /// Thrown when no host session is active.
+  /// </exception>
   /// <exception cref="OperationCanceledException">
   /// Thrown when <paramref name="cancellationToken"/> fires after dispose has been started
   /// for every created fixture.

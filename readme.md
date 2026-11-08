@@ -527,7 +527,7 @@ public static async Task CleanUpOnce()
 |-----|------|
 | `RegisterSessionFixture<T>()` | Explicit registration (ModuleInitializer); requires `public static Task<T> CreateAsync()` and `IAsyncDisposable` |
 | `SessionFixture.GetAsync<T>()` | Lazy resolve within an active session |
-| Session end | Disposes all created instances |
+| Session end | Starts disposal in reverse creation order |
 
 **Lifetime:**
 
@@ -536,8 +536,12 @@ public static async Task CleanUpOnce()
 | **M.T.P. run** | CreateTestSession → CloseTestSession | Lazy on first `GetAsync` | All created in CloseTestSession |
 | **M.T.P. discovery** | Session still opens/closes | Never (no `GetAsync`) | No-op |
 | **`RunAllTests`** | Synthetic session wrap | Lazy across classes | After last registered class |
-| **Lone `RunTestsAsync`** | Session-of-one if none active | Lazy within that class | End of that call |
+| **Lone `RunTestsAsync`** | Run lease when no host session is active | Lazy within that class | When the last overlapping lease ends |
 
+- Disposal starts with the newest created fixture. A cancelled end still starts every fixture before it throws.
+- Overlapping lone `RunTestsAsync` calls share one session. Each call holds a lease, so the first call to finish does not dispose under the others. A call inside `BeginTestSession`, `RunAllTests`, or an M.T.P. session does not take a lease; the host ends the session.
+- `EndTestSessionAsync` throws `InvalidOperationException` when no host session is active.
+- `ClearRegisteredSessionFixtures` is a process-wide reset for meta-tests. It drops every registration and sets host depth and run depth to zero. It does not dispose, and it throws when a created instance is still live. A host that began before the clear can end without throwing and without disposing. An `EndTestSessionAsync` with no matching `BeginTestSession` throws, including after a clear.
 - Double-registration of the same `T` fails fast.
 - Unregistered `GetAsync` throws a teaching error (not null).
 - Classes that never call `GetAsync` never create the fixture.
