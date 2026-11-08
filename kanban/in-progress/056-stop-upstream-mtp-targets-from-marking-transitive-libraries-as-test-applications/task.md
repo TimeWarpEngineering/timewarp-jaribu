@@ -21,6 +21,10 @@ A class library that only references a Jaribu test project must not become a Mic
 - [x] Transitive-consumer test asserts the flag
 - [x] Readme documents the property
 
+## Review
+
+- Round 1: Done
+
 ## Notes
 
 Origin: task 048 review disposition, follow-up M1 (wontfix on 048, out of its acceptance criteria).
@@ -30,6 +34,8 @@ Origin: task 048 review disposition, follow-up M1 (wontfix on 048, out of its ac
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-08), follow-up from task 048 review
 - Implementation: 01a1bd17-9b27-70a2-9d56-133c28a1728e (2026-11-09). `kebab-path-names` rejects `buildTransitive/`. NuGet requires that directory name, so `[ganda.audit]` sets `kebab-path-names.prune = buildTransitive` (task 056). `vscode-window-icon` remains an advisory warning because `.vscode/settings.json` is missing and gitignored.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bd17-9b27-70a2-9d56-133c28a1728e, max-turns 500, Done — 2026-11-08T22:06:37Z
+- Review oracle: claude (claude-opus-5-5), body tw-implementation-review, effort 2, roster general, turn cap 120, disposition clean — 2026-11-09
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 00e4c6f4-2d53-47a5-9c1a-95d7977cd5cd, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-08T22:10:14Z
 
 ## Results
 
@@ -55,3 +61,11 @@ Expect:
 - `./bin/dev build` succeeds.
 - `./bin/dev test` reports 158 passed.
 - `dotnet test` on the MTP runner reports 158 succeeded.
+
+### Review disposition
+
+- Rounds: 1. Roster: general. Effort: 2 (by-diff budget, 222 lines).
+- Final counts: bug 0, suggestion 0, nit 0 (all open/fixed/wontfix 0).
+- Disposition: **clean**. No wontfix and no escalations.
+- The reviewer re-ran `testing-platform-props.transitive-consumer.cs`: 1/1 passed. The transitive library evaluates `IsTestingPlatformApplication=false`, the opt-in library evaluates `true`, and the direct consumer stays `Exe` with the flag `true`.
+- Artifacts: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
