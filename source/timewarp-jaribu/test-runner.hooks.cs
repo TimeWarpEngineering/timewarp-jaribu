@@ -20,6 +20,8 @@ using TimeWarp.Terminal;
 // from the Setup task is a body failure. A CleanUpOnce that throws before it
 // returns a task is rethrown here. The class run traces that throw once the
 // caller token has fired, and reports it as a synthetic node otherwise.
+// A near-miss node is given the MethodInfo the diagnostic already holds.
+// NoTests and HookSignature do not look a method up by those names.
 #endregion
 
 public static partial class TestRunner
@@ -222,13 +224,18 @@ public static partial class TestRunner
     ITestResultSink sink,
     List<TestNodeInfo> results,
     string? message = null,
-    TestNodeState state = TestNodeState.Failed)
+    TestNodeState state = TestNodeState.Failed,
+    MethodInfo? method = null,
+    bool lookupMethod = true,
+    string? uid = null)
   {
-    string uid = $"{testClass.FullName}.{hookName}";
+    string nodeUid = uid ?? $"{testClass.FullName}.{hookName}";
     string nodeMessage = message ?? $"{exception.GetType().Name}: {exception.Message}";
-    MethodInfo? hook = testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static);
+    MethodInfo? hook = lookupMethod
+      ? testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static)
+      : method;
     TestNodeInfo failedNode = new(
-      uid,
+      nodeUid,
       hookName,
       state,
       TimeSpan.Zero,

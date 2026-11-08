@@ -60,9 +60,11 @@ public class YourTestClassName
 ## Test Methods
 
 - Must be `public static async Task`
-- `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are near-misses: a warning by default, a failed run when `strictSignatures: true`
+- `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are near-misses: a warning by default, a failed run when `strictSignatures: true` or MTP `--strict-signatures` is set. `dotnet test` prints the warning. Overloaded near-miss names each become an Error in strict mode. A method predicate or case predicate that selects nothing omits those Error nodes. A method-name filter still reports them
+why: task 044 review round 2
 - Ordinary `void` helpers are ignored
-- A class with no discoverable tests fails unless `allowEmpty: true`. The same flag opts out of the failure when `RunAllTests` has no registered classes
+- A class with no discoverable tests fails unless `allowEmpty: true` or MTP `--allow-empty` is set. The same flag opts out of the failure when `RunAllTests` has no registered classes. A method, method-predicate, or case filter skips that empty-class node
+why: task 044 review round 1
 - The reported class name drops one trailing `Tests` when the name is longer than that suffix
 - Follow the naming convention below
 
@@ -309,6 +311,8 @@ dotnet run -- --filter-method Login
 | `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Method-level non-match → **Skipped**; a class whose class-level tags exist and none match is **omitted** from discovery and run |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
+| `--strict-signatures` | Flag | Near-miss signatures fail the run. The default warns |
+| `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
 Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit). Tag filter keeps Skipped semantics for method-level tags; class-level tag mismatch omits the class.
 

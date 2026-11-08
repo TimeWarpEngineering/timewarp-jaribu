@@ -1,5 +1,6 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
+#:include test-runner.silent-no-ops.filters.cs
 
 #region Purpose
 // Near-miss signatures, empty runs, hook validation, class names, and registration snapshots.
@@ -39,7 +40,7 @@ namespace TestRunner_
   }
 
   [TestTag("Jaribu")]
-  public class SilentNoOps_Given_
+  public partial class SilentNoOps_Given_
   {
     [ModuleInitializer]
     internal static void Register() => RegisterTests<SilentNoOps_Given_>();

@@ -35,7 +35,8 @@ public record TestRunStats
 
   /// <summary>
   /// Near-miss public static test methods that were not executed.
-  /// Empty when the class has none. <c>strictSignatures</c> also reports each as an Error node.
+  /// Empty when the class has none. <c>strictSignatures</c> also reports each as an Error node,
+  /// except when a method predicate or case predicate selected no nodes in the class.
   /// </summary>
   public IReadOnlyList<string> SignatureWarnings { get; init; } = [];
 

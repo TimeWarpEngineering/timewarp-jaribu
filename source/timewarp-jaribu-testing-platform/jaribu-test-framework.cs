@@ -2,6 +2,8 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 
 using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
+using Microsoft.Testing.Platform.Extensions.OutputDevice;
+using Microsoft.Testing.Platform.OutputDevice;
 using Microsoft.Testing.Platform.Services;
 
 #region Purpose
@@ -21,13 +23,20 @@ using Microsoft.Testing.Platform.Services;
 // context.CancellationToken is passed into the class run and into session
 // close. A fired token stops the class loop. Cooperative cancellation is not
 // republished as an Error node.
+// --strict-signatures and --allow-empty are passed to RunTestsAsync.
+// Signature warnings go to the output device when the class produced nodes,
+// or when the MTP filter is NopFilter and no method filter is set.
+// A uid or tree filter passes a case predicate, so an empty class that was
+// not selected does not emit NoTests. The same predicate omits strict
+// near-miss Error nodes when that class produced no selected nodes. The
+// warning display already hides that class.
 #endregion
 
 /// <summary>
 /// Implementation of ITestFramework for Microsoft.Testing.Platform integration.
 /// Bridges Jaribu's test runner with M.T.P. for test discovery and execution.
 /// </summary>
-internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
+internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutputDeviceDataProducer
 {
   private readonly IExtension Extension;
   private readonly IServiceProvider ServiceProvider;
@@ -132,6 +141,9 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
       string? filterTag = ResolveFilterTag(commandLine);
       string? filterClass = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterClassOption);
       string? filterMethod = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterMethodOption);
+      bool strictSignatures = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.StrictSignaturesOption);
+      bool allowEmpty = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.AllowEmptyOption);
+      IOutputDevice outputDevice = ServiceProvider.GetOutputDevice();
 
       // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
       Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
@@ -202,14 +214,31 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer
         {
           // Selection filters omit methods (no Skipped nodes). Tag filter keeps Skipped semantics.
           // MTP uid/tree filters select reported cases, including individual [Input] rows.
-          await TestRunner.RunTestsAsync(
+          // NopFilter stays null so a full run still fails an empty class.
+          Func<ReportedTestCase, bool>? casePredicate = filter is NopFilter
+            ? null
+            : testCase => MtpTreeFilter.Matches(testClass, testCase, filter);
+          bool selectionFilter = casePredicate is not null || filterMethod is not null;
+          TestRunStats stats = await TestRunner.RunTestsAsync(
             testClass,
             sink,
             filterTag,
             methodNameContains: filterMethod,
-            casePredicate: testCase => MtpTreeFilter.Matches(testClass, testCase, filter),
+            casePredicate: casePredicate,
+            strictSignatures: strictSignatures,
+            allowEmpty: allowEmpty,
             cancellationToken: cancellationToken
           ).ConfigureAwait(false);
+          if (stats.SignatureWarnings.Count > 0 && (!selectionFilter || stats.TotalTests > 0))
+          {
+            foreach (string warning in stats.SignatureWarnings)
+            {
+              await outputDevice.DisplayAsync(
+                this,
+                new WarningMessageOutputDeviceData(warning),
+                cancellationToken).ConfigureAwait(false);
+            }
+          }
         }
       }
     }

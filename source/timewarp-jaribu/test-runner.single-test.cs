@@ -41,6 +41,10 @@ public static partial class TestRunner
   /// Stops waiting for Setup, the body, and CleanUp. Defaults to <see cref="CancellationToken.None"/>.
   /// </param>
   /// <returns>A TestNodeInfo with the test outcome.</returns>
+  /// <exception cref="ArgumentNullException">
+  /// <paramref name="testClass"/> or <paramref name="method"/> is null.
+  /// The exception is thrown before the returned task starts.
+  /// </exception>
   public static Task<TestNodeInfo> RunSingleTestAsync(
     Type testClass,
     MethodInfo method,
@@ -88,9 +92,6 @@ public static partial class TestRunner
     MethodInfo? cleanUpMethod,
     CancellationToken cancellationToken)
   {
-    ArgumentNullException.ThrowIfNull(testClass);
-    ArgumentNullException.ThrowIfNull(method);
-
     using CancellationScope scope = new(cancellationToken);
     using HookTimeoutScope hookTimeout = new(testClass);
     parameters ??= [];

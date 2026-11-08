@@ -63,6 +63,13 @@ Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner
 - The reviewer reran `./bin/dev test`: exit 0, 145 passed.
 - Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
 - Next: a fix pass on this id, then re-review in `review/round-2/`.
+- Round 2 used effort 1 with the general reviewer. Disposition is still pending, and there is no `review/disposition.md` yet.
+- Round 2 counts: 2 bugs fixed (M1, M2), 1 suggestion fixed (M3), and 1 nit fixed (M4). One new suggestion is open: M5.
+- M5: strict near-miss Error nodes ignore uid and tree selection. Under `dotnet test --treenode-filter <one test> --strict-signatures`, the run fails because of an unselected class. That is the M3 scenario on the strict path.
+- The round-2 reviewer ran `test-runner.silent-no-ops.cs` (14 passed) and the MTP runner with `--filter-class Mtp_` (8 passed), and reproduced M5 on the validation project.
+- The fix-pass product changes were still uncommitted in the claim worktree during round 2, and the round-2 checklist items above are not ticked.
+- Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
+- Next: a fix pass on this id for M5, then re-review in `review/round-3/`.
 
 ## Learnings
 
@@ -75,7 +82,9 @@ Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b959-6bb5-7ae1-bc05-0093d7aad662, max-turns 500, Done — 2026-11-08T04:53:54Z
 - Review oracle round 1: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 3, roster general, turn cap 200. 4 findings open (M1 and M2 are bugs). Blocked for a fix pass — 2026-11-08
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session e9826e5e-6929-4bfb-9b9c-afc45a4b1dac, max-turns 200, artifacts general.md, merged.md — 2026-11-08T04:59:16Z
+- Review oracle round 2: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. M1 through M4 are fixed and the new M5 (suggestion) is open. Blocked for a fix pass — 2026-11-08
 
 ## Review
 
 - Round 1: Blocked — open M1, M2, M3, M4
+- Round 2: Blocked — open M5

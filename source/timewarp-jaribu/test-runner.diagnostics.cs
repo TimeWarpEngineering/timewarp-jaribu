@@ -12,17 +12,23 @@ using System.Runtime.CompilerServices;
 // A discoverable test is public static non-generic Task and is not a lifecycle hook.
 // Task<T>, ValueTask, ValueTask<T>, async void, and open generic Task are near-misses.
 // Ordinary void stays silent. Hook names are validated by ResolveHook, not here.
-// strictSignatures turns each near-miss into an Error node. Otherwise the text is
-// stored on TestRunStats.SignatureWarnings and the run still succeeds when real
-// tests passed. No discoverable tests fails unless allowEmpty is set. A filter
-// that selects nothing is not an empty class: the caller passes classHadTests
-// from discovery before selection. The displayed class name drops one trailing
-// "Tests" only when characters remain before that suffix.
+// strictSignatures turns each near-miss into an Error node. The node carries
+// that MethodInfo, and its uid always includes the near-miss index, so an
+// overload does not go through GetMethod. Otherwise the text is stored on
+// TestRunStats.SignatureWarnings and the run still succeeds when real tests
+// passed. A method predicate or case predicate that selected no nodes omits
+// those Error nodes. The warning text stays on SignatureWarnings. A method-name
+// filter still reports the Error nodes. No discoverable tests fails unless
+// allowEmpty is set. A method filter, method predicate, or case predicate
+// skips that empty-run node.
+// A tag filter that selects nothing is not an empty class: the caller passes
+// classHadTests from discovery before selection. The displayed class name
+// drops one trailing "Tests" only when characters remain before that suffix.
 #endregion
 
 public static partial class TestRunner
 {
-  private readonly record struct NearMiss(string MethodName, string Message);
+  private readonly record struct NearMiss(MethodInfo Method, string Message);
 
   /// <summary>
   /// Class name shown on the sink. Strips one trailing <c>Tests</c> suffix.
@@ -55,7 +61,7 @@ public static partial class TestRunner
       string declaringType = method.DeclaringType?.FullName ?? testClass.FullName ?? testClass.Name;
       string returned = DescribeNearMissReturn(method);
       nearMisses.Add(new NearMiss(
-        method.Name,
+        method,
         $"Near-miss test '{declaringType}.{method.Name}' returns '{returned}'. " +
         "Tests must be public static non-generic Task."));
     }
@@ -72,34 +78,45 @@ public static partial class TestRunner
     bool classHadTests,
     bool strictSignatures,
     bool allowEmpty,
+    bool selectionFilterActive,
+    bool predicateFilterActive,
     bool cancellationRequested,
     ITestResultSink sink,
     List<TestNodeInfo> results)
   {
-    if (!cancellationRequested && strictSignatures)
+    // An unselected class has produced no nodes. Skip the strict Errors so a
+    // predicate filter does not fail the run on a class it did not choose.
+    // A method-name filter is not a predicate filter and still reports them.
+    bool skipUnselectedStrictNodes = predicateFilterActive && results.Count == 0;
+    if (!cancellationRequested && strictSignatures && !skipUnselectedStrictNodes)
     {
       for (int index = 0; index < nearMisses.Count; index++)
       {
         NearMiss nearMiss = nearMisses[index];
-        string hookName = nearMiss.MethodName;
-        if (results.Exists(node => node.DisplayName == hookName))
+        string indexText = index.ToString(CultureInfo.InvariantCulture);
+        string displayName = nearMiss.Method.Name;
+        if (results.Exists(node => node.DisplayName == displayName))
         {
-          hookName = $"{hookName}#{index.ToString(CultureInfo.InvariantCulture)}";
+          displayName = $"{displayName}#{indexText}";
         }
 
+        string uid = $"{testClass.FullName}.{nearMiss.Method.Name}#near-miss-{indexText}";
         await EmitSyntheticHookFailureAsync(
           testClass,
-          hookName,
+          displayName,
           new InvalidOperationException(nearMiss.Message),
           sink,
           results,
           nearMiss.Message,
-          TestNodeState.Error).ConfigureAwait(false);
+          TestNodeState.Error,
+          method: nearMiss.Method,
+          lookupMethod: false,
+          uid: uid).ConfigureAwait(false);
       }
     }
 
     bool alreadyFailing = results.Exists(node => TestRunStats.IsFailingState(node.State));
-    if (classHadTests || allowEmpty || cancellationRequested || alreadyFailing)
+    if (classHadTests || allowEmpty || cancellationRequested || alreadyFailing || selectionFilterActive)
     {
       return;
     }
@@ -113,7 +130,8 @@ public static partial class TestRunner
       sink,
       results,
       empty.Message,
-      TestNodeState.Error).ConfigureAwait(false);
+      TestNodeState.Error,
+      lookupMethod: false).ConfigureAwait(false);
   }
 
   private static bool IsNearMissTest(MethodInfo method)

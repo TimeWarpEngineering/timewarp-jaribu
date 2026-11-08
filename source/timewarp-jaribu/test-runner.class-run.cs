@@ -22,9 +22,12 @@ using System.Reflection;
 // is a synthetic Timeout node. Setup and CleanUp use the same signature
 // check as the once-hooks and are resolved once for the class. A class
 // with no discoverable tests fails unless allowEmpty is set. A bad hook
-// on that empty class is still an Error. A case filter that selects
+// on that empty class is still an Error. A method filter, method predicate,
+// or case predicate skips that empty-class node. A case filter that selects
 // nothing does not invent a node. Near-miss tests warn unless
-// strictSignatures is set.
+// strictSignatures is set. A method predicate or case predicate that
+// selects no nodes omits those strict Error nodes. A method-name filter
+// still reports them.
 #endregion
 
 public static partial class TestRunner
@@ -37,15 +40,21 @@ public static partial class TestRunner
   /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
   /// </param>
   /// <param name="methodPredicate">
   /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
+  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
   /// </param>
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
+  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
   /// </param>
   /// <param name="strictSignatures">
   /// When true, each near-miss test signature is an Error node. The default stores a warning.
+  /// A method predicate or case predicate that selects no nodes omits those Error nodes.
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a class with no discoverable tests succeeds. The default fails that run.
@@ -85,15 +94,21 @@ public static partial class TestRunner
   /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
   /// </param>
   /// <param name="methodPredicate">
   /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
+  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
   /// </param>
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
+  /// When set, an empty class does not emit a NoTests or HookSignature node.
+  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
   /// </param>
   /// <param name="strictSignatures">
   /// When true, each near-miss test signature is an Error node. The default stores a warning.
+  /// A method predicate or case predicate that selects no nodes omits those Error nodes.
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a class with no discoverable tests succeeds. The default fails that run.
@@ -215,6 +230,11 @@ public static partial class TestRunner
       List<NearMiss> nearMisses = DescribeNearMissTests(testClass);
       List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
       bool classHadTests = testMethods.Count > 0;
+      bool selectionFilterActive =
+        methodNameContains is not null ||
+        methodPredicate is not null ||
+        casePredicate is not null;
+      bool predicateFilterActive = methodPredicate is not null || casePredicate is not null;
 
       // Selection filters: omit methods (no Skipped nodes) before execution.
       if (methodNameContains is not null)
@@ -261,17 +281,19 @@ public static partial class TestRunner
             results);
         }
 
-        if (!reported && !classHadTests)
+        if (!reported && !classHadTests && !selectionFilterActive)
         {
           // A filter that selects nothing stays empty. An empty class still
           // reports the bad hook, because there is no test node to carry it.
+          // The node does not look up a user method named HookSignature.
           await EmitSyntheticHookFailureAsync(
             testClass,
             "HookSignature",
             resolutionError,
             sink,
             results,
-            state: TestNodeState.Error).ConfigureAwait(false);
+            state: TestNodeState.Error,
+            lookupMethod: false).ConfigureAwait(false);
         }
       }
       else
@@ -349,6 +371,8 @@ public static partial class TestRunner
         classHadTests,
         strictSignatures,
         allowEmpty,
+        selectionFilterActive,
+        predicateFilterActive,
         cancellationToken.IsCancellationRequested,
         sink,
         results).ConfigureAwait(false);
