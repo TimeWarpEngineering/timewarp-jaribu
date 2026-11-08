@@ -24,6 +24,7 @@ Findings: MTP-3, CORE-9, CORE-10, MTP-13 in task 038 report.
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - 2026-11-08: `TestFilter` is the one helper for class tags, method tags, method name, and uid. Discovery, the class run, and the MTP adapter call it. A class or method tag miss is one Skipped node per method, message `No matching tag '…'`, and `[Input]` rows stay collapsed. Method-name and uid filters still omit. A blank `JARIBU_FILTER_TAG` is ignored and a non-blank value is trimmed. The CLI tag wins, including a blank CLI value. Inherited tags count. `RunSingleTestAsync` still builds its own Skipped node because that call measures duration. `ganda repo audit --fix` set the gitignored VS Code window title. The pack test builds Release before `dotnet pack` because pack does not compile when `GeneratePackageOnBuild` is true and the Release assembly is missing (NU5026).
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1ba1b-e9a6-7ba0-9e59-8a6212e91a3e, max-turns 500, Done — 2026-11-08T08:33:46Z
 
 ## Results
 
