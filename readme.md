@@ -321,13 +321,13 @@ dotnet run
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG` | Non-matching tagged methods reported **Skipped** |
+| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method |
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
 | `--strict-signatures` | Flag, no argument | Near-miss test signatures fail the run. The default prints a warning |
 | `--allow-empty` | Flag, no argument | A class with no discoverable tests succeeds. The default fails that class |
 
-Selection filters never emit Skipped nodes for omitted items. Tag filter keeps existing Skipped semantics for method-level tags; a class whose class-level tags exist and none match is omitted entirely — from both discovery (`--list-tests`) and the run. MTP uid/tree filters apply on both discovery and run.
+Selection filters never emit Skipped nodes for omitted items. A tag miss, at class or method level, emits one Skipped node per method. Discovery lists that node and the run reports it as Skipped. MTP uid and tree filters apply on both discovery and run.
 
 ### IDE Integration
 

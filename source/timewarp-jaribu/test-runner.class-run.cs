@@ -24,10 +24,11 @@ using System.Reflection;
 // with no discoverable tests fails unless allowEmpty is set. A bad hook
 // on that empty class is still an Error. A method filter, method predicate,
 // or case predicate skips that empty-class node. A case filter that selects
-// nothing does not invent a node. Near-miss tests warn unless
-// strictSignatures is set. A method predicate or case predicate that
-// selects no nodes omits those strict Error nodes. A method-name filter
-// still reports them.
+// nothing does not invent a node. A class or method tag miss emits one
+// Skipped node per method and does not run hooks or signature diagnostics.
+// Near-miss tests warn unless strictSignatures is set. A method predicate
+// or case predicate that selects no nodes omits those strict Error nodes.
+// A method-name filter still reports them.
 #endregion
 
 public static partial class TestRunner
@@ -37,7 +38,11 @@ public static partial class TestRunner
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="filterTag">
+  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
+  /// A blank value is not a filter. A class or method whose tags exist and none match
+  /// emits one Skipped node per method.
+  /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
   /// When set, an empty class does not emit a NoTests or HookSignature node.
@@ -91,7 +96,11 @@ public static partial class TestRunner
   /// </summary>
   /// <param name="testClass">The test class type.</param>
   /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">Optional tag to filter tests (Skipped semantics).</param>
+  /// <param name="filterTag">
+  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
+  /// A blank value is not a filter. A class or method whose tags exist and none match
+  /// emits one Skipped node per method.
+  /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
   /// When set, an empty class does not emit a NoTests or HookSignature node.
@@ -195,33 +204,45 @@ public static partial class TestRunner
         }
       }
 
-      // Check environment variable if filterTag not explicitly provided
-      filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
+      // Null reads JARIBU_FILTER_TAG. A blank explicit value does not.
+      filterTag = TestFilter.ResolveTag(filterTag);
 
       string className = ReportedClassName(testClass);
 
-      // Check if test class matches filter tag (if specified)
-      if (filterTag is not null)
+      // Class tag miss: same Skipped nodes discovery lists. No hooks, no signature diagnostics.
+      if (filterTag is not null && !TestFilter.ClassTagMatches(testClass, filterTag))
       {
-        TestTagAttribute[] classTags = testClass.GetCustomAttributes<TestTagAttribute>().ToArray();
-        if (classTags.Length > 0 && !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
+        await sink.OnRunStartedAsync(className, filterTag);
+        string reason = TestFilter.TagMissMessage(filterTag);
+        foreach (ReportedTestCase testCase in TestFilter.SelectReportedCases(
+          testClass,
+          filterTag,
+          methodNameContains,
+          methodPredicate,
+          casePredicate))
         {
-          // Class has tags but none match the filter - skip entire class
-          await sink.OnRunStartedAsync(className, filterTag);
-          await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
-          overallStopwatch.Stop();
-          int filteredFailures = results.Count(r => TestRunStats.IsFailingState(r.State));
-          TestRunStats emptyStats = new(
-            className,
-            startTime,
-            overallStopwatch.Elapsed,
-            PassedCount: 0,
-            FailedCount: filteredFailures,
-            SkippedCount: 0
-          );
-          await sink.OnRunCompletedAsync(emptyStats, results);
-          return emptyStats;
+          if (cancellationToken.IsCancellationRequested)
+          {
+            break;
+          }
+
+          results.AddRange(await ReportSkippedAsync(testCase, reason, casePredicate: null, sink));
         }
+
+        await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
+        overallStopwatch.Stop();
+        int filteredFailures = results.Count(r => TestRunStats.IsFailingState(r.State));
+        int filteredSkipped = results.Count(r => r.State == TestNodeState.Skipped);
+        TestRunStats filteredStats = new(
+          className,
+          startTime,
+          overallStopwatch.Elapsed,
+          PassedCount: 0,
+          FailedCount: filteredFailures,
+          SkippedCount: filteredSkipped
+        );
+        await sink.OnRunCompletedAsync(filteredStats, results);
+        return filteredStats;
       }
 
       // Notify sink that run is starting
@@ -239,8 +260,7 @@ public static partial class TestRunner
       // Selection filters: omit methods (no Skipped nodes) before execution.
       if (methodNameContains is not null)
       {
-        testMethods = [.. testMethods.Where(m =>
-          m.Name.Contains(methodNameContains, StringComparison.OrdinalIgnoreCase))];
+        testMethods = [.. testMethods.Where(method => TestFilter.MethodNameMatches(method, methodNameContains))];
       }
 
       if (methodPredicate is not null)

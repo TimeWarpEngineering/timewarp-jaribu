@@ -16,6 +16,8 @@
 // reference into the -o directory. GeneratePackageOnBuild writes that package
 // to the repo package output. The test packs the core project into the feed so
 // sandbox restore resolves TimeWarp.Jaribu from the feed.
+// dotnet pack does not compile when GeneratePackageOnBuild is true and the
+// Release assembly is missing (NU5026). The test builds Release first.
 // The sandbox has its own Directory.Build.props and Directory.Packages.props so
 // the repo's central package versions and analyzers do not apply. Packages restore
 // into the sandbox, not the global NuGet cache.
@@ -59,6 +61,20 @@ namespace TestingPlatformProps_
           "source",
           "timewarp-jaribu",
           "timewarp-jaribu.csproj");
+        string project = Path.Combine(
+          root,
+          "source",
+          "timewarp-jaribu-testing-platform",
+          "timewarp-jaribu-testing-platform.csproj");
+        CommandOutput releaseBuild = await RunDotNetAsync(
+          root,
+          "build",
+          project,
+          "-c",
+          "Release",
+          "--nologo");
+        releaseBuild.ExitCode.ShouldBe(0, releaseBuild.Combined);
+
         CommandOutput corePack = await RunDotNetAsync(
           root,
           "pack",
@@ -70,11 +86,6 @@ namespace TestingPlatformProps_
           "--nologo");
         corePack.ExitCode.ShouldBe(0, corePack.Combined);
 
-        string project = Path.Combine(
-          root,
-          "source",
-          "timewarp-jaribu-testing-platform",
-          "timewarp-jaribu-testing-platform.csproj");
         CommandOutput pack = await RunDotNetAsync(root, "pack", project, "-c", "Release", "-o", feed, "--nologo");
         pack.ExitCode.ShouldBe(0, pack.Combined);
 

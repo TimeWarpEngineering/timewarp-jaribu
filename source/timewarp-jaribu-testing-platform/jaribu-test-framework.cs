@@ -24,6 +24,12 @@ using Microsoft.Testing.Platform.Services;
 // context.CancellationToken is passed into the class run and into session
 // close. A fired token stops the class loop. Cooperative cancellation is not
 // republished as an Error node.
+// The adapter passes the raw --filter-tag argument, or null when that option
+// is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
+// and read JARIBU_FILTER_TAG only when the argument is null. A class or
+// method whose tags exist and none match is one method-level node.
+// Discovery lists that node. The run reports it as Skipped. Uid-list
+// equality stays in MtpTreeFilter. This assembly does not call core internals.
 // --strict-signatures and --allow-empty are passed to RunTestsAsync.
 // Signature warnings go to the output device when the class produced nodes,
 // or when the MTP filter is NopFilter and no method filter is set.
@@ -176,50 +182,31 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
         if (isDiscovery)
         {
-          // Mirror the run path: a class whose class-level tags exist and none
-          // match the tag filter is omitted entirely (run produces no nodes for
-          // it). Method-level tag mismatches stay listed — the run reports them
-          // as Skipped nodes, so they are part of the run.
-          if (filterTag is not null && ClassOmittedByTagFilter(testClass, filterTag))
-          {
-            continue;
-          }
-
-          foreach (System.Reflection.MethodInfo method in TestRunner.DiscoverTests(testClass))
+          // Same helper and the same arguments as the run below, so the listed
+          // nodes are the nodes the run will produce.
+          Func<ReportedTestCase, bool>? discoveryPredicate = filter is NopFilter
+            ? null
+            : testCase => MtpTreeFilter.Matches(testClass, testCase, filter);
+          foreach (ReportedTestCase testCase in TestRunner.DiscoverTestCases(
+            testClass,
+            filterTag,
+            filterMethod,
+            casePredicate: discoveryPredicate))
           {
             if (cancellationToken.IsCancellationRequested)
             {
               break;
             }
 
-            if (filterMethod is not null &&
-                !method.Name.Contains(filterMethod, StringComparison.OrdinalIgnoreCase))
-            {
-              continue;
-            }
-
-            foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
-            {
-              if (cancellationToken.IsCancellationRequested)
-              {
-                break;
-              }
-
-              if (!MtpTreeFilter.Matches(testClass, testCase, filter))
-              {
-                continue;
-              }
-
-              TestNodeInfo node = new
-              (
-                Uid: testCase.Uid,
-                DisplayName: testCase.DisplayName,
-                State: TestNodeState.Discovered,
-                Parameters: testCase.Parameters,
-                Method: method
-              );
-              await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
-            }
+            TestNodeInfo node = new
+            (
+              Uid: testCase.Uid,
+              DisplayName: testCase.DisplayName,
+              State: TestNodeState.Discovered,
+              Parameters: testCase.Parameters,
+              Method: testCase.Method
+            );
+            await sink.OnTestDiscoveredAsync(node).ConfigureAwait(false);
           }
         }
         else
@@ -282,22 +269,10 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
     }
   }
 
-  private static bool ClassOmittedByTagFilter(Type testClass, string filterTag)
-  {
-    TestTagAttribute[] classTags = [.. testClass.GetCustomAttributes<TestTagAttribute>()];
-    return classTags.Length > 0 &&
-      !classTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase));
-  }
-
   private static string? ResolveFilterTag(ICommandLineOptions commandLine)
   {
-    string? cliTag = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
-    if (!string.IsNullOrWhiteSpace(cliTag))
-    {
-      return cliTag;
-    }
-
-    return Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
+    // Validation rejects a blank argument. Core trims a set value and reads the environment only for null.
+    return GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
   }
 
   private static string? GetOptionArgument(ICommandLineOptions commandLine, string optionName)
