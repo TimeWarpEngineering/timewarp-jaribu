@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 1436
-- Effort: 3
+- Lines changed: 141
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Scope — task 044
 
@@ -17,6 +17,13 @@
 **Effort:** 3 (by-diff budget), roster axis general
 **Reviewer roster:** general
 **Session IDs:** review oracle, Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work` round 1
+
+## Round 2 scope
+
+**Date:** 2026-11-08
+**Diff scope:** the round-1 fix delta, uncommitted in the claim worktree on top of `079be23` (round-1 base `177031a`), including the two new untracked test files
+**Effort:** 1 (by-diff budget, 141 lines), roster general, turn cap 80
+**Session IDs:** review oracle round 2, Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`
 
 ## Ground rules
 
