@@ -45,6 +45,14 @@ Acceptance for the CI failure:
 - Strict mode still fails through the Error node. It does not add the skipped node.
 - A tree filter that did not select the class still hides the warning and does not fail the run.
 
+Round 4 left the behavior in place and the proof thin. `SignatureWarnings_Should_ShowAndHonorMtpFlags` only checks that the words Near-miss and `ReturnsTaskOfInt` show up. A forwarding host can print the warning and also publish a skipped node, and that test still passes. The same run never checks that strict mode adds no skipped node. `HostDropsOutputDeviceWarnings` reads Microsoft.Testing.Platform internals and treats a missing `IPushOnlyProtocol` as a host that drops warnings, so a package bump can cause that duplicate.
+
+Acceptance for this pass:
+
+- A default `dotnet test` of `SignatureWarningTests` contains the Near-miss sentence for `ReturnsTaskOfInt` once. That sentence is the warning line when the host forwards it, and the skipped node's message when the host drops it. Skipped is 0 or 1, never more. Exit code stays 0, succeeded stays 1, and failed stays 0.
+- The strict run of that class still fails through the Error node, and its summary skipped count is 0.
+- The adapter design region names the internals that choice reads: `ProxyOutputDevice.OriginalOutputDevice`, `DotnetTestPassthroughOutputDevice`, and `IPushOnlyProtocol.IsDisplayMessageForwardingSupported`.
+
 ## Checklist
 - [x] Near-miss diagnostics
 - [x] Zero-tests failure
@@ -58,6 +66,8 @@ Acceptance for the CI failure:
 - [x] RunSingleTestAsync null-guard cleanup
 - [x] Strict near-miss nodes honor method and case predicates
 - [x] Signature warnings survive an SDK 10 dotnet test host
+- [x] One Near-miss sentence, and skipped at most 1, on the default MTP run
+- [x] Strict MTP run reports skipped 0
 
 ## Results
 
@@ -67,6 +77,8 @@ A method predicate or case predicate that selects no nodes omits those strict Er
 
 SDK 11 forwards that warning through the output device, and the run does not gain a skipped node. SDK 10.0.403 speaks dotnet test protocol 1.0.0 and drops `WarningMessageOutputDeviceData`, which is why CI run 42452007606 saw a passing summary and no Near-miss line. On that host the same text is published as a skipped node named for the method. The run still exits 0, with succeeded 1 and failed 0. Strict mode keeps the Error node and does not add the skipped node.
 
+`SignatureWarnings_Should_ShowAndHonorMtpFlags` now counts the Near-miss sentence that names `ReturnsTaskOfInt` and requires that count to be 1. Skipped on the default run is at most 1. The strict run requires skipped 0. A host that prints the warning and also publishes the skipped node fails the count. `HostDropsOutputDeviceWarnings` still treats an unresolved `IPushOnlyProtocol` as a host that drops the warning. The adapter design region names the internals that choice reads: `ProxyOutputDevice.OriginalOutputDevice`, `DotnetTestPassthroughOutputDevice`, and `IPushOnlyProtocol.IsDisplayMessageForwardingSupported`.
+
 `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are resolved once per class. A bad signature is an Error that names the declaring type, and the body does not run. An empty class with a bad hook is still an Error when `allowEmpty` is set. A case filter that selects nothing stays empty.
 
 A class with no discoverable tests, and `RunAllTests` with nothing registered, fails unless `allowEmpty: true`. A tag or method filter that selects nothing does not. `clearCache` is gone. `CancellationToken` is the last parameter. The reported class name strips one trailing `Tests` only when characters remain. `RegisteredTestClasses` returns a snapshot.
@@ -75,9 +87,9 @@ A class with no discoverable tests, and `RunAllTests` with nothing registered, f
 
 ### How to validate
 
-Smoke: `./bin/dev test`, and `dotnet test` of the MTP runner with `--filter-class Mtp_` under SDK 10.0.403 (`global.json` pins `10.0.403` with `rollForward` disable and the Microsoft.Testing.Platform test runner).
+Smoke: `./bin/dev test` on SDK 11.0.100-rc.3.26522.148. `dotnet test` of `tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj` with `-- --filter-class Mtp_` on that SDK and again on SDK 10.0.403 (`global.json` pinned with `rollForward` disable for that run, then restored).
 
-Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Given_` 15 and `NodeIdentity_Given_` 8. The same MTP class passed 8 under SDK 10.0.403. A direct SDK 10 run of `--filter-class SignatureWarning` prints `skipped ReturnsTaskOfInt` and the Near-miss line, exits 0, succeeded 1, failed 0. The same command on SDK 11 prints the warning line and `skipped: 0`. `ganda repo audit` passes (39 passed, 0 failed). `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
+Expect: `./bin/dev test` exits 0. This walk passed 149, including `SilentNoOps_Given_` 15 and `NodeIdentity_Given_` 8. The MTP class exits 0 with 8 passed on SDK 11 and on SDK 10.0.403. `ganda repo audit` passes (39 passed, 1 skipped, 0 failed). Source version was not changed.
 
 ### Review
 
@@ -100,6 +112,14 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - **Disposition: clean.** 3 rounds, final open count 0, no escalations.
 - The round-3 reviewer ran `test-runner.silent-no-ops.cs` (15 passed) and `dotnet test -- --filter-class Mtp_` in the MTP runner (8 passed). On the validation project, the round-2 M5 repro (`--treenode-filter .../BasicTests/PassingTest --strict-signatures`) now exits 0 with 1 succeeded. An unfiltered `--strict-signatures` run still fails on `ReturnsTaskOfInt`.
 - Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
+- Round 4 used effort 3 with the general reviewer. It covered the CI fix `16c486e` against `d3ffe95`. The round-3 `clean` disposition is reopened, and the disposition is now **pending**.
+- Round 4 reproduced the fix on both SDKs. On SDK 10.0.403 the run prints `skipped ReturnsTaskOfInt` with the Near-miss text, exits 0, and reports total 2, succeeded 1, skipped 1. On SDK 11 the run prints the warning line and reports skipped 0. Strict mode on SDK 10 has failed 1 and skipped 0. The tree filter on SDK 10 has total 1 and no `ReturnsTaskOfInt`.
+- The MTP runner `--filter-class Mtp_` passed 8 on SDK 11. It also passed 8 on SDK 10.0.403, in a `git archive` copy with `global.json` pinned. That copy replays the CI condition.
+- New open finding, M6 (suggestion). `SignatureWarnings_Should_ShowAndHonorMtpFlags` does not test two lines of the CI-pass acceptance. One says a forwarding host adds no skipped node. The other says strict mode adds no skipped node. The host check reads Microsoft.Testing.Platform internals and returns `true` when `IPushOnlyProtocol` is missing. A package bump could therefore add a duplicate Skipped node, and that test would still pass.
+- Counts are bug 2 fixed, suggestion 2 fixed and 1 open (M6), and nit 1 fixed. Nothing is wontfix.
+- Paths: `review/round-4/general.md`, `review/round-4/merged.md`, `review/disposition.md`.
+- Next: a fix pass on this id for M6, then re-review in `review/round-5/`.
+- Implement-fix-2 closed the M6 test gap. The default run requires one Near-miss sentence for `ReturnsTaskOfInt` and skipped at most 1. The strict run requires skipped 0. The adapter design region names the three Microsoft.Testing.Platform internals the host check reads.
 
 ## Learnings
 
@@ -117,6 +137,9 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Review oracle round 3: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 2, roster general, turn cap 120. M5 is fixed, there are no new findings, and the disposition is clean. Done — 2026-11-08
 - CI fix: SDK 10.0.403 drops output-device warnings (protocol 1.0.0, run 42452007606). The adapter publishes that text as a skipped node. Identity class passed under SDK 10.0.403 and SDK 11. — 2026-11-08
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b9b4-92fb-7f71-8328-921fa9a96479, max-turns 500, Done — 2026-11-08T06:22:43Z
+- Review oracle round 4: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 3, roster general, turn cap 200. It reviewed the CI fix `16c486e`. M1 to M5 are still fixed, and the new M6 (suggestion) is open. Blocked for a fix pass — 2026-11-08
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 10132568-4b3a-4b2f-9c2a-fea3723c9dab, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-08T06:30:06Z
+- Implement-fix-2: implemented by implementer-grok (grok, vendor xai, model grok-4.7), session 01a1b9d9-9778-7ea3-8d19-c879bbc3e1b3, GANDA_SESSION 3911113. M6's two untested acceptance lines are now assertions. — 2026-11-08
 
 ## Review
 
@@ -125,3 +148,4 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Round 3: Done
 
 - CI red on PR #40 (run 42452007606), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-08: `SignatureWarnings_Should_ShowAndHonorMtpFlags` in `tests/timewarp-jaribu/single-file-tests/mtp/mtp-node-identity.cs` fails with `ShouldAssertException ... should contain (case insensitive) "Near-miss" but did not`. On CI the MTP validation run it launches prints "Test run summary: Passed! total: 1 succeeded: 1" and no signature warning line. Locally it passed. Suspects: the warning is written through a terminal path that MTP suppresses or redirects when stdout is not a TTY (GitHub runner), the warning goes to stderr while the test captures stdout only, or the near-miss fixture is filtered out by the invocation used on CI. Reproduce with output redirected to a file (`dotnet test ... > out.txt 2>&1`) or under `CI=true`, make the warning reach a stream the test captures (or assert via node properties / exit code instead of console text), then confirm on CI.
+- Round 4: Blocked — open M6
