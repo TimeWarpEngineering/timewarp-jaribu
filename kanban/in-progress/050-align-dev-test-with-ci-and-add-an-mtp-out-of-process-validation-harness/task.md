@@ -33,6 +33,7 @@ A green parent log does not reprint the validation project's failure banners. Ea
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bd3b-26c8-7692-9ab9-aeaef4e1e233, max-turns 500, Done — 2026-11-08T23:05:04Z
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session e8ee56d4-c538-41ec-9a16-ca4db30f51b8, max-turns 120, artifacts general.md, merged.md — 2026-11-08T23:14:09Z
 - Fix pass (2026-11-09): M1 and M2. The harness captures with `CaptureAsync`, kills a child after four minutes, and each method has a longer `[Timeout]`. The eight `Test run summary: Failed!` banners in the round-1 log came from `mtp-node-identity.cs`, which used the same streaming capture; that call is silent too. `ganda repo audit` passed. `dotnet run tools/dev-cli/dev.cs -- test` exited 0: ci-runner 171/171, MTP `passed [+171/x0/?0]`, and the log had no `Test run summary: Failed!` line.
+- Review oracle round 2 (2026-11-09): Claude Opus 5.5, effort 1, roster general. The fix delta `ebdeeee` was verified. The harness runfile passed 5/5, and the ci-runner passed 171/171 with no failure banners. No open findings. Disposition is clean.
 
 ## Results
 
@@ -47,7 +48,11 @@ Expect: exit 0. The ci-runner grand total is 171 passed, including `ValidationHa
 ### Review
 
 - Round 1 (effort 2, general): 0 bugs, 2 suggestions. M1 and M2 are addressed on this id. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+- Round 2 (effort 1, general): re-verified the fix delta `ebdeeee`. M1 and M2 are fixed, and there are no new findings. The harness runfile passed 5/5. The ci-runner passed 171/171, and its log had 0 `Test run summary: Failed!` lines.
+- Final counts: bug 0; suggestion 0 open, 2 fixed, 0 wontfix; nit 0.
+- **Disposition: clean.** 2 rounds, final open count 0. Paths: `review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Review
 
-- Round 1: M1 and M2 addressed on this id. Round 2 is the next host review.
+- Round 1: M1 and M2 addressed on this id.
+- Round 2: Done
