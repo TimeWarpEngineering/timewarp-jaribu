@@ -308,13 +308,14 @@ dotnet run -- --filter-method Login
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Method-level non-match → **Skipped**; a class whose class-level tags exist and none match is **omitted** from discovery and run |
+| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG`. A blank variable is ignored and a non-blank value is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
 | `--strict-signatures` | Flag | Near-miss signatures fail the run. The default warns |
 | `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
-Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit). Tag filter keeps Skipped semantics for method-level tags; class-level tag mismatch omits the class.
+Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method-name and predicate filters are selection (omit). A tag miss at class or method level emits one Skipped node per method.
+why: task 043
 
 ## Sink-Based API
 

@@ -35,12 +35,28 @@ public static partial class TestRunner
   /// </summary>
   /// <param name="testClass">The test class type to discover tests from.</param>
   /// <param name="filterTag">
-  /// Optional tag filter. A method whose own tags exist and none match contributes one node.
+  /// Optional tag filter. Null reads <c>JARIBU_FILTER_TAG</c>. A blank value is not a filter.
+  /// A class or method whose own tags exist and none match contributes one node.
   /// </param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Non-matches are omitted.
+  /// </param>
+  /// <param name="methodPredicate">Optional additional selection predicate. Non-matches are omitted.</param>
+  /// <param name="casePredicate">Optional per-node predicate. A node is omitted when it does not match.</param>
   /// <returns>Reported cases in discovery order.</returns>
-  public static IEnumerable<ReportedTestCase> DiscoverTestCases(Type testClass, string? filterTag = null)
+  public static IEnumerable<ReportedTestCase> DiscoverTestCases(
+    Type testClass,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null,
+    Func<ReportedTestCase, bool>? casePredicate = null)
   {
-    return TestCaseIdentity.DiscoverTestCases(testClass, filterTag);
+    return TestCaseIdentity.DiscoverTestCases(
+      testClass,
+      filterTag,
+      methodNameContains,
+      methodPredicate,
+      casePredicate);
   }
 
   /// <summary>

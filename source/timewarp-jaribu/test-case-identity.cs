@@ -12,10 +12,12 @@ using System.Reflection;
 // A method with no [Input] keeps {Type.FullName}.{Method}. Each row is
 // {Type.FullName}.{Method}[ordinal], so two rows with the same arguments stay distinct
 // and the id does not depend on culture-sensitive formatting.
-// [Skip] and a method-level tag miss stay one method-level node.
-// EnumerateReportedCases is that list for discovery, the skip and tag short-circuits,
-// and bad once-hook fan-out. ExpandInputs is only the rows that actually execute,
-// after those short-circuits.
+// [Skip] and a tag miss stay one method-level node. A class whose tags exist
+// and none match uses that same node for every discovered method, so discovery
+// and the run list the same ids. EnumerateReportedCases is that list for
+// discovery, the skip and tag short-circuits, and bad once-hook fan-out.
+// ExpandInputs is only the rows that actually execute, after those short-circuits.
+// DiscoverTestCases reads JARIBU_FILTER_TAG when filterTag is null, matching RunTestsAsync.
 #endregion
 
 /// <summary>
@@ -116,7 +118,7 @@ public static class TestCaseIdentity
   /// <param name="testClass">Class that declares <paramref name="method"/>.</param>
   /// <param name="method">Candidate test method.</param>
   /// <param name="filterTag">
-  /// Active tag filter. A method whose own tags exist and none match contributes one method-level node.
+  /// Active tag filter. A class or method whose own tags exist and none match contributes one method-level node.
   /// </param>
   public static IReadOnlyList<ReportedTestCase> EnumerateReportedCases(
     Type testClass,
@@ -126,7 +128,8 @@ public static class TestCaseIdentity
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
-    if (IsMethodTagMismatch(method, filterTag) || method.GetCustomAttribute<SkipAttribute>() is not null)
+    if (TestFilter.TagSkipReason(testClass, method, filterTag) is not null ||
+        method.GetCustomAttribute<SkipAttribute>() is not null)
     {
       return [MethodCase(testClass, method)];
     }
@@ -137,17 +140,32 @@ public static class TestCaseIdentity
   /// <summary>
   /// Lists every reported case for <paramref name="testClass"/> in discovery order.
   /// </summary>
-  public static IEnumerable<ReportedTestCase> DiscoverTestCases(Type testClass, string? filterTag = null)
+  /// <param name="testClass">The test class type to discover tests from.</param>
+  /// <param name="filterTag">
+  /// Tag filter. Null reads <c>JARIBU_FILTER_TAG</c>. A blank value is not a filter.
+  /// A class or method whose tags exist and none match contributes one method-level node.
+  /// </param>
+  /// <param name="methodNameContains">
+  /// Optional substring filter on method name (ordinal ignore-case). Non-matches are omitted.
+  /// </param>
+  /// <param name="methodPredicate">Optional additional selection predicate. Non-matches are omitted.</param>
+  /// <param name="casePredicate">
+  /// Optional per-node predicate. A node is omitted when it does not match.
+  /// </param>
+  public static IEnumerable<ReportedTestCase> DiscoverTestCases(
+    Type testClass,
+    string? filterTag = null,
+    string? methodNameContains = null,
+    Func<MethodInfo, bool>? methodPredicate = null,
+    Func<ReportedTestCase, bool>? casePredicate = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
-
-    foreach (MethodInfo method in TestRunner.DiscoverTests(testClass))
-    {
-      foreach (ReportedTestCase testCase in EnumerateReportedCases(testClass, method, filterTag))
-      {
-        yield return testCase;
-      }
-    }
+    return TestFilter.SelectReportedCases(
+      testClass,
+      TestFilter.ResolveTag(filterTag),
+      methodNameContains,
+      methodPredicate,
+      casePredicate);
   }
 
   private static ReportedTestCase MethodCase(Type testClass, MethodInfo method)
@@ -158,18 +176,6 @@ public static class TestCaseIdentity
       MethodUid(testClass, method),
       method.Name,
       Parameters: null);
-  }
-
-  private static bool IsMethodTagMismatch(MethodInfo method, string? filterTag)
-  {
-    if (filterTag is null)
-    {
-      return false;
-    }
-
-    TestTagAttribute[] tags = [.. method.GetCustomAttributes<TestTagAttribute>()];
-    return tags.Length > 0 &&
-      !tags.Any(tag => tag.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase));
   }
 
   private static string FormatArgumentList(IReadOnlyList<object?> parameters)

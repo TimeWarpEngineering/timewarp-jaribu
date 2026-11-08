@@ -44,7 +44,7 @@ internal static class MtpTreeFilter
     {
       NopFilter => true,
       TestNodeUidListFilter uidFilter =>
-        uidFilter.TestNodeUids.Any(uid => uid.Value == testCase.Uid),
+        TestFilter.UidMatches(testCase.Uid, uidFilter.TestNodeUids.Select(static uid => uid.Value)),
       TreeNodeFilter treeFilter =>
         treeFilter.MatchesFilter(BuildPath(testClass, testCase.Method), BuildProperties(testClass, testCase)),
       _ => throw new NotSupportedException(

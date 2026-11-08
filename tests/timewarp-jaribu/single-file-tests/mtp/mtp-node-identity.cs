@@ -178,21 +178,41 @@ namespace Mtp_
 
     public static async Task FilterTagCli_Should_WinOverEnvironment()
     {
+      // The MTP console names failed and skipped tests only. A pass shows up as a summary count.
       CommandOutput environmentOnly = await RunValidationAsync(
-        ["--list-tests"],
+        ["--", "--filter-class", "Tests"],
         ("JARIBU_FILTER_TAG", "EdgeCases"));
       string environmentText = Normalize(environmentOnly.Combined);
-      environmentOnly.ExitCode.ShouldBe(0, environmentText);
-      environmentText.ShouldContain("NullReferenceExceptionTest");
-      environmentText.ShouldNotContain("PassingTest");
+      environmentText.ShouldContain("skipped PassingTest");
+      environmentText.ShouldContain("No matching tag 'EdgeCases'");
+      environmentText.ShouldContain("failed NullReferenceExceptionTest");
 
       CommandOutput cliWins = await RunValidationAsync(
-        ["--list-tests", "--", "--filter-tag", "MtpValidation"],
+        ["--", "--filter-class", "Basic", "--filter-method", "TimeoutNotExceededTest", "--filter-tag", "MtpValidation"],
         ("JARIBU_FILTER_TAG", "EdgeCases"));
       string cliText = Normalize(cliWins.Combined);
-      cliWins.ExitCode.ShouldBe(0, cliText);
-      cliText.ShouldContain("PassingTest");
-      cliText.ShouldNotContain("NullReferenceExceptionTest");
+      SummaryCount(cliText, "total").ShouldBe(1);
+      SummaryCount(cliText, "succeeded").ShouldBe(1);
+      SummaryCount(cliText, "failed").ShouldBe(0);
+      SummaryCount(cliText, "skipped").ShouldBe(0);
+      cliText.ShouldNotContain("No matching tag");
+
+      CommandOutput cliSkipsOtherClass = await RunValidationAsync(
+        ["--", "--filter-class", "EdgeCase", "--filter-tag", "MtpValidation"],
+        ("JARIBU_FILTER_TAG", "EdgeCases"));
+      string skippedClassText = Normalize(cliSkipsOtherClass.Combined);
+      skippedClassText.ShouldContain("skipped NullReferenceExceptionTest");
+      skippedClassText.ShouldContain("No matching tag 'MtpValidation'");
+      skippedClassText.ShouldNotContain("failed NullReferenceExceptionTest");
+
+      CommandOutput blank = await RunValidationAsync(
+        ["--", "--filter-class", "Basic", "--filter-method", "TimeoutNotExceededTest"],
+        ("JARIBU_FILTER_TAG", "   "));
+      string blankText = Normalize(blank.Combined);
+      SummaryCount(blankText, "total").ShouldBe(1);
+      SummaryCount(blankText, "succeeded").ShouldBe(1);
+      SummaryCount(blankText, "skipped").ShouldBe(0);
+      blankText.ShouldNotContain("No matching tag");
     }
 
     public static async Task InputRows_Should_ListAndRunTheSameNodes()

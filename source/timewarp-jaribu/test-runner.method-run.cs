@@ -9,7 +9,8 @@ using System.Reflection;
 #region Design
 // Setup and CleanUp are the methods resolved once for the class. This file
 // does not resolve them again. SetupOnce still runs lazily on the first row
-// that actually executes.
+// that actually executes. Tag misses and [Skip] both go through
+// TestFilter.SkippedNode, one method-level node, before that hook.
 #endregion
 
 public static partial class TestRunner
@@ -35,60 +36,17 @@ public static partial class TestRunner
       return results;
     }
 
-    // Check for method tag filter if specified
-    if (filterTag is not null)
+    if (TestFilter.TagSkipReason(testClass, method, filterTag) is string tagReason)
     {
-      TestTagAttribute[] methodTags = method.GetCustomAttributes<TestTagAttribute>().ToArray();
-      if (methodTags.Length > 0 && !methodTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
-      {
-        // Method has tags but none match - report as skipped (one method-level node).
-        ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-        if (casePredicate is not null && !casePredicate(skipCase))
-        {
-          return results;
-        }
-
-        TestNodeInfo skipNode = new(
-          skipCase.Uid,
-          skipCase.DisplayName,
-          TestNodeState.Skipped,
-          TimeSpan.Zero,
-          Exception: null,
-          Message: $"No matching tag '{filterTag}'",
-          Parameters: null,
-          Method: method
-        );
-        await sink.OnTestStartedAsync(skipNode);
-        await sink.OnTestCompletedAsync(skipNode);
-        results.Add(skipNode);
-        return results;
-      }
+      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
+      return await ReportSkippedAsync(skipCase, tagReason, casePredicate, sink);
     }
 
-    // Check for [Skip] attribute
     SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
     if (skipAttr is not null)
     {
       ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-      if (casePredicate is not null && !casePredicate(skipCase))
-      {
-        return results;
-      }
-
-      TestNodeInfo skipNode = new(
-        skipCase.Uid,
-        skipCase.DisplayName,
-        TestNodeState.Skipped,
-        TimeSpan.Zero,
-        Exception: null,
-        Message: skipAttr.Reason,
-        Parameters: null,
-        Method: method
-      );
-      await sink.OnTestStartedAsync(skipNode);
-      await sink.OnTestCompletedAsync(skipNode);
-      results.Add(skipNode);
-      return results;
+      return await ReportSkippedAsync(skipCase, skipAttr.Reason, casePredicate, sink);
     }
 
     List<ReportedTestCase> cases = SelectCases(
@@ -152,5 +110,25 @@ public static partial class TestRunner
     }
 
     return results;
+  }
+
+  /// <summary>
+  /// Publishes one Skipped node unless <paramref name="casePredicate"/> rejects it.
+  /// </summary>
+  private static async Task<List<TestNodeInfo>> ReportSkippedAsync(
+    ReportedTestCase skipCase,
+    string? message,
+    Func<ReportedTestCase, bool>? casePredicate,
+    ITestResultSink sink)
+  {
+    if (casePredicate is not null && !casePredicate(skipCase))
+    {
+      return [];
+    }
+
+    TestNodeInfo skipNode = TestFilter.SkippedNode(skipCase, message);
+    await sink.OnTestStartedAsync(skipNode);
+    await sink.OnTestCompletedAsync(skipNode);
+    return [skipNode];
   }
 }

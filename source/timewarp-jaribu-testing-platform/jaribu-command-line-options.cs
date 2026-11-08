@@ -58,7 +58,7 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
     [
       new CommandLineOption(
         FilterTagOption,
-        "Run only tests with the given Jaribu TestTag (case-insensitive). CLI wins over JARIBU_FILTER_TAG.",
+        "Run tests with this Jaribu TestTag (case-insensitive). A class or method whose tags exist and none match is Skipped. CLI wins over JARIBU_FILTER_TAG. A blank variable is ignored.",
         ArgumentArity.ExactlyOne,
         isHidden: false),
       new CommandLineOption(
