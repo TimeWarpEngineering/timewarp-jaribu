@@ -117,7 +117,7 @@ Pipeline (`dev workflow`):
 2. CI-safe tests via [tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs](tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs), then `dotnet test` on the CI-safe MTP project
 3. On release: pack and push
 
-The compile set is [tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props](tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props). Registered meta-tests pass. Intentional failures stay inside nested fixtures, or in `tests/timewarp-jaribu-mtp-validation/`, which `dev test` does not run.
+The compile set is [tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props](tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props). Registered meta-tests pass. Intentional failures stay inside nested fixtures, or in `tests/timewarp-jaribu-mtp-validation/`. `dev test` runs the same two targets as CI. The validation project is executed by the out-of-process harness in that suite, which compares reported node states to an expected table.
 
 ## Version Management
 

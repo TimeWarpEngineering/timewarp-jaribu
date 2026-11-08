@@ -232,7 +232,8 @@ This allows CI pipelines to run different subsets of tests by configuring separa
 Jaribu uses this pattern for its own test suite:
 
 - `tests/timewarp-jaribu/single-file-tests/` — test files following the dual-mode pattern
-- `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI orchestrator with curated test selection
+- `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI-safe runfile. `./bin/dev test` runs this and the MTP project below
+- `tests/timewarp-jaribu/multi-file-runners/mtp-runner/` — the same CI-safe compile set under `dotnet test`
 
 ---
 
@@ -551,7 +552,7 @@ See the [developer documentation](documentation/) for advanced usage, attributes
 
 1. Clone the repository.
 2. Run `dotnet build`.
-3. Run tests with `./bin/dev test` (CI-safe subset via `tests/timewarp-jaribu/multi-file-runners/ci-runner/`).
+3. Run tests with `./bin/dev test`. That is the CI set: the CI-safe runfile at `tests/timewarp-jaribu/multi-file-runners/ci-runner/`, then `dotnet test` on `tests/timewarp-jaribu/multi-file-runners/mtp-runner/`. The MTP validation project is not a third pass/fail target. The harness inside the CI-safe suite runs it out of process and checks the expected node states.
 
 ## Contributing
 

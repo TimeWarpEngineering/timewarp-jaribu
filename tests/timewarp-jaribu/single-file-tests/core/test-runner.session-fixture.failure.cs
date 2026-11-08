@@ -1,5 +1,6 @@
 #region Purpose
-// Session-fixture create and dispose failures, including session-of-one masking.
+// Session-fixture create and dispose failures, including session-of-one masking
+// and concurrent begin/end.
 #endregion
 
 namespace TestRunner_;
@@ -259,6 +260,109 @@ public partial class SessionFixture_Given_
       await EndLeftoverSessionAsync();
       TestRunner.ClearRegisteredSessionFixtures();
       FailingDisposeSessionFixture.Reset();
+    }
+  }
+
+  public static async Task ConcurrentGet_Should_ShareOneInstance()
+  {
+    CountingSessionFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<CountingSessionFixture>();
+    try
+    {
+      TestRunner.BeginTestSession();
+      Task<CountingSessionFixture>[] gets =
+      [
+        SessionFixture.GetAsync<CountingSessionFixture>(),
+        SessionFixture.GetAsync<CountingSessionFixture>(),
+        SessionFixture.GetAsync<CountingSessionFixture>()
+      ];
+      CountingSessionFixture[] fixtures = await Task.WhenAll(gets);
+      fixtures[0].ShouldBeSameAs(fixtures[1]);
+      fixtures[1].ShouldBeSameAs(fixtures[2]);
+      CountingSessionFixture.CreateCount.ShouldBe(1);
+
+      await TestRunner.EndTestSessionAsync();
+      CountingSessionFixture.DisposeCount.ShouldBe(1);
+    }
+    finally
+    {
+      await EndLeftoverSessionAsync();
+      TestRunner.ClearRegisteredSessionFixtures();
+      CountingSessionFixture.Reset();
+    }
+  }
+
+  public static async Task ConcurrentEndDuringCreate_Should_DisposeAndLeaveNoLiveInstance()
+  {
+    BlockedCreateSessionFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<BlockedCreateSessionFixture>();
+    try
+    {
+      TestRunner.BeginTestSession();
+      Task<BlockedCreateSessionFixture> getTask = SessionFixture.GetAsync<BlockedCreateSessionFixture>();
+      await BlockedCreateSessionFixture.CreateStarted.Task;
+
+      Task endTask = TestRunner.EndTestSessionAsync();
+      BlockedCreateSessionFixture.ReleaseCreate.TrySetResult();
+      await endTask;
+      try
+      {
+        BlockedCreateSessionFixture fixture = await getTask;
+        fixture.ShouldNotBeNull();
+      }
+      catch (InvalidOperationException ex)
+      {
+        ex.Message.ShouldContain("ended while");
+      }
+
+      BlockedCreateSessionFixture.DisposeCount.ShouldBe(1);
+      TestRunner.ClearRegisteredSessionFixtures();
+    }
+    finally
+    {
+      BlockedCreateSessionFixture.ReleaseCreate.TrySetResult();
+      await EndLeftoverSessionAsync();
+      TestRunner.ClearRegisteredSessionFixtures();
+      BlockedCreateSessionFixture.Reset();
+    }
+  }
+
+  public static async Task ConcurrentBeginEnd_Should_ReturnNestingToZero()
+  {
+    CountingSessionFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<CountingSessionFixture>();
+    try
+    {
+      await EndLeftoverSessionAsync();
+      Task[] workers = new Task[8];
+      for (int index = 0; index < workers.Length; index++)
+      {
+        workers[index] = Task.Run(async () =>
+        {
+          for (int step = 0; step < 20; step++)
+          {
+            TestRunner.BeginTestSession();
+            await TestRunner.EndTestSessionAsync().ConfigureAwait(false);
+          }
+        });
+      }
+
+      await Task.WhenAll(workers);
+
+      TestRunner.BeginTestSession();
+      _ = await SessionFixture.GetAsync<CountingSessionFixture>();
+      await TestRunner.EndTestSessionAsync();
+      CountingSessionFixture.CreateCount.ShouldBe(1);
+      CountingSessionFixture.DisposeCount.ShouldBe(1);
+    }
+    finally
+    {
+      await EndLeftoverSessionAsync();
+      TestRunner.ClearRegisteredSessionFixtures();
+      CountingSessionFixture.Reset();
     }
   }
 
