@@ -7,11 +7,15 @@
 
 #region Design
 // Each filter is a separate dotnet test of tests/timewarp-jaribu-mtp-validation.
+// The child is captured silently. Assertions still receive that text, and a
+// passing parent log does not repeat the validation project's intentional failures.
 // --output Detailed names every node. A timed-out node is the host line
 // "failed (canceled)", and the summary counts it as failed.
 // --list-tests prints discovered display names and does not run them.
 // A blank JARIBU_FILTER_TAG is set on the child so a developer shell cannot change the table.
 // SDK 10 publishes a dropped signature warning as an extra skipped node. That node is ignored.
+// Each child has a four-minute deadline and is killed when it expires.
+// Each method has a longer [Timeout] so the runner stops waiting if that capture does not return.
 #endregion
 
 #if !JARIBU_MULTI
@@ -28,6 +32,12 @@ namespace Mtp_
   {
     private const string PassingPath =
       "/timewarp-jaribu-mtp-validation/TimeWarp.Jaribu.MtpValidation/BasicTests/PassingTest";
+
+    private const int OneChildTimeoutMilliseconds = 300_000;
+
+    private const int TwoChildTimeoutMilliseconds = 600_000;
+
+    private static readonly TimeSpan ChildDeadline = TimeSpan.FromMinutes(4);
 
     private static readonly ExpectedNode[] BasicNodes =
     [
@@ -67,6 +77,7 @@ namespace Mtp_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<ValidationHarness_Given_>();
 
+    [Timeout(OneChildTimeoutMilliseconds)]
     public static async Task FilterTag_Should_MatchTheExpectedTable()
     {
       CommandOutput output = await RunValidationAsync(detailed: true, "--", "--filter-tag", "EdgeCases");
@@ -74,6 +85,7 @@ namespace Mtp_
       AssertSameNodes(ParseRun(output.Combined), EdgeCasesTagNodes, output.Combined);
     }
 
+    [Timeout(OneChildTimeoutMilliseconds)]
     public static async Task FilterClass_Should_MatchTheExpectedTable()
     {
       CommandOutput output = await RunValidationAsync(detailed: true, "--", "--filter-class", "Basic");
@@ -81,6 +93,7 @@ namespace Mtp_
       AssertSameNodes(ParseRun(output.Combined), BasicNodes, output.Combined);
     }
 
+    [Timeout(OneChildTimeoutMilliseconds)]
     public static async Task FilterMethod_Should_MatchTheExpectedTable()
     {
       ExpectedNode[] expected =
@@ -93,6 +106,7 @@ namespace Mtp_
       AssertSameNodes(ParseRun(output.Combined), expected, output.Combined);
     }
 
+    [Timeout(OneChildTimeoutMilliseconds)]
     public static async Task TreeNodeFilter_Should_MatchTheExpectedTable()
     {
       ExpectedNode[] expected = [new("passed", "PassingTest")];
@@ -101,6 +115,7 @@ namespace Mtp_
       AssertSameNodes(ParseRun(output.Combined), expected, output.Combined);
     }
 
+    [Timeout(TwoChildTimeoutMilliseconds)]
     public static async Task ListTests_Should_MatchTheExpectedTable()
     {
       CommandOutput basic = await RunValidationAsync(detailed: false, "--list-tests", "--", "--filter-class", "Basic");
@@ -199,7 +214,7 @@ namespace Mtp_
       return AnsiEscape().Replace(withoutCarriageReturns, "");
     }
 
-    private static Task<CommandOutput> RunValidationAsync(bool detailed, params string[] arguments)
+    private static async Task<CommandOutput> RunValidationAsync(bool detailed, params string[] arguments)
     {
       string root = FindRepoRoot();
       string project = Path.Combine(
@@ -215,12 +230,23 @@ namespace Mtp_
       }
 
       allArguments.AddRange(arguments);
-      return Shell.Builder("dotnet")
+      CommandOutput output = await Shell.Builder("dotnet")
         .WithArguments([.. allArguments])
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable("JARIBU_FILTER_TAG", "")
         .WithNoValidation()
-        .RunAndCaptureAsync();
+        .WithTimeout(ChildDeadline)
+        .CaptureAsync();
+
+      if (output.ExitCode == CommandResult.TimeoutExitCode)
+      {
+        throw new TimeoutException
+        (
+          $"dotnet test exceeded {ChildDeadline}: {string.Join(' ', arguments)}{Environment.NewLine}{Normalize(output.Combined)}"
+        );
+      }
+
+      return output;
     }
 
     private static string FindRepoRoot()
