@@ -46,3 +46,4 @@ Expect: exit 0. Grand total 165 passed and 0 failed. That total includes `CaseDi
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implementation: 01a1bce9-eb79-79e1-91b5-0280965e4cb7 (2026-11-09). Disambiguated overload uids, stable error uids, invariant quoted arguments, method-only `FormatTestName`, `[Input(null)]`, and metadata `[Input]` order.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bce9-eb79-79e1-91b5-0280965e4cb7, max-turns 500, Done — 2026-11-08T21:24:59Z
