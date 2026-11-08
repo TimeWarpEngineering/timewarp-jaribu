@@ -27,6 +27,14 @@ Acceptance:
 - Under `dotnet test`, each signature warning is written to the MTP output device when that class produced nodes, or when no selection filter is active. `--strict-signatures` and `--allow-empty` reach `RunTestsAsync`. A run of an empty class still fails, and `--allow-empty` drops that error. A uid or tree filter does not fail on an empty class that was not selected.
 - `RunSingleTestAsync` documents that a null class or method throws `ArgumentNullException` before the returned task starts. `RunPreparedTestAsync` does not repeat those checks. The design comment about the input ordinal reads as one sentence.
 
+Round 2 left one gap. Strict mode still emits a near-miss Error for a class that a method predicate or a case predicate did not select. A tree-filtered `dotnet test` with `--strict-signatures` then fails on `SignatureWarningTests.ReturnsTaskOfInt`, which discovery never listed. The non-strict warning for that same unselected class is already hidden.
+
+Acceptance for this pass:
+
+- When `methodPredicate` or `casePredicate` is set and the class produces no nodes, strict mode does not emit near-miss Error nodes. The warning text stays on `TestRunStats.SignatureWarnings`. The run succeeds when nothing else failed. A `methodNameContains` filter still reports those Error nodes.
+- When that predicate selects a real test in the same class, strict mode still emits the near-miss Error nodes.
+- `dotnet test -- --treenode-filter <BasicTests/PassingTest> --strict-signatures` on the validation project exits 0. The summary is one succeeded test, and the output does not mention `ReturnsTaskOfInt`.
+
 ## Checklist
 - [x] Near-miss diagnostics
 - [x] Zero-tests failure
@@ -34,14 +42,17 @@ Acceptance:
 - [x] clearCache removed
 - [x] Class name and registration cleanups
 - [x] Tests
-- [ ] Overloaded near-miss strict mode
-- [ ] MTP warnings and flags
-- [ ] Selection filter skips empty-run nodes
-- [ ] RunSingleTestAsync null-guard cleanup
+- [x] Overloaded near-miss strict mode
+- [x] MTP warnings and flags
+- [x] Selection filter skips empty-run nodes
+- [x] RunSingleTestAsync null-guard cleanup
+- [x] Strict near-miss nodes honor method and case predicates
 
 ## Results
 
-A public static near-miss (`Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, or an open generic `Task`) is a warning on `TestRunStats.SignatureWarnings`. `strictSignatures: true` records each as an Error. Ordinary `void` stays silent. The terminal sink prints each warning.
+A public static near-miss (`Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, or an open generic `Task`) is a warning on `TestRunStats.SignatureWarnings`. `strictSignatures: true` records each as an Error. Ordinary `void` stays silent. The terminal sink prints each warning. Two near-miss methods may share a name. Each strict Error carries that method, and its id includes the near-miss index.
+
+A method predicate or case predicate that selects no nodes omits those strict Error nodes. The warning text stays on `SignatureWarnings`, and the run succeeds when nothing else failed. A `methodNameContains` filter still reports the Error nodes. Under `dotnet test`, a tree filter plus `--strict-signatures` does not fail an unselected class, and the warning for that class stays hidden.
 
 `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are resolved once per class. A bad signature is an Error that names the declaring type, and the body does not run. An empty class with a bad hook is still an Error when `allowEmpty` is set. A case filter that selects nothing stays empty.
 
@@ -51,9 +62,9 @@ A class with no discoverable tests, and `RunAllTests` with nothing registered, f
 
 ### How to validate
 
-Smoke: `./bin/dev test` and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj`
+Smoke: `./bin/dev test`
 
-Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner exits 0 (145 passed on this walk). `ganda repo audit` passes. `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
+Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Given_` 15 and the MTP identity class 8 (`SignatureWarnings_Should_ShowAndHonorMtpFlags` covers the tree filter plus `--strict-signatures`). `ganda repo audit` passes (39 passed, 0 failed). `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
 
 ### Review
 
@@ -70,6 +81,7 @@ Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner
 - The fix-pass product changes were still uncommitted in the claim worktree during round 2, and the round-2 checklist items above are not ticked.
 - Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
 - Next: a fix pass on this id for M5, then re-review in `review/round-3/`.
+- Implement-fix-3 closed M5. A method predicate or case predicate that selects no nodes omits the strict near-miss Error nodes. `methodNameContains` still reports them. The tree-filter plus `--strict-signatures` case is in `SignatureWarnings_Should_ShowAndHonorMtpFlags`.
 
 ## Learnings
 
@@ -83,6 +95,7 @@ Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner
 - Review oracle round 1: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 3, roster general, turn cap 200. 4 findings open (M1 and M2 are bugs). Blocked for a fix pass — 2026-11-08
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session e9826e5e-6929-4bfb-9b9c-afc45a4b1dac, max-turns 200, artifacts general.md, merged.md — 2026-11-08T04:59:16Z
 - Review oracle round 2: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. M1 through M4 are fixed and the new M5 (suggestion) is open. Blocked for a fix pass — 2026-11-08
+- Implement-fix-3: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b99e-50a5-7cc0-915d-f8159718f5f8, GANDA_SESSION 3691322. M5 closed — 2026-11-08
 
 ## Review
 
