@@ -36,6 +36,18 @@ namespace Mtp_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<NodeIdentity_Given_>();
 
+    public static async Task UnhandledError_Should_UseStableUid()
+    {
+      string first = JaribuTestFramework.UnhandledErrorUid(new NotSupportedException("same"));
+      string second = JaribuTestFramework.UnhandledErrorUid(new NotSupportedException("other"));
+      string other = JaribuTestFramework.UnhandledErrorUid(new InvalidOperationException("same"));
+      first.ShouldBe("Jaribu.Error.System.NotSupportedException");
+      second.ShouldBe(first);
+      other.ShouldBe("Jaribu.Error.System.InvalidOperationException");
+      first.Contains('-').ShouldBeFalse();
+      await Task.CompletedTask;
+    }
+
     public static async Task StartedFailure_Should_PublishInProgressAndParameters()
     {
       MethodInfo method = typeof(Probe).GetMethod(nameof(Probe.Sample))!;
@@ -221,12 +233,12 @@ namespace Mtp_
       string listedText = Normalize(listed.Combined);
       listed.ExitCode.ShouldBe(0, listedText);
       DiscoveredCount(listedText).ShouldBe(2);
-      listedText.ShouldContain("FailThenPass(fail)");
-      listedText.ShouldContain("FailThenPass(pass)");
+      listedText.ShouldContain("FailThenPass(\"fail\")");
+      listedText.ShouldContain("FailThenPass(\"pass\")");
 
       CommandOutput ran = await RunValidationAsync("--", "--filter-class", "InputIdentity");
       string ranText = Normalize(ran.Combined);
-      ranText.ShouldContain("failed FailThenPass(fail)");
+      ranText.ShouldContain("failed FailThenPass(\"fail\")");
       SummaryCount(ranText, "total").ShouldBe(2);
       SummaryCount(ranText, "failed").ShouldBe(1);
       SummaryCount(ranText, "succeeded").ShouldBe(1);
@@ -252,8 +264,8 @@ namespace Mtp_
       string bothRowsText = Normalize(bothRows.Combined);
       bothRows.ExitCode.ShouldBe(0, bothRowsText);
       DiscoveredCount(bothRowsText).ShouldBe(2);
-      bothRowsText.ShouldContain("FailThenPass(fail)");
-      bothRowsText.ShouldContain("FailThenPass(pass)");
+      bothRowsText.ShouldContain("FailThenPass(\"fail\")");
+      bothRowsText.ShouldContain("FailThenPass(\"pass\")");
       bothRowsText.ShouldNotContain("PassingTest");
 
       CommandOutput tagged = await RunValidationAsync(
@@ -277,8 +289,8 @@ namespace Mtp_
       string oneRowText = Normalize(oneRow.Combined);
       oneRow.ExitCode.ShouldBe(0, oneRowText);
       DiscoveredCount(oneRowText).ShouldBe(1);
-      oneRowText.ShouldContain("FailThenPass(fail)");
-      oneRowText.ShouldNotContain("FailThenPass(pass)");
+      oneRowText.ShouldContain("FailThenPass(\"fail\")");
+      oneRowText.ShouldNotContain("FailThenPass(\"pass\")");
 
       CommandOutput none = await RunValidationAsync(
         "--list-tests",

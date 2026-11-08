@@ -44,6 +44,9 @@ using Microsoft.Testing.Platform.Services;
 // DotnetTestPassthroughOutputDevice, and
 // IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
 // An unresolved IPushOnlyProtocol counts as a host that drops the warning.
+// An exception that escapes the request publishes one Error node, then rethrows.
+// That node's uid is Jaribu.Error.{ExceptionType.FullName}. One request publishes
+// at most one such node, so the exception type is enough to keep the uid stable.
 // When the host drops it, and strict mode did not already publish an Error,
 // the same text is published as a skipped node. That is the line the SDK 10
 // reporter prints. A host that forwards the warning does not get the node.
@@ -347,6 +350,14 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
     return supported?.GetValue(protocol) is not true;
   }
 
+  internal static string UnhandledErrorUid(Exception exception)
+  {
+    ArgumentNullException.ThrowIfNull(exception);
+    Type type = exception.GetType();
+    string typeName = type.FullName ?? type.Name;
+    return $"Jaribu.Error.{typeName}";
+  }
+
   private async Task ReportUnhandledExceptionAsync(ExecuteRequestContext context, Exception ex)
   {
     await context.MessageBus.PublishAsync
@@ -357,7 +368,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
         sessionUid: context.Request.Session.SessionUid,
         testNode: new TestNode
         {
-          Uid = new TestNodeUid($"Jaribu.Error.{Guid.NewGuid()}"),
+          Uid = new TestNodeUid(UnhandledErrorUid(ex)),
           DisplayName = $"Unhandled: {ex.GetType().Name}",
           Properties = new PropertyBag(new ErrorTestNodeStateProperty(ex))
         }

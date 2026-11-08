@@ -97,7 +97,7 @@ public static partial class TestRunner
     parameters ??= [];
 
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
-    string displayName = TestCaseIdentity.FormatDisplayName(method.Name, parameters);
+    string displayName = TestCaseIdentity.FormatReportedName(testClass, method, parameters);
 
     Stopwatch stopwatch = Stopwatch.StartNew();
 
@@ -344,7 +344,7 @@ public static partial class TestRunner
   {
     parameters ??= [];
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
-    string displayName = TestCaseIdentity.FormatDisplayName(method.Name, parameters);
+    string displayName = TestCaseIdentity.FormatReportedName(testClass, method, parameters);
     IReadOnlyList<object?>? reportedParameters = parameters.Length > 0 ? parameters.ToList() : null;
     if (cancellationToken.IsCancellationRequested)
     {
