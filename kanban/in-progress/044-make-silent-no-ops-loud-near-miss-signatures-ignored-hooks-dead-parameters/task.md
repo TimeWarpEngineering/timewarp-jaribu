@@ -108,3 +108,5 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Round 1: Blocked — open M1, M2, M3, M4
 - Round 2: Blocked — open M5
 - Round 3: Done
+
+- CI red on PR #40 (run 42452007606), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-08: `SignatureWarnings_Should_ShowAndHonorMtpFlags` in `tests/timewarp-jaribu/single-file-tests/mtp/mtp-node-identity.cs` fails with `ShouldAssertException ... should contain (case insensitive) "Near-miss" but did not`. On CI the MTP validation run it launches prints "Test run summary: Passed! total: 1 succeeded: 1" and no signature warning line. Locally it passed. Suspects: the warning is written through a terminal path that MTP suppresses or redirects when stdout is not a TTY (GitHub runner), the warning goes to stderr while the test captures stdout only, or the near-miss fixture is filtered out by the invocation used on CI. Reproduce with output redirected to a file (`dotnet test ... > out.txt 2>&1`) or under `CI=true`, make the warning reach a stream the test captures (or assert via node properties / exit code instead of console text), then confirm on CI.
