@@ -19,6 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.runner-guards.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-node-identity.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/testing-platform-props.transitive-consumer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/release-gate.decisions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.discovery.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.skip-exceptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.parameterized.cs" />
