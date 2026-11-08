@@ -12,51 +12,70 @@ public static partial class TestRunner
   /// <summary>
   /// Runs all public static async Task methods in the specified test class.
   /// Uses TerminalSink internally for backward compatibility.
+  /// The .NET runfile cache is left untouched.
   /// </summary>
   /// <typeparam name="T">The test class containing test methods.</typeparam>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
   /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="strictSignatures">
+  /// When true, each near-miss test signature fails the run. The default warns.
+  /// </param>
+  /// <param name="allowEmpty">
+  /// When true, a class with no discoverable tests succeeds. The default fails that run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed or the token fired.</returns>
+  /// <returns>
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
+  /// </returns>
   public static async Task<int> RunTests<T>(
-    bool? clearCache = null,
     string? filterTag = null,
+    bool strictSignatures = false,
+    bool allowEmpty = false,
     CancellationToken cancellationToken = default) where T : class
   {
-    // clearCache retained for public API compatibility; runfile cache is managed externally.
-    _ = clearCache;
     using TerminalSink sink = new();
-    TestRunStats stats = await RunTestsAsync<T>(sink, filterTag, cancellationToken: cancellationToken);
+    TestRunStats stats = await RunTestsAsync<T>(
+      sink,
+      filterTag,
+      cancellationToken: cancellationToken,
+      strictSignatures: strictSignatures,
+      allowEmpty: allowEmpty);
     return ExitCodeFor(stats, cancellationToken);
   }
 
   /// <summary>
   /// Runs all registered test classes and returns an exit code.
   /// Uses TerminalSink internally for backward compatibility.
+  /// The .NET runfile cache is left untouched.
   /// </summary>
-  /// <param name="clearCache">Whether to clear .NET runfile cache before running tests.</param>
   /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="strictSignatures">
+  /// When true, each near-miss test signature fails the run. The default warns.
+  /// </param>
+  /// <param name="allowEmpty">
+  /// When true, a run with no registered classes or no discoverable tests succeeds.
+  /// The default fails that run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
-  /// <returns>Exit code: 0 if all tests passed, 1 if any tests failed or the token fired.</returns>
+  /// <returns>
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
+  /// </returns>
   public static async Task<int> RunAllTests(
-    bool? clearCache = null,
     string? filterTag = null,
+    bool strictSignatures = false,
+    bool allowEmpty = false,
     CancellationToken cancellationToken = default)
   {
-    // clearCache retained for public API compatibility; runfile cache is managed externally.
-    _ = clearCache;
-
     // Synthetic session so multi-class suites share session fixtures once.
     SessionFixture.BeginSession();
     bool disposeFailed = false;
     int exitCode = 1;
     try
     {
-      exitCode = await RunAllTestsCore(filterTag, cancellationToken);
+      exitCode = await RunAllTestsCore(filterTag, strictSignatures, allowEmpty, cancellationToken);
     }
     finally
     {
@@ -92,16 +111,27 @@ public static partial class TestRunner
   /// <summary>
   /// Runs all registered test classes within the ambient session and returns the exit code.
   /// </summary>
-  private static async Task<int> RunAllTestsCore(string? filterTag, CancellationToken cancellationToken)
+  private static async Task<int> RunAllTestsCore(
+    string? filterTag,
+    bool strictSignatures,
+    bool allowEmpty,
+    CancellationToken cancellationToken)
   {
     // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
     Type[] registeredClasses = [.. RegisteredTestClasses];
     if (registeredClasses.Length == 0)
     {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
-      Terminal.WriteLine("⚠ No test classes registered. Use RegisterTests<T>() to register test classes.");
+      Terminal.WriteLine(
+        "⚠ No test classes registered. Use RegisterTests<T>() to register test classes. " +
+        "An empty run fails unless allowEmpty is true.");
 #pragma warning restore CA1849
-      return cancellationToken.IsCancellationRequested ? 1 : 0;
+      if (allowEmpty && !cancellationToken.IsCancellationRequested)
+      {
+        return 0;
+      }
+
+      return 1;
     }
 
     List<TestRunStats> allStats = [];
@@ -116,6 +146,8 @@ public static partial class TestRunner
       TestRunStats stats = await RunRegisteredClassAsync(
         testClass,
         filterTag,
+        strictSignatures,
+        allowEmpty,
         cancellationToken).ConfigureAwait(false);
       allStats.Add(stats);
     }
@@ -185,6 +217,8 @@ public static partial class TestRunner
   private static async Task<TestRunStats> RunRegisteredClassAsync(
     Type testClass,
     string? filterTag,
+    bool strictSignatures,
+    bool allowEmpty,
     CancellationToken cancellationToken)
   {
     using TerminalSink sink = new();
@@ -192,6 +226,8 @@ public static partial class TestRunner
       testClass,
       sink,
       filterTag,
-      cancellationToken: cancellationToken).ConfigureAwait(false);
+      cancellationToken: cancellationToken,
+      strictSignatures: strictSignatures,
+      allowEmpty: allowEmpty).ConfigureAwait(false);
   }
 }

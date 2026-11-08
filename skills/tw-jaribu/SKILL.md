@@ -60,7 +60,15 @@ public class YourTestClassName
 ## Test Methods
 
 - Must be `public static async Task`
+- `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are near-misses: a warning by default, a failed run when `strictSignatures: true` or MTP `--strict-signatures` is set. `dotnet test` prints the warning. A host that drops output-device warnings reports the same text as a skipped node. Overloaded near-miss names each become an Error in strict mode. A method predicate or case predicate that selects nothing omits those Error nodes. A method-name filter still reports them
+why: task 044 review round 2; CI run 42452007606, SDK 10.0.403 drops the warning line
+- Ordinary `void` helpers are ignored
+- A class with no discoverable tests fails unless `allowEmpty: true` or MTP `--allow-empty` is set. The same flag opts out of the failure when `RunAllTests` has no registered classes. A method, method-predicate, or case filter skips that empty-class node
+why: task 044 review round 1
+- The reported class name drops one trailing `Tests` when the name is longer than that suffix
 - Follow the naming convention below
+
+why: task 044
 
 ## Test Naming Convention
 
@@ -162,7 +170,7 @@ public static async Task CleanUpOnce()
 
 **Rules:**
 
-- Signature must be `public static Task` parameterless — near-misses fail the class as Error (no silent ignore)
+- `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` must be `public static Task` parameterless. The runner resolves each name once per class. A near-miss fails the class as Error and names the declaring type. why: task 044
 - Lazy: all-`[Skip]` or all method-tag-filtered classes never pay the fixture cost
 - `CleanUpOnce` only if `SetupOnce` was invoked; guaranteed via try/finally even when tests fail
 - `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run. Fixture creation from that hook is Error, and a timeout is Timeout
@@ -303,6 +311,8 @@ dotnet run -- --filter-method Login
 | `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG` | Method-level non-match → **Skipped**; a class whose class-level tags exist and none match is **omitted** from discovery and run |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
+| `--strict-signatures` | Flag | Near-miss signatures fail the run. The default warns |
+| `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
 Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method filters are selection (omit). Tag filter keeps Skipped semantics for method-level tags; class-level tag mismatch omits the class.
 

@@ -57,13 +57,14 @@ TestRunner.RunTestsAsync(sink)
 ### Core Components
 
 **TestRunner** ([source/timewarp-jaribu/test-runner.cs](source/timewarp-jaribu/test-runner.cs))
-- Convention-based test discovery: public static Task methods, excluding lifecycle hooks and open generic definitions
+- Convention-based test discovery: public static Task methods, excluding lifecycle hooks and open generic definitions. `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are warnings unless `strictSignatures` is set. `dotnet test` prints those warnings. A host that drops output-device warnings reports the same text as a skipped node. `--strict-signatures` fails the run. Overloaded near-miss names each become an Error. A method predicate or case predicate that selects nothing omits those Error nodes
+- An empty class, and `RunAllTests` with no registered classes, fails unless `allowEmpty` or `--allow-empty` is set. A method, method-predicate, or case filter skips that empty-class node
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
-- Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally
+- Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally. They do not clear the runfile cache
 - Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`
 - Supports parameterized tests via [Input] attributes
-- Invokes Setup/CleanUp methods if present
-- Reports pass/fail counts and exit code (0 = all passed, 1 = any failed)
+- Resolves Setup/CleanUp once per class with the same signature rule as SetupOnce/CleanUpOnce. A near-miss hook fails the class
+- Reports pass/fail counts and exit code (0 = all passed, 1 = any failed, none executed, or cancelled)
 
 **Sinks** ([source/timewarp-jaribu/](source/timewarp-jaribu/))
 - **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal

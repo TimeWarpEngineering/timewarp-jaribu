@@ -4,15 +4,17 @@ using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.CommandLine;
 
 #region Purpose
-// MTP command-line options for Jaribu selection filters:
-// --filter-tag, --filter-class, --filter-method.
+// MTP command-line options for Jaribu selection filters and run policy:
+// --filter-tag, --filter-class, --filter-method, --strict-signatures, --allow-empty.
 #endregion
 
 #region Design
 // Implements ICommandLineOptionsProvider (extends IExtension) wrapping the
-// shared JaribuExtension identity. Options use ArgumentArity.ExactlyOne and
-// are not hidden. ValidateOptionArgumentsAsync rejects empty args.
-// Read at execute time via ServiceProviderExtensions.GetCommandLineOptions.
+// shared JaribuExtension identity. Filter options use ArgumentArity.ExactlyOne.
+// The two policy flags use ArgumentArity.Zero. None are hidden.
+// ValidateOptionArgumentsAsync rejects an empty filter argument and rejects
+// an argument on a flag. Read at execute time via
+// ServiceProviderExtensions.GetCommandLineOptions.
 #endregion
 
 /// <summary>
@@ -28,6 +30,12 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
 
   /// <summary>Option name: substring match on test method name.</summary>
   public const string FilterMethodOption = "filter-method";
+
+  /// <summary>Option name: fail the run on a near-miss test signature.</summary>
+  public const string StrictSignaturesOption = "strict-signatures";
+
+  /// <summary>Option name: allow a class with no discoverable tests.</summary>
+  public const string AllowEmptyOption = "allow-empty";
 
   private readonly IExtension Extension;
 
@@ -62,6 +70,16 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
         FilterMethodOption,
         "Run only test methods whose name contains this substring (ordinal ignore-case).",
         ArgumentArity.ExactlyOne,
+        isHidden: false),
+      new CommandLineOption(
+        StrictSignaturesOption,
+        "Fail the run when a public static method has a near-miss test signature.",
+        ArgumentArity.Zero,
+        isHidden: false),
+      new CommandLineOption(
+        AllowEmptyOption,
+        "Allow a class with no discoverable tests to succeed.",
+        ArgumentArity.Zero,
         isHidden: false)
     ];
   }
@@ -70,6 +88,17 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
   {
     ArgumentNullException.ThrowIfNull(commandOption);
     ArgumentNullException.ThrowIfNull(arguments);
+
+    if (commandOption.Name is StrictSignaturesOption or AllowEmptyOption)
+    {
+      if (arguments.Length == 0)
+      {
+        return ValidationResult.ValidTask;
+      }
+
+      return ValidationResult.InvalidTask(
+        $"Option '--{commandOption.Name}' does not take an argument.");
+    }
 
     if (arguments.Length == 0 || string.IsNullOrWhiteSpace(arguments[0]))
     {

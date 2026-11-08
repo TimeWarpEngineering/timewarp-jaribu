@@ -14,7 +14,8 @@ using System.Reflection;
 // also fired, in which case Cancelled wins. A method TimeoutAttribute limits
 // the body. Exceptions from the body, or from a Setup task, are Failed, sync
 // or async. Reflection failures that prevent Invoke of the body or of Setup
-// are Error. Fixture creation marks are Error, and a fixture create timeout
+// are Error. A bad Setup or CleanUp signature is Error before the body.
+// Fixture creation marks are Error, and a fixture create timeout
 // is Timeout.
 // CleanUp still runs after a body outcome. A CleanUp interrupted by the same
 // token does not rewrite a failing body, and a passing body becomes Cancelled.
@@ -40,7 +41,11 @@ public static partial class TestRunner
   /// Stops waiting for Setup, the body, and CleanUp. Defaults to <see cref="CancellationToken.None"/>.
   /// </param>
   /// <returns>A TestNodeInfo with the test outcome.</returns>
-  public static async Task<TestNodeInfo> RunSingleTestAsync(
+  /// <exception cref="ArgumentNullException">
+  /// <paramref name="testClass"/> or <paramref name="method"/> is null.
+  /// The exception is thrown before the returned task starts.
+  /// </exception>
+  public static Task<TestNodeInfo> RunSingleTestAsync(
     Type testClass,
     MethodInfo method,
     object?[]? parameters = null,
@@ -50,6 +55,43 @@ public static partial class TestRunner
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
+    HookResolveResult setupHook = ResolveHook(testClass, "Setup");
+    HookResolveResult cleanUpHook = ResolveHook(testClass, "CleanUp");
+    Exception? signatureError = setupHook.ValidationError ?? cleanUpHook.ValidationError;
+    if (signatureError is not null)
+    {
+      return Task.FromResult(
+        SignatureFailureNode(
+          testClass,
+          method,
+          parameters,
+          inputOrdinal,
+          signatureError,
+          cancellationToken));
+    }
+
+    return RunPreparedTestAsync(
+      testClass,
+      method,
+      parameters,
+      inputOrdinal,
+      setupHook.Method,
+      cleanUpHook.Method,
+      cancellationToken);
+  }
+
+  /// <summary>
+  /// Runs one test whose Setup and CleanUp were resolved for this class.
+  /// </summary>
+  private static async Task<TestNodeInfo> RunPreparedTestAsync(
+    Type testClass,
+    MethodInfo method,
+    object?[]? parameters,
+    int? inputOrdinal,
+    MethodInfo? setupMethod,
+    MethodInfo? cleanUpMethod,
+    CancellationToken cancellationToken)
+  {
     using CancellationScope scope = new(cancellationToken);
     using HookTimeoutScope hookTimeout = new(testClass);
     parameters ??= [];
@@ -93,7 +135,7 @@ public static partial class TestRunner
     SetupStart setup;
     try
     {
-      setup = StartSetup(testClass);
+      setup = StartSetup(setupMethod);
     }
     catch (Exception ex) when (cancellationToken.IsCancellationRequested)
     {
@@ -214,8 +256,10 @@ public static partial class TestRunner
       throw new InvalidOperationException("Test outcome was not set.");
     }
 
-    CleanupOutcome cleanup = await InvokeCleanupIsolatedAsync(testClass, cancellationToken)
-      .ConfigureAwait(false);
+    CleanupOutcome cleanup = await InvokeCleanupIsolatedAsync(
+      testClass,
+      cleanUpMethod,
+      cancellationToken).ConfigureAwait(false);
     if (cleanup.Cancelled)
     {
       if (outcome.State == TestNodeState.Passed)
@@ -288,6 +332,42 @@ public static partial class TestRunner
       elapsed,
       reported,
       $"{reported.GetType().Name}: {reported.Message}");
+  }
+
+  private static TestNodeInfo SignatureFailureNode(
+    Type testClass,
+    MethodInfo method,
+    object?[]? parameters,
+    int? inputOrdinal,
+    Exception signatureError,
+    CancellationToken cancellationToken)
+  {
+    parameters ??= [];
+    string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
+    string displayName = TestCaseIdentity.FormatDisplayName(method.Name, parameters);
+    IReadOnlyList<object?>? reportedParameters = parameters.Length > 0 ? parameters.ToList() : null;
+    if (cancellationToken.IsCancellationRequested)
+    {
+      return new TestNodeInfo(
+        testNodeUid,
+        displayName,
+        TestNodeState.Cancelled,
+        TimeSpan.Zero,
+        new OperationCanceledException("Cancelled", cancellationToken),
+        "Cancelled",
+        reportedParameters,
+        method);
+    }
+
+    return new TestNodeInfo(
+      testNodeUid,
+      displayName,
+      TestNodeState.Error,
+      TimeSpan.Zero,
+      signatureError,
+      $"{signatureError.GetType().Name}: {signatureError.Message}",
+      reportedParameters,
+      method);
   }
 
   private static TestNodeInfo CancelledNode(

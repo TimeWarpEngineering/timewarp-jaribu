@@ -13,9 +13,12 @@ public static partial class TestRunner
   public static void RegisterTests<T>()
   {
     Type testType = typeof(T);
-    if (!InternalRegisteredTestClasses.Contains(testType))
+    lock (RegistrationGate)
     {
-      InternalRegisteredTestClasses.Add(testType);
+      if (!InternalRegisteredTestClasses.Contains(testType))
+      {
+        InternalRegisteredTestClasses.Add(testType);
+      }
     }
   }
 
@@ -24,7 +27,10 @@ public static partial class TestRunner
   /// </summary>
   public static void ClearRegisteredTests()
   {
-    InternalRegisteredTestClasses.Clear();
+    lock (RegistrationGate)
+    {
+      InternalRegisteredTestClasses.Clear();
+    }
   }
 
   /// <summary>

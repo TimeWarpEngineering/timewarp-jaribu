@@ -279,6 +279,76 @@ namespace Mtp_
       SummaryCount(ranText, "failed").ShouldBe(0);
     }
 
+    public static async Task SignatureWarnings_Should_ShowAndHonorMtpFlags()
+    {
+      CommandOutput warned = await RunValidationAsync("--", "--filter-class", "SignatureWarning");
+      string warnedText = Normalize(warned.Combined);
+      warned.ExitCode.ShouldBe(0, warnedText);
+      warnedText.ShouldContain("Near-miss");
+      warnedText.ShouldContain("ReturnsTaskOfInt");
+      // One Near-miss sentence names ReturnsTaskOfInt. A forwarding host prints the
+      // warning, and a host that drops it prints the skipped message. Printing both
+      // means HostDropsOutputDeviceWarnings misread ProxyOutputDevice.OriginalOutputDevice,
+      // DotnetTestPassthroughOutputDevice, or IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
+      int nearMissSentences = Regex.Count
+      (
+        warnedText,
+        "Near-miss test '[^']*ReturnsTaskOfInt'"
+      );
+      nearMissSentences.ShouldBe(1, warnedText);
+      SummaryCount(warnedText, "skipped").ShouldBeLessThanOrEqualTo(1);
+      SummaryCount(warnedText, "succeeded").ShouldBe(1);
+      SummaryCount(warnedText, "failed").ShouldBe(0);
+
+      CommandOutput strict = await RunValidationAsync(
+        "--",
+        "--filter-class",
+        "SignatureWarning",
+        "--strict-signatures");
+      string strictText = Normalize(strict.Combined);
+      strict.ExitCode.ShouldNotBe(0, strictText);
+      strictText.ShouldContain("ReturnsTaskOfInt");
+      SummaryCount(strictText, "failed").ShouldBeGreaterThan(0);
+      SummaryCount(strictText, "skipped").ShouldBe(0);
+
+      CommandOutput empty = await RunValidationAsync("--", "--filter-class", "AllowEmptyProbe");
+      string emptyText = Normalize(empty.Combined);
+      empty.ExitCode.ShouldNotBe(0, emptyText);
+      emptyText.ShouldContain("No tests executed");
+
+      CommandOutput allowed = await RunValidationAsync(
+        "--",
+        "--filter-class",
+        "AllowEmptyProbe",
+        "--allow-empty");
+      string allowedText = Normalize(allowed.Combined);
+      allowedText.ShouldNotContain("No tests executed");
+      allowed.ExitCode.ShouldNotBe(2, allowedText);
+
+      const string PassingPath =
+        "/timewarp-jaribu-mtp-validation/TimeWarp.Jaribu.MtpValidation/BasicTests/PassingTest";
+      CommandOutput selected = await RunValidationAsync("--", "--treenode-filter", PassingPath);
+      string selectedText = Normalize(selected.Combined);
+      selected.ExitCode.ShouldBe(0, selectedText);
+      selectedText.ShouldNotContain("No tests executed");
+      selectedText.ShouldNotContain("AllowEmptyProbe");
+      selectedText.ShouldNotContain("ReturnsTaskOfInt");
+      SummaryCount(selectedText, "total").ShouldBe(1);
+
+      CommandOutput strictSelected = await RunValidationAsync(
+        "--",
+        "--treenode-filter",
+        PassingPath,
+        "--strict-signatures");
+      string strictSelectedText = Normalize(strictSelected.Combined);
+      strictSelected.ExitCode.ShouldBe(0, strictSelectedText);
+      strictSelectedText.ShouldNotContain("ReturnsTaskOfInt");
+      strictSelectedText.ShouldNotContain("No tests executed");
+      SummaryCount(strictSelectedText, "total").ShouldBe(1);
+      SummaryCount(strictSelectedText, "failed").ShouldBe(0);
+      SummaryCount(strictSelectedText, "succeeded").ShouldBe(1);
+    }
+
     private static string Normalize(string output)
     {
       string withoutCarriageReturns = output.Replace("\r", "", StringComparison.Ordinal);

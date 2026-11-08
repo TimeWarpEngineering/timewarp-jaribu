@@ -13,6 +13,7 @@
        #:include, and listing them there duplicates the Compile item. This project ignores #:include. -->
   <ItemGroup>
     <Compile Include="../../single-file-tests/core/test-runner.cancellation.fixtures.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.silent-no-ops.filters.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.timeout-policy.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.setup-once.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.setup-once.inheritance.cs" />

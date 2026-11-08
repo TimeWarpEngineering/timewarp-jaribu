@@ -29,9 +29,10 @@ namespace TimeWarp.Jaribu;
 //   Each row is its own node. TestCaseIdentity assigns {FullName}.{Method}[ordinal]
 //   from metadata order. Discovery (DiscoverTestCases) and the run path share that
 //   list. [Skip] and method-level tag misses stay one method-level node.
-//   A bad once-hook signature fails that same reported list, so it does not expand
-//   a skipped or tag-mismatched method. Direct RunSingleTestAsync calls pass the
-//   same ordinal so the completed node id matches the in-progress node.
+//   A bad Setup, CleanUp, SetupOnce, or CleanUpOnce signature fails that same
+//   reported list, so it does not expand a skipped or tag-mismatched method.
+//   The message names the type that declares the method. Direct RunSingleTestAsync
+//   calls pass the same ordinal so the completed node id matches the in-progress node.
 //
 // Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
 //   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
@@ -66,9 +67,20 @@ namespace TimeWarp.Jaribu;
 // When the class run already threw, the dispose exception is logged and swallowed
 // so it cannot replace the in-flight exception.
 //
-// DiscoverTests skips open generic method definitions.
+// DiscoverTests skips open generic method definitions. Those methods, and
+// public static methods that return Task<T>, ValueTask, ValueTask<T>, or
+// async void, are near-miss tests: a warning by default, an Error when
+// strictSignatures is set. Each strict near-miss node keeps the method that
+// was found, and its id includes the near-miss index. A method predicate or
+// case predicate that selects no nodes omits those Error nodes. A method-name
+// filter still reports them. A class with no discoverable tests fails unless
+// allowEmpty is set. A tag or method filter that selects nothing does not. A
+// method predicate or case predicate skips the empty-class NoTests and
+// HookSignature nodes, and those nodes do not bind a user method of the same
+// name.
+// RegisteredTestClasses returns a copy under RegistrationGate.
 // RunAllTestsCore and JaribuTestFramework.ExecuteRequestAsync each enumerate
-// a snapshot of RegisteredTestClasses.
+// that snapshot.
 // FailedCount includes Failed, Error, Timeout, and Cancelled.
 //
 // Cancellation:
@@ -98,7 +110,23 @@ public static partial class TestRunner
   private static readonly List<Type> InternalRegisteredTestClasses = [];
 
   /// <summary>
-  /// Gets the collection of registered test class types.
+  /// Guards <see cref="InternalRegisteredTestClasses"/>. The public list is a copy.
   /// </summary>
-  public static IReadOnlyList<Type> RegisteredTestClasses => InternalRegisteredTestClasses;
+  private static readonly object RegistrationGate = new();
+
+  /// <summary>
+  /// Gets a snapshot of the registered test class types.
+  /// Later <see cref="RegisterTests{T}"/> or <see cref="ClearRegisteredTests"/> calls
+  /// do not change a list the caller already holds.
+  /// </summary>
+  public static IReadOnlyList<Type> RegisteredTestClasses
+  {
+    get
+    {
+      lock (RegistrationGate)
+      {
+        return [.. InternalRegisteredTestClasses];
+      }
+    }
+  }
 }
