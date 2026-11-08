@@ -46,9 +46,26 @@ Expect:
 
 Observed on 2026-11-08: the decision file passed 4. Both workflow runs completed the CI runner and the MTP runner (158 succeeded). The matching tag packed only those two nupkgs, and a planted `Old.Leftover.1.0.0.nupkg` was gone. The mismatched tag exited 134 with that exception. `dev --capabilities` still lists `check-version`, `clean`, `release`, and `self-install`.
 
+### Review disposition
+
+- Rounds: 1. Roster: general. Effort: 2 (by-diff, 766 lines).
+- Final counts: bug 0. Suggestion 1, wontfix. Nit 2, wontfix. 0 open.
+- Disposition: **accepted-exceptions**.
+  - M1: the workflow reads the check-version result from `Environment.ExitCode` instead of the handler's typed `Outcome`. This is correct today, and the change would be a robustness refactor.
+  - M2: the release banner text is stale.
+  - M3: the tag guard runs after build and test instead of failing fast. It still refuses before pack and push.
+- Review re-verified the decision test (4 of 4 passed) and the dev CLI compile and command list.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implementation: 01a1baa2-2e18-7512-a35f-63f5ced8ca74 (2026-11-08)
 - `ganda repo audit --fix` wrote ignored `.vscode/settings.json` for vscode-window-icon. Audit passed 39, skipped 1, failed 0.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1baa2-2e18-7512-a35f-63f5ced8ca74, max-turns 500, Done — 2026-11-08T10:45:01Z
+- Review oracle: claude-opus-5-5 (Claude Code, headless `ganda task work`), effort 2, roster general, turn cap 120. Round 1 ended with disposition accepted-exceptions — 2026-11-08
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 56ef40a1-075c-4663-a792-974e3abcb0e3, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-08T10:47:58Z
+
+## Review
+
+- Round 1: Done
