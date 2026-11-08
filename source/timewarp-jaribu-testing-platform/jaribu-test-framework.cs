@@ -1,5 +1,6 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
+using System.Globalization;
 using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
 using Microsoft.Testing.Platform.Extensions.OutputDevice;
@@ -30,6 +31,12 @@ using Microsoft.Testing.Platform.Services;
 // not selected does not emit NoTests. The same predicate omits strict
 // near-miss Error nodes when that class produced no selected nodes. The
 // warning display already hides that class.
+// The dotnet test pipe replaces the terminal device. Protocol 1.3.0 and
+// later forward WarningMessageOutputDeviceData. SDK 10.0.403 speaks only
+// 1.0.0 and drops that message, so a passing run would hide the near-miss.
+// When the host drops it, and strict mode did not already publish an Error,
+// the same text is published as a skipped node. That is the line the SDK 10
+// reporter prints. A host that forwards the warning does not get the node.
 #endregion
 
 /// <summary>
@@ -144,6 +151,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       bool strictSignatures = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.StrictSignaturesOption);
       bool allowEmpty = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.AllowEmptyOption);
       IOutputDevice outputDevice = ServiceProvider.GetOutputDevice();
+      bool hostDropsWarnings = HostDropsOutputDeviceWarnings(outputDevice);
 
       // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
       Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
@@ -231,12 +239,25 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
           ).ConfigureAwait(false);
           if (stats.SignatureWarnings.Count > 0 && (!selectionFilter || stats.TotalTests > 0))
           {
-            foreach (string warning in stats.SignatureWarnings)
+            for (int index = 0; index < stats.SignatureWarnings.Count; index++)
             {
+              string warning = stats.SignatureWarnings[index];
               await outputDevice.DisplayAsync(
                 this,
                 new WarningMessageOutputDeviceData(warning),
                 cancellationToken).ConfigureAwait(false);
+
+              // Strict mode already published an Error for this method.
+              if (hostDropsWarnings && !strictSignatures)
+              {
+                string owner = testClass.FullName ?? testClass.Name;
+                string indexText = index.ToString(CultureInfo.InvariantCulture);
+                await sink.OnTestCompletedAsync(new TestNodeInfo(
+                  Uid: $"{owner}#signature-warning-{indexText}",
+                  DisplayName: WarningDisplayName(warning),
+                  State: TestNodeState.Skipped,
+                  Message: warning)).ConfigureAwait(false);
+              }
             }
           }
         }
@@ -291,6 +312,60 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
     string value = args[0];
     return string.IsNullOrWhiteSpace(value) ? null : value;
+  }
+
+  private static string WarningDisplayName(string warning)
+  {
+    const string Prefix = "Near-miss test '";
+    if (!warning.StartsWith(Prefix, StringComparison.Ordinal))
+    {
+      return warning;
+    }
+
+    int end = warning.IndexOf('\'', Prefix.Length);
+    if (end <= Prefix.Length)
+    {
+      return warning;
+    }
+
+    string qualified = warning[Prefix.Length..end];
+    int dot = qualified.LastIndexOf('.');
+    return dot >= 0 && dot < qualified.Length - 1
+      ? qualified[(dot + 1)..]
+      : qualified;
+  }
+
+  private bool HostDropsOutputDeviceWarnings(IOutputDevice outputDevice)
+  {
+    // GetOutputDevice returns a proxy. The pipe host sits on OriginalOutputDevice.
+    object device = outputDevice;
+    if (string.Equals(device.GetType().Name, "ProxyOutputDevice", StringComparison.Ordinal))
+    {
+      PropertyInfo? original = device.GetType().GetProperty(
+        "OriginalOutputDevice",
+        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+      if (original?.GetValue(device) is object inner)
+      {
+        device = inner;
+      }
+    }
+
+    const string PassthroughName = "DotnetTestPassthroughOutputDevice";
+    if (!string.Equals(device.GetType().Name, PassthroughName, StringComparison.Ordinal))
+    {
+      return false;
+    }
+
+    Type? protocolType = device.GetType().Assembly.GetType(
+      "Microsoft.Testing.Platform.ServerMode.IPushOnlyProtocol");
+    object? protocol = protocolType is null ? null : ServiceProvider.GetService(protocolType);
+    if (protocol is null)
+    {
+      return true;
+    }
+
+    PropertyInfo? supported = protocol.GetType().GetProperty("IsDisplayMessageForwardingSupported");
+    return supported?.GetValue(protocol) is not true;
   }
 
   private async Task ReportUnhandledExceptionAsync(ExecuteRequestContext context, Exception ex)
