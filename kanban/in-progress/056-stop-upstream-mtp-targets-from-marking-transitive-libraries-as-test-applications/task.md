@@ -28,13 +28,15 @@ Origin: task 048 review disposition, follow-up M1 (wontfix on 048, out of its ac
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-08), follow-up from task 048 review
-- Implementation: 01a1bd17-9b27-70a2-9d56-133c28a1728e (2026-11-09). `ganda repo audit` exited 0 with one advisory warning, `vscode-window-icon`, because `.vscode/settings.json` is missing. That file is gitignored, so it stayed out of the commit.
+- Implementation: 01a1bd17-9b27-70a2-9d56-133c28a1728e (2026-11-09). `kebab-path-names` rejects `buildTransitive/`. NuGet requires that directory name, so `[ganda.audit]` sets `kebab-path-names.prune = buildTransitive` (task 056). `vscode-window-icon` remains an advisory warning because `.vscode/settings.json` is missing and gitignored.
 
 ## Results
 
 `TimeWarp.Jaribu.TestingPlatform` ships `build/timewarp.jaribu.testingplatform.props` for a direct package reference and `buildTransitive/timewarp.jaribu.testingplatform.targets` for that project and every project that references it. The direct props still set `OutputType=Exe`, `IsTestProject=true`, and `IsTestingPlatformApplication=true`. They also set `_JaribuTestingPlatformDirectReference`. The transitive targets set `IsTestingPlatformApplication` to false unless that marker is set or `EnableJaribuRunner` is true. An opt-in project that does not reference the adapter directly also gets `GenerateProgramFile=false` and the Jaribu testing-platform builder hook.
 
 A class library that only project-references the test project evaluates `IsTestingPlatformApplication` as false, stays `OutputType=Library`, and does not compile `MicrosoftTestingPlatformEntryPoint.cs`. The direct consumer stays an executable testing platform application and still compiles that entry point. A transitive library with `EnableJaribuRunner=true` evaluates the flag as true and compiles the entry point while remaining a library. The readme documents `EnableJaribuRunner`.
+
+NuGet requires the directory name `buildTransitive`. `[ganda.audit]` sets `kebab-path-names.prune = buildTransitive` so the audit does not rename it.
 
 ### How to validate
 
