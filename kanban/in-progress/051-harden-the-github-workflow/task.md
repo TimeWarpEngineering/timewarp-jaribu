@@ -30,6 +30,7 @@ The CI workflow must prove the library on Ubuntu, Windows, and macOS, and it mus
 - Review oracle: Claude Code (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. Round 1 is clean. 2026-11-09
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 639ef7d0-0a69-4362-8e63-3ed6608f5f1b, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-08T18:44:41Z
 - Installed ganda changed during this walk: was 50245520 bytes 6960d933b0215f2d5776a313661be767146c85b1b1580b012d28042e019026ce; now 50404368 bytes 4cddea1b1ea98bf485ebbf9a8de534c3316dead53097be626514fa4b1b7831a0
+- Fix for PR #43 CI (Windows apphost name, macOS cancellation race, fail-fast false) applied directly by sub-agent fix-051 on 2026-11-09 because `ganda task work --restart` refused to restore the journal after a mid-walk ganda upgrade.
 
 ## Results
 
@@ -51,3 +52,6 @@ The CI workflow must prove the library on Ubuntu, Windows, and macOS, and it mus
 ## Review
 
 - Round 1: Done
+
+- CI red on PR #43 (run 42511774834), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-09: `test (windows-latest)` fails; ubuntu passes; macos shows no conclusion (probably cancelled by matrix fail-fast, confirm and set `fail-fast: false` so every OS reports). Failing test: `ClassLibrary_Should_StayALibrary` in `tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` at the apphost assertions (around lines 111-116). It asserts `File.Exists(Path.Combine(consumerOutput, "adapter-consumer"))` is true and `File.Exists(Path.Combine(libraryOutput, "transitive-library"))` is false; on Windows the apphost is `adapter-consumer.exe`, so the "exists" check is false. Fix: compute the apphost name with `OperatingSystem.IsWindows() ? name + ".exe" : name` (or read `TargetPath`/`UseAppHost` via msbuild -getProperty) for both assertions. Sweep the rest of the suite for other POSIX-only assumptions (path separators, `/usr/bin/dotnet` shebang handling, chmod) since this is the first Windows and macOS run.
+- Same run, `test (macos-latest)` (arm64) also failed. The runfile runner passed 158/158, but the MTP runner failed `Cancellation_Given_.MidRun_Should_ExitNonZero` at `tests/timewarp-jaribu/single-file-tests/core/test-runner.cancellation.cs:68`: `HoldPairFixture.Finished should be 0 but was 1`. A second test body completed before cancellation was observed, so the assertion that no further test finishes is racy on a fast arm64 host under the MTP host. Fix the test to synchronize deterministically (gate the second body on a signal that is only released after cancellation is requested, or assert on the Cancelled node state rather than a finished counter) instead of relying on scheduling order. Confirm green on all three OSes before merge.
