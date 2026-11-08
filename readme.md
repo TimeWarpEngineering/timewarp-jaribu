@@ -540,8 +540,9 @@ public static async Task CleanUpOnce()
 
 - Disposal starts with the newest created fixture. A cancelled end still starts every fixture before it throws.
 - Overlapping lone `RunTestsAsync` calls share one session. Each call holds a lease, so the first call to finish does not dispose under the others. A call inside `BeginTestSession`, `RunAllTests`, or an M.T.P. session does not take a lease; the host ends the session.
-- `EndTestSessionAsync` throws `InvalidOperationException` when no host session is active.
-- `ClearRegisteredSessionFixtures` is a process-wide reset for meta-tests. It drops every registration and sets host depth and run depth to zero. It does not dispose, and it throws when a created instance is still live. A host that began before the clear can end without throwing and without disposing. An `EndTestSessionAsync` with no matching `BeginTestSession` throws, including after a clear.
+- `BeginTestSession` returns the clear epoch for that begin. Pass it to `EndTestSessionAsync(long)`. That end returns without throwing and without disposing when `ClearRegisteredSessionFixtures` has run since the begin.
+- The parameterless `EndTestSessionAsync` throws `InvalidOperationException` when no host session is active, including after a clear.
+- `ClearRegisteredSessionFixtures` is a process-wide reset for meta-tests. It drops every registration and sets host depth and run depth to zero. It does not dispose, and it throws when a created instance is still live.
 - Double-registration of the same `T` fails fast.
 - Unregistered `GetAsync` throws a teaching error (not null).
 - Classes that never call `GetAsync` never create the fixture.

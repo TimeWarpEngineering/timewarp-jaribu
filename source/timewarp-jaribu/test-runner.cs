@@ -38,11 +38,12 @@ namespace TimeWarp.Jaribu;
 //   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
 //   active session. Dispose starts in reverse creation order when host depth and
 //   run leases are both zero.
-//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync
+//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync(epoch)
 //     RunAllTests → begin/end wrap (inner RunTestsAsync does not take a lease)
 //     Lone RunTestsAsync → one run lease when no host session is active.
 //       Overlapping lone runs each take a lease; the last end disposes.
-//   EndTestSessionAsync throws when no host session is active.
+//   EndTestSessionAsync() throws when no host session is active.
+//   EndTestSessionAsync(epoch) returns when Clear has moved past that epoch.
 //   ClearRegisteredSessionFixtures zeroes depth and drops registrations. It does
 //   not dispose, and it throws while an instance is live.
 //   Authors must NOT dispose session fixtures in CleanUpOnce.

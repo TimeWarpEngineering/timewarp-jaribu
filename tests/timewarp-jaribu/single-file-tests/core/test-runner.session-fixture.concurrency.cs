@@ -1,5 +1,5 @@
 #region Purpose
-// Session-fixture dispose order, unbalanced host end, and overlapping begin/end.
+// Session-fixture dispose order, unbalanced host end, captured-epoch end, and overlapping begin/end.
 #endregion
 
 namespace TestRunner_;
@@ -100,6 +100,36 @@ public partial class SessionFixture_Given_
     }
   }
 
+  public static async Task CapturedEpoch_Should_EndQuietlyAfterClear()
+  {
+    HostStressFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<HostStressFixture>();
+    long clearEpoch = TestRunner.BeginTestSession();
+    try
+    {
+      TestRunner.ClearRegisteredSessionFixtures();
+      await TestRunner.EndTestSessionAsync(clearEpoch);
+
+      InvalidOperationException ex = await Should.ThrowAsync<InvalidOperationException>(
+        async () => await TestRunner.EndTestSessionAsync());
+      ex.Message.ShouldContain("no active host session");
+
+      TestRunner.RegisterSessionFixture<HostStressFixture>();
+      TestRunner.BeginTestSession();
+      _ = await SessionFixture.GetAsync<HostStressFixture>();
+      await TestRunner.EndTestSessionAsync();
+      HostStressFixture.CreateCount.ShouldBe(1);
+      HostStressFixture.DisposeCount.ShouldBe(1);
+    }
+    finally
+    {
+      await EndIfHostOpenAsync();
+      TestRunner.ClearRegisteredSessionFixtures();
+      HostStressFixture.Reset();
+    }
+  }
+
   public static async Task ConcurrentBeginEnd_Should_DisposeEachCreatedInstance()
   {
     HostStressFixture.Reset();
@@ -107,12 +137,18 @@ public partial class SessionFixture_Given_
     TestRunner.RegisterSessionFixture<HostStressFixture>();
     try
     {
+      TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
       Task[] workers = new Task[8];
       for (int index = 0; index < workers.Length; index++)
       {
-        workers[index] = HostStressLoopAsync();
+        workers[index] = Task.Run(async () =>
+        {
+          await started.Task.ConfigureAwait(false);
+          await HostStressLoopAsync().ConfigureAwait(false);
+        });
       }
 
+      started.SetResult();
       await Task.WhenAll(workers);
       HostStressFixture.CreateCount.ShouldBe(HostStressFixture.DisposeCount);
       HostStressFixture.CreateCount.ShouldBeGreaterThan(0);
@@ -125,15 +161,53 @@ public partial class SessionFixture_Given_
     }
   }
 
+  public static async Task ConcurrentLoneRuns_Should_NotDisposeUnderALiveRun()
+  {
+    LoneStressFixture.Reset();
+    TestRunner.ClearRegisteredSessionFixtures();
+    TestRunner.RegisterSessionFixture<LoneStressFixture>();
+    try
+    {
+      TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+      Task<TestRunStats>[] runs = new Task<TestRunStats>[8];
+      for (int index = 0; index < runs.Length; index++)
+      {
+        runs[index] = Task.Run(async () =>
+        {
+          await started.Task.ConfigureAwait(false);
+          return await TestRunner.RunTestsAsync<LoneStressRun>(NullSink.Instance).ConfigureAwait(false);
+        });
+      }
+
+      started.SetResult();
+      TestRunStats[] stats = await Task.WhenAll(runs);
+      foreach (TestRunStats stat in stats)
+      {
+        stat.Success.ShouldBeTrue();
+      }
+
+      LoneStressFixture.SawDisposed.ShouldBe(0);
+      LoneStressFixture.CreateCount.ShouldBe(LoneStressFixture.DisposeCount);
+      LoneStressFixture.CreateCount.ShouldBeGreaterThan(0);
+    }
+    finally
+    {
+      TestRunner.ClearRegisteredSessionFixtures();
+      LoneStressFixture.Reset();
+    }
+  }
+
   private static async Task HostStressLoopAsync()
   {
     for (int iteration = 0; iteration < 20; iteration++)
     {
+      await Task.Yield();
       TestRunner.BeginTestSession();
       try
       {
         HostStressFixture fixture = await SessionFixture.GetAsync<HostStressFixture>();
         fixture.ShouldNotBeNull();
+        await Task.Yield();
       }
       finally
       {
@@ -301,6 +375,49 @@ public sealed class HostStressFixture : IAsyncDisposable
   {
     Interlocked.Increment(ref DisposeCount);
     return ValueTask.CompletedTask;
+  }
+}
+
+public sealed class LoneStressFixture : IAsyncDisposable
+{
+  public static int CreateCount;
+  public static int DisposeCount;
+  public static int SawDisposed;
+  private volatile bool DisposedFlag;
+
+  public bool Disposed => DisposedFlag;
+
+  public static void Reset()
+  {
+    Interlocked.Exchange(ref CreateCount, 0);
+    Interlocked.Exchange(ref DisposeCount, 0);
+    Interlocked.Exchange(ref SawDisposed, 0);
+  }
+
+  public static Task<LoneStressFixture> CreateAsync()
+  {
+    Interlocked.Increment(ref CreateCount);
+    return Task.FromResult(new LoneStressFixture());
+  }
+
+  public ValueTask DisposeAsync()
+  {
+    DisposedFlag = true;
+    Interlocked.Increment(ref DisposeCount);
+    return ValueTask.CompletedTask;
+  }
+}
+
+public class LoneStressRun
+{
+  public static async Task OnlyTest()
+  {
+    LoneStressFixture fixture = await SessionFixture.GetAsync<LoneStressFixture>();
+    await Task.Yield();
+    if (fixture.Disposed)
+    {
+      Interlocked.Increment(ref LoneStressFixture.SawDisposed);
+    }
   }
 }
 

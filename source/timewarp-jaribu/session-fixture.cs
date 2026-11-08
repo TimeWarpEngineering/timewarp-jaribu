@@ -18,8 +18,9 @@ using System.Runtime.ExceptionServices;
 // Clear() is the process-wide meta-test reset. It drops registrations, zeroes
 // both depths, and bumps the clear epoch and the create generation. It does not
 // dispose, and it throws while an instance is live. A host end that captured
-// the epoch from before Clear returns without throwing. EndTestSessionAsync has
-// no captured epoch and throws when host depth is already zero.
+// the epoch from before Clear returns without throwing. Public hosts pass that
+// epoch to EndTestSessionAsync(long). The parameterless EndTestSessionAsync
+// throws when host depth is already zero.
 //
 // Create is lazy on first GetAsync per type within a session (single-flight via
 // per-type SemaphoreSlim). Classes that never call GetAsync never create.
@@ -47,7 +48,7 @@ using System.Runtime.ExceptionServices;
 // on the entry. A late instance is disposed. A wrong returned instance and an
 // orphan from a session that ended during create are fixture-creation errors.
 //
-// MTP: CreateTestSessionAsync → Begin; CloseTestSessionAsync → End.
+// MTP: CreateTestSessionAsync → Begin (keeps the epoch); Close → End(epoch).
 // Standalone: RunAllTests wraps begin/end; lone RunTestsAsync takes a run lease
 // when no host session is active. Inner runs under a host do not.
 #endregion
@@ -251,8 +252,9 @@ public static partial class SessionFixture
   /// The clear epoch and the create generation both advance, so an in-flight
   /// create cannot join the next session, and a host end that captured the
   /// previous epoch returns without throwing or disposing.
-  /// <see cref="TestRunner.EndTestSessionAsync"/> has no captured epoch and
-  /// throws when host depth is zero, including after this reset.
+  /// <see cref="TestRunner.EndTestSessionAsync(long, CancellationToken)"/> is that
+  /// captured-epoch end. <see cref="TestRunner.EndTestSessionAsync(CancellationToken)"/>
+  /// has no captured epoch and throws when host depth is zero, including after this reset.
   /// </summary>
   /// <exception cref="InvalidOperationException">A created fixture instance is still live.</exception>
   internal static void Clear()
