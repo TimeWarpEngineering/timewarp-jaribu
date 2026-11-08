@@ -29,8 +29,15 @@ public record TestRunStats
   /// <summary>
   /// Whether every counted test passed or was skipped.
   /// A non-zero <see cref="FailedCount"/> makes this false, including Cancelled.
+  /// Signature warnings alone do not.
   /// </summary>
   public bool Success => FailedCount == 0;
+
+  /// <summary>
+  /// Near-miss public static test methods that were not executed.
+  /// Empty when the class has none. <c>strictSignatures</c> also reports each as an Error node.
+  /// </summary>
+  public IReadOnlyList<string> SignatureWarnings { get; init; } = [];
 
   /// <summary>
   /// True when <paramref name="state"/> counts toward <see cref="FailedCount"/>.

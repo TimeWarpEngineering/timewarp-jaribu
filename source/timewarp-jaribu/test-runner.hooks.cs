@@ -14,8 +14,9 @@ using TimeWarp.Terminal;
 // once SetupOnce has been entered. Cancellation is not stored as a hook failure.
 // CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
 // still running. Abandoned hook tasks are observed. Hook waits use the class
-// TimeoutAttribute or DefaultHookTimeout. Setup resolution runs before the
-// wait: a throw from GetMethod or Invoke is an invoke failure, and a fault
+// TimeoutAttribute or DefaultHookTimeout. Setup, CleanUp, SetupOnce, and
+// CleanUpOnce are resolved once per class. A near-miss hook fails the class
+// before any body runs. A throw from Invoke is an invoke failure, and a fault
 // from the Setup task is a body failure. A CleanUpOnce that throws before it
 // returns a task is rethrown here. The class run traces that throw once the
 // caller token has fired, and reports it as a synthetic node otherwise.
@@ -30,46 +31,48 @@ public static partial class TestRunner
   private readonly record struct CleanupOutcome(Exception? Failure, bool Cancelled);
 
   /// <summary>
-  /// A started Setup task. <see cref="Task"/> is null when the type has no conforming Setup.
+  /// A started Setup task. <see cref="Task"/> is null when the type has no Setup.
   /// </summary>
   private readonly record struct SetupStart(Task? Task);
 
   /// <summary>
-  /// Invokes Setup when the type has one public static parameterless Task method.
-  /// A missing or non-Task Setup is ignored. Overloads and other signatures that
-  /// GetMethod or Invoke cannot call throw here, before a Setup task exists.
+  /// Invokes a Setup method already checked by <see cref="ResolveHook"/>.
+  /// Null means the type has no Setup. A throw from the method escapes to the caller.
   /// </summary>
-  private static SetupStart StartSetup(Type testClass)
+  private static SetupStart StartSetup(MethodInfo? setupMethod)
   {
-    MethodInfo? setupMethod = testClass.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static);
-    if (setupMethod is null || setupMethod.ReturnType != typeof(Task))
+    if (setupMethod is null)
     {
       return new SetupStart(null);
     }
 
     if (setupMethod.Invoke(null, null) is not Task task)
     {
-      return new SetupStart(null);
+      throw new InvalidOperationException(
+        $"Method '{setupMethod.DeclaringType?.FullName}.{setupMethod.Name}' did not return Task.");
     }
 
     return new SetupStart(task);
   }
 
   /// <summary>
-  /// Invokes the CleanUp method for a given type if it exists.
-  /// Non-conforming signatures are silently ignored (legacy per-test behavior).
+  /// Invokes a CleanUp method already checked by <see cref="ResolveHook"/>.
+  /// Null means the type has no CleanUp.
   /// </summary>
-  private static async Task<WaitKind> InvokeCleanupForType(Type testClass, CancellationToken cancellationToken)
+  private static async Task<WaitKind> InvokeCleanupForType(
+    Type testClass,
+    MethodInfo? cleanupMethod,
+    CancellationToken cancellationToken)
   {
-    MethodInfo? cleanupMethod = testClass.GetMethod("CleanUp", BindingFlags.Public | BindingFlags.Static);
-    if (cleanupMethod is null || cleanupMethod.ReturnType != typeof(Task))
+    if (cleanupMethod is null)
     {
       return WaitKind.Completed;
     }
 
     if (cleanupMethod.Invoke(null, null) is not Task task)
     {
-      return WaitKind.Completed;
+      throw new InvalidOperationException(
+        $"Method '{cleanupMethod.DeclaringType?.FullName}.{cleanupMethod.Name}' did not return Task.");
     }
 
     return await WaitForCompletionAsync(
@@ -84,11 +87,13 @@ public static partial class TestRunner
   /// </summary>
   private static async Task<CleanupOutcome> InvokeCleanupIsolatedAsync(
     Type testClass,
+    MethodInfo? cleanupMethod,
     CancellationToken cancellationToken)
   {
     try
     {
-      WaitKind kind = await InvokeCleanupForType(testClass, cancellationToken).ConfigureAwait(false);
+      WaitKind kind = await InvokeCleanupForType(testClass, cleanupMethod, cancellationToken)
+        .ConfigureAwait(false);
       if (kind == WaitKind.TimedOut)
       {
         int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
@@ -249,16 +254,16 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Result of resolving a class-scoped once-hook by name.
+  /// Result of resolving a lifecycle hook by name.
   /// Method set and ValidationError null means no hook. ValidationError set means fail-fast.
   /// </summary>
-  private readonly record struct OnceHookResolveResult(MethodInfo? Method, Exception? ValidationError);
+  private readonly record struct HookResolveResult(MethodInfo? Method, Exception? ValidationError);
 
   /// <summary>
-  /// Resolves a class-scoped once hook. Fail-fast on near-miss signatures; never silent-ignore.
-  /// Prefers the most-derived declaring type when base types also define the name.
+  /// Resolves Setup, CleanUp, SetupOnce, or CleanUpOnce.
+  /// Fail-fast on near-miss signatures. Prefers the most-derived declaring type.
   /// </summary>
-  private static OnceHookResolveResult ResolveOnceHook(Type testClass, string name)
+  private static HookResolveResult ResolveHook(Type testClass, string name)
   {
     const BindingFlags Flags =
       BindingFlags.Public |
@@ -283,35 +288,35 @@ public static partial class TestRunner
 
       if (candidates.Count > 1)
       {
-        return new OnceHookResolveResult(
+        return new HookResolveResult(
           Method: null,
           ValidationError: new InvalidOperationException(
             $"Type '{current.FullName}' has multiple methods named '{name}'. " +
-            "Class-scoped hooks must have exactly one method."));
+            "Lifecycle hooks must have exactly one method."));
       }
 
       if (candidates.Count == 1)
       {
         MethodInfo candidate = candidates[0];
-        if (!IsValidOnceHookSignature(candidate))
+        if (!IsValidHookSignature(candidate))
         {
-          return new OnceHookResolveResult(
+          return new HookResolveResult(
             Method: null,
             ValidationError: new InvalidOperationException(
-              $"Type '{testClass.FullName}' method '{name}' must be 'public static Task {name}()' " +
+              $"Type '{current.FullName}' method '{name}' must be 'public static Task {name}()' " +
               "(parameterless, non-generic). Non-conforming signatures fail the class."));
         }
 
-        return new OnceHookResolveResult(Method: candidate, ValidationError: null);
+        return new HookResolveResult(Method: candidate, ValidationError: null);
       }
 
       current = current.BaseType;
     }
 
-    return new OnceHookResolveResult(Method: null, ValidationError: null);
+    return new HookResolveResult(Method: null, ValidationError: null);
   }
 
-  private static bool IsValidOnceHookSignature(MethodInfo method)
+  private static bool IsValidHookSignature(MethodInfo method)
   {
     return method.IsPublic &&
       method.IsStatic &&

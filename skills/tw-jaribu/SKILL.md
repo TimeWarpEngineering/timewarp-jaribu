@@ -60,7 +60,13 @@ public class YourTestClassName
 ## Test Methods
 
 - Must be `public static async Task`
+- `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are near-misses: a warning by default, a failed run when `strictSignatures: true`
+- Ordinary `void` helpers are ignored
+- A class with no discoverable tests fails unless `allowEmpty: true`. The same flag opts out of the failure when `RunAllTests` has no registered classes
+- The reported class name drops one trailing `Tests` when the name is longer than that suffix
 - Follow the naming convention below
+
+why: task 044
 
 ## Test Naming Convention
 
@@ -162,7 +168,7 @@ public static async Task CleanUpOnce()
 
 **Rules:**
 
-- Signature must be `public static Task` parameterless — near-misses fail the class as Error (no silent ignore)
+- `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` must be `public static Task` parameterless. The runner resolves each name once per class. A near-miss fails the class as Error and names the declaring type. why: task 044
 - Lazy: all-`[Skip]` or all method-tag-filtered classes never pay the fixture cost
 - `CleanUpOnce` only if `SetupOnce` was invoked; guaranteed via try/finally even when tests fail
 - `SetupOnce` failure → remaining tests Failed with hook exception; bodies do not run. Fixture creation from that hook is Error, and a timeout is Timeout

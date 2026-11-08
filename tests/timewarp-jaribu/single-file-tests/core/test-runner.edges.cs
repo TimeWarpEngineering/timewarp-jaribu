@@ -66,6 +66,15 @@ namespace TestRunner_
       stats.Success.ShouldBeTrue();
       stats.PassedCount.ShouldBe(1);
       stats.TotalTests.ShouldBe(1);
+      stats.SignatureWarnings.Any(warning =>
+        warning.Contains(nameof(EdgesDiscoveryFixture.ValueTask_Should_NotRunUntilSupported), StringComparison.Ordinal))
+        .ShouldBeTrue();
+      stats.SignatureWarnings.Any(warning =>
+        warning.Contains(nameof(EdgesDiscoveryFixture.OpenMethod_Should_NotBeDiscovered), StringComparison.Ordinal))
+        .ShouldBeTrue();
+      stats.SignatureWarnings.Any(warning =>
+        warning.Contains(nameof(EdgesDiscoveryFixture.NonQualifyingMethod_Should_BeSkipped), StringComparison.Ordinal))
+        .ShouldBeFalse();
     }
 
     public static async Task MismatchedParamCount_Should_FailWithoutRunningBody()
@@ -152,7 +161,9 @@ namespace TestRunner_
       EdgesAmbiguousSetupFixture.BodyRuns.ShouldBe(0);
       TestNodeInfo node = sink.Results.Single();
       node.State.ShouldBe(TestNodeState.Error);
-      node.Exception.ShouldBeOfType<AmbiguousMatchException>();
+      node.Exception.ShouldBeOfType<InvalidOperationException>();
+      node.Exception!.Message.ShouldContain("multiple methods named");
+      node.Exception.Message.ShouldContain(typeof(EdgesAmbiguousSetupFixture).FullName!);
     }
 
     public static async Task ParameterisedSetup_Should_BeError()
@@ -166,7 +177,9 @@ namespace TestRunner_
       EdgesSetupParameterFixture.BodyRuns.ShouldBe(0);
       TestNodeInfo node = sink.Results.Single();
       node.State.ShouldBe(TestNodeState.Error);
-      node.Exception.ShouldBeOfType<TargetParameterCountException>();
+      node.Exception.ShouldBeOfType<InvalidOperationException>();
+      node.Exception!.Message.ShouldContain("public static Task");
+      node.Exception.Message.ShouldContain(typeof(EdgesSetupParameterFixture).FullName!);
     }
 
     public static async Task SetupThrow_Should_StayFailed()
@@ -188,7 +201,7 @@ namespace TestRunner_
       asyncNode.Exception.Message.ShouldBe("setup async");
     }
 
-    public static async Task EmptyClass_Should_SucceedWithoutInvokingCleanUp()
+    public static async Task EmptyClass_Should_FailUnlessAllowEmpty()
     {
       EdgesEmptyFixture.CleanUpCount = 0;
       List<string> names =
@@ -200,12 +213,21 @@ namespace TestRunner_
       EdgesCollectingSink sink = new();
       TestRunStats stats = await TestRunner.RunTestsAsync<EdgesEmptyFixture>(sink);
 
-      stats.Success.ShouldBeTrue();
-      stats.TotalTests.ShouldBe(0);
+      stats.Success.ShouldBeFalse();
+      stats.FailedCount.ShouldBe(1);
       stats.PassedCount.ShouldBe(0);
-      stats.FailedCount.ShouldBe(0);
+      sink.Results.Single().DisplayName.ShouldBe("NoTests");
+      stats.SignatureWarnings.Any(warning =>
+        warning.Contains(nameof(EdgesEmptyFixture.ValueTask_Should_NotRunUntilSupported), StringComparison.Ordinal))
+        .ShouldBeTrue();
       EdgesEmptyFixture.CleanUpCount.ShouldBe(0);
-      sink.Results.ShouldBeEmpty();
+
+      EdgesCollectingSink allowed = new();
+      TestRunStats allowedStats = await TestRunner.RunTestsAsync<EdgesEmptyFixture>(allowed, allowEmpty: true);
+      allowedStats.Success.ShouldBeTrue();
+      allowedStats.TotalTests.ShouldBe(0);
+      allowed.Results.ShouldBeEmpty();
+      EdgesEmptyFixture.CleanUpCount.ShouldBe(0);
     }
   }
 

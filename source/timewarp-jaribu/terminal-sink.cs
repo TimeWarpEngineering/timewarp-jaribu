@@ -176,6 +176,11 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     {
       Terminal.WriteLine($"{"Skipped:".Yellow()} {stats.SkippedCount.ToString(CultureInfo.InvariantCulture)}");
     }
+
+    foreach (string warning in stats.SignatureWarnings)
+    {
+      Terminal.WriteLine($"{"⚠".Yellow()} {warning}");
+    }
 #pragma warning restore CA1849
 
     return Task.CompletedTask;

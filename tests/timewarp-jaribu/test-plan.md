@@ -15,7 +15,7 @@ The test runner supports:
 This plan will guide the creation of test classes under `tests/TimeWarp.Jaribu.Tests/` to self-validate the runner.
 
 ## Scope
-- **In Scope**: Core functionality (discovery, execution, filtering, skipping, parameterization, cache management, reporting). Compatibility with .NET 10.0+ single-file scenarios.
+- **In Scope**: Core functionality (discovery, execution, filtering, skipping, parameterization, reporting). Compatibility with .NET 10.0+ single-file scenarios. The .NET runfile cache is managed outside TestRunner (`dotnet clean`, `ganda runfile cache --clear`).
 - **Out of Scope**: Performance benchmarks (use Benchmarks/ project), security testing, cross-platform specifics beyond Linux/Windows/macOS basics, integration with external test frameworks (e.g., xUnit).
 - **Assumptions**: Tests run in a development environment with .NET SDK installed. Custom attributes (`[Input]`, `[Skip]`, etc.) are defined in the Jaribu project. Reflection-based discovery assumes trusted code.
 
@@ -24,14 +24,14 @@ This plan will guide the creation of test classes under `tests/TimeWarp.Jaribu.T
 - Ensure filtering skips correctly without affecting untagged tests.
 - Validate parameterized tests run multiple times with correct args.
 - Confirm exceptions are caught and reported properly.
-- Test cache clearing doesn't delete current assembly's cache.
+- Cache clearing is not a TestRunner responsibility.
 - Ensure static counters reset per run (or handle accumulation if by design).
 - Check console output matches expected formats.
 - Validate exit codes: 0 for all pass, 1 for any failure.
 
 ## Test Environment
 - **Runtime**: .NET 10.0 (single-file publish mode where applicable).
-- **Platform**: Linux (primary), with notes for Windows/macOS path differences in cache clearing.
+- **Platform**: Linux (primary), with the same runner behavior on Windows and macOS.
 - **Tools**: `dotnet build`, `dotnet run` for invoking `TestRunner.RunTests<T>()`.
 - **Test Framework**: Self-hosted via Jaribu (ironic self-testing); supplement with manual assertions or simple console checks.
 

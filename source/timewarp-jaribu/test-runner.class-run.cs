@@ -19,7 +19,12 @@ using System.Reflection;
 // SetupOnce, CleanUpOnce, and session fixture creation for this run.
 // A SetupOnce body failure is Failed. Fixture creation from that hook is
 // Error, and a fixture or hook timeout is Timeout. A CleanUpOnce timeout
-// is a synthetic Timeout node.
+// is a synthetic Timeout node. Setup and CleanUp use the same signature
+// check as the once-hooks and are resolved once for the class. A class
+// with no discoverable tests fails unless allowEmpty is set. A bad hook
+// on that empty class is still an Error. A case filter that selects
+// nothing does not invent a node. Near-miss tests warn unless
+// strictSignatures is set.
 #endregion
 
 public static partial class TestRunner
@@ -39,6 +44,12 @@ public static partial class TestRunner
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
   /// </param>
+  /// <param name="strictSignatures">
+  /// When true, each near-miss test signature is an Error node. The default stores a warning.
+  /// </param>
+  /// <param name="allowEmpty">
+  /// When true, a class with no discoverable tests succeeds. The default fails that run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
@@ -49,6 +60,8 @@ public static partial class TestRunner
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
     Func<ReportedTestCase, bool>? casePredicate = null,
+    bool strictSignatures = false,
+    bool allowEmpty = false,
     CancellationToken cancellationToken = default) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
@@ -59,6 +72,8 @@ public static partial class TestRunner
       methodNameContains,
       methodPredicate,
       casePredicate,
+      strictSignatures,
+      allowEmpty,
       cancellationToken);
   }
 
@@ -77,6 +92,12 @@ public static partial class TestRunner
   /// <param name="casePredicate">
   /// Optional per-node predicate. A method is omitted when none of its reported cases match.
   /// </param>
+  /// <param name="strictSignatures">
+  /// When true, each near-miss test signature is an Error node. The default stores a warning.
+  /// </param>
+  /// <param name="allowEmpty">
+  /// When true, a class with no discoverable tests succeeds. The default fails that run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
@@ -88,6 +109,8 @@ public static partial class TestRunner
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
     Func<ReportedTestCase, bool>? casePredicate = null,
+    bool strictSignatures = false,
+    bool allowEmpty = false,
     CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(testClass);
@@ -99,6 +122,8 @@ public static partial class TestRunner
       methodNameContains,
       methodPredicate,
       casePredicate,
+      strictSignatures,
+      allowEmpty,
       cancellationToken);
   }
 
@@ -113,6 +138,8 @@ public static partial class TestRunner
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
     Func<ReportedTestCase, bool>? casePredicate = null,
+    bool strictSignatures = false,
+    bool allowEmpty = false,
     CancellationToken cancellationToken = default)
   {
     using CancellationScope scope = new(cancellationToken);
@@ -156,7 +183,7 @@ public static partial class TestRunner
       // Check environment variable if filterTag not explicitly provided
       filterTag ??= Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
 
-      string className = testClass.Name.Replace("Tests", "", StringComparison.Ordinal);
+      string className = ReportedClassName(testClass);
 
       // Check if test class matches filter tag (if specified)
       if (filterTag is not null)
@@ -185,7 +212,9 @@ public static partial class TestRunner
       // Notify sink that run is starting
       await sink.OnRunStartedAsync(className, filterTag);
 
+      List<NearMiss> nearMisses = DescribeNearMissTests(testClass);
       List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
+      bool classHadTests = testMethods.Count > 0;
 
       // Selection filters: omit methods (no Skipped nodes) before execution.
       if (methodNameContains is not null)
@@ -199,24 +228,50 @@ public static partial class TestRunner
         testMethods = [.. testMethods.Where(methodPredicate)];
       }
 
-      OnceHookResolveResult setupOnceResolve = ResolveOnceHook(testClass, "SetupOnce");
-      OnceHookResolveResult cleanUpOnceResolve = ResolveOnceHook(testClass, "CleanUpOnce");
-      Exception? resolutionError = setupOnceResolve.ValidationError ?? cleanUpOnceResolve.ValidationError;
+      HookResolveResult setupResolve = ResolveHook(testClass, "Setup");
+      HookResolveResult cleanUpResolve = ResolveHook(testClass, "CleanUp");
+      HookResolveResult setupOnceResolve = ResolveHook(testClass, "SetupOnce");
+      HookResolveResult cleanUpOnceResolve = ResolveHook(testClass, "CleanUpOnce");
+      Exception? resolutionError =
+        setupResolve.ValidationError ??
+        cleanUpResolve.ValidationError ??
+        setupOnceResolve.ValidationError ??
+        cleanUpOnceResolve.ValidationError;
 
       if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
       {
-        // Bad once-hook signature: fail the nodes discovery lists, without invoking CleanUpOnce.
+        // Bad hook signature: fail the nodes discovery lists, without invoking hooks.
+        bool reported = false;
         foreach (MethodInfo method in testMethods)
         {
           List<ReportedTestCase> cases = SelectCases(
             TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
             casePredicate);
+          if (cases.Count == 0)
+          {
+            continue;
+          }
+
+          reported = true;
           await ReportCasesFailedDueToHookAsync(
             cases,
             resolutionError,
             TestNodeState.Error,
             sink,
             results);
+        }
+
+        if (!reported && !classHadTests)
+        {
+          // A filter that selects nothing stays empty. An empty class still
+          // reports the bad hook, because there is no test node to carry it.
+          await EmitSyntheticHookFailureAsync(
+            testClass,
+            "HookSignature",
+            resolutionError,
+            sink,
+            results,
+            state: TestNodeState.Error).ConfigureAwait(false);
         }
       }
       else
@@ -243,6 +298,8 @@ public static partial class TestRunner
               filterTag,
               onceState,
               casePredicate,
+              setupResolve.Method,
+              cleanUpResolve.Method,
               cancellationToken);
             results.AddRange(methodResults);
             if (cancellationToken.IsCancellationRequested ||
@@ -286,6 +343,16 @@ public static partial class TestRunner
         }
       }
 
+      await ApplySignatureDiagnosticsAsync(
+        testClass,
+        nearMisses,
+        classHadTests,
+        strictSignatures,
+        allowEmpty,
+        cancellationToken.IsCancellationRequested,
+        sink,
+        results).ConfigureAwait(false);
+
       await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
 
       overallStopwatch.Stop();
@@ -302,7 +369,10 @@ public static partial class TestRunner
         passedCount,
         failedCount,
         skippedCount
-      );
+      )
+      {
+        SignatureWarnings = [.. nearMisses.Select(nearMiss => nearMiss.Message)]
+      };
 
       // Notify sink that run is completed
       await sink.OnRunCompletedAsync(stats, results);
@@ -316,141 +386,5 @@ public static partial class TestRunner
         await EndOwnedSessionWithoutMaskingAsync(cancellationToken).ConfigureAwait(false);
       }
     }
-  }
-
-  /// <summary>
-  /// Runs a single test method with sink notifications.
-  /// Lazy SetupOnce runs after tag-skip and [Skip] short-circuits, before body/[Input].
-  /// </summary>
-  private static async Task<List<TestNodeInfo>> RunTestWithSinkAsync(
-    Type testClass,
-    MethodInfo method,
-    ITestResultSink sink,
-    string? filterTag,
-    ClassOnceState onceState,
-    Func<ReportedTestCase, bool>? casePredicate,
-    CancellationToken cancellationToken)
-  {
-    List<TestNodeInfo> results = [];
-    if (cancellationToken.IsCancellationRequested)
-    {
-      return results;
-    }
-
-    // Check for method tag filter if specified
-    if (filterTag is not null)
-    {
-      TestTagAttribute[] methodTags = method.GetCustomAttributes<TestTagAttribute>().ToArray();
-      if (methodTags.Length > 0 && !methodTags.Any(t => t.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase)))
-      {
-        // Method has tags but none match - report as skipped (one method-level node).
-        ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-        if (casePredicate is not null && !casePredicate(skipCase))
-        {
-          return results;
-        }
-
-        TestNodeInfo skipNode = new(
-          skipCase.Uid,
-          skipCase.DisplayName,
-          TestNodeState.Skipped,
-          TimeSpan.Zero,
-          Exception: null,
-          Message: $"No matching tag '{filterTag}'",
-          Parameters: null,
-          Method: method
-        );
-        await sink.OnTestStartedAsync(skipNode);
-        await sink.OnTestCompletedAsync(skipNode);
-        results.Add(skipNode);
-        return results;
-      }
-    }
-
-    // Check for [Skip] attribute
-    SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
-    if (skipAttr is not null)
-    {
-      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-      if (casePredicate is not null && !casePredicate(skipCase))
-      {
-        return results;
-      }
-
-      TestNodeInfo skipNode = new(
-        skipCase.Uid,
-        skipCase.DisplayName,
-        TestNodeState.Skipped,
-        TimeSpan.Zero,
-        Exception: null,
-        Message: skipAttr.Reason,
-        Parameters: null,
-        Method: method
-      );
-      await sink.OnTestStartedAsync(skipNode);
-      await sink.OnTestCompletedAsync(skipNode);
-      results.Add(skipNode);
-      return results;
-    }
-
-    List<ReportedTestCase> cases = SelectCases(
-      TestCaseIdentity.ExpandInputs(testClass, method),
-      casePredicate);
-    if (cases.Count == 0)
-    {
-      return results;
-    }
-
-    // Lazy class-scoped SetupOnce immediately before first real execution path
-    bool setupCancelled = await EnsureSetupOnceAsync(onceState, cancellationToken).ConfigureAwait(false);
-    if (setupCancelled)
-    {
-      return results;
-    }
-
-    if (onceState.SetupOnceFailure is not null)
-    {
-      TestNodeState state = FailureMark.StateFor(onceState.SetupOnceFailure, TestNodeState.Failed);
-      await ReportCasesFailedDueToHookAsync(
-        cases,
-        onceState.SetupOnceFailure,
-        state,
-        sink,
-        results);
-      return results;
-    }
-
-    foreach (ReportedTestCase testCase in cases)
-    {
-      if (cancellationToken.IsCancellationRequested)
-      {
-        break;
-      }
-
-      TestNodeInfo inProgressNode = new(
-        testCase.Uid,
-        testCase.DisplayName,
-        TestNodeState.InProgress,
-        Parameters: testCase.Parameters,
-        Method: method);
-
-      await sink.OnTestStartedAsync(inProgressNode);
-
-      TestNodeInfo result = await RunSingleTestAsync(
-        testClass,
-        method,
-        testCase.ToParameterArray(),
-        testCase.InputOrdinal,
-        cancellationToken);
-
-      await sink.OnTestCompletedAsync(result);
-      results.Add(result);
-      if (result.State == TestNodeState.Cancelled || cancellationToken.IsCancellationRequested)
-      {
-        break;
-      }
-    }
-
-    return results;
   }
 }

@@ -13,8 +13,8 @@
 // Full test name: TestRunner_.Reporting_Given_.MixedResults_Should_CountPassesAndFailure
 //
 // Fixtures are not registered. Reporting_Given_ asserts stats and CleanUp counts.
-// A class with no qualifying methods reports success and does not invoke CleanUp,
-// because CleanUp runs from each executed test, not from an empty discovery list.
+// A class with no qualifying methods fails unless allowEmpty is set, and does not
+// invoke CleanUp, because CleanUp runs from each executed test.
 // Runner pass/fail counters are per RunTestsAsync call.
 #endregion
 
@@ -102,19 +102,27 @@ namespace TestRunner_
       skipped.Message.ShouldBe("No matching tag 'feature'");
     }
 
-    public static async Task EmptyClass_Should_ReportZeroAndSkipCleanUp()
+    public static async Task EmptyClass_Should_FailUnlessAllowEmpty()
     {
       ReportingEmptyClassFixture.CleanUpCount = 0;
       ReportingCollectingSink sink = new();
       TestRunStats stats = await TestRunner.RunTestsAsync<ReportingEmptyClassFixture>(sink);
 
-      stats.Success.ShouldBeTrue();
-      stats.TotalTests.ShouldBe(0);
+      stats.Success.ShouldBeFalse();
+      stats.FailedCount.ShouldBe(1);
       stats.PassedCount.ShouldBe(0);
-      stats.FailedCount.ShouldBe(0);
       stats.ClassName.ShouldBe(nameof(ReportingEmptyClassFixture));
+      sink.Results.Single().DisplayName.ShouldBe("NoTests");
       ReportingEmptyClassFixture.CleanUpCount.ShouldBe(0);
-      sink.Results.ShouldBeEmpty();
+
+      ReportingCollectingSink allowed = new();
+      TestRunStats allowedStats = await TestRunner.RunTestsAsync<ReportingEmptyClassFixture>(
+        allowed,
+        allowEmpty: true);
+      allowedStats.Success.ShouldBeTrue();
+      allowedStats.TotalTests.ShouldBe(0);
+      allowed.Results.ShouldBeEmpty();
+      ReportingEmptyClassFixture.CleanUpCount.ShouldBe(0);
     }
   }
 
