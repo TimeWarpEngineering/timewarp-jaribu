@@ -82,6 +82,11 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
 - Next: a fix pass on this id for M5, then re-review in `review/round-3/`.
 - Implement-fix-3 closed M5. A method predicate or case predicate that selects no nodes omits the strict near-miss Error nodes. `methodNameContains` still reports them. The tree-filter plus `--strict-signatures` case is in `SignatureWarnings_Should_ShowAndHonorMtpFlags`.
+- Round 3 used effort 2 with the general reviewer and covered the delta since round 2 (`d3ffe95` against `079be23`). It confirmed M5 fixed, re-checked M1 to M4 on the committed tree, and raised nothing new.
+- Final counts: bug 2 fixed, suggestion 2 fixed (M3, M5), nit 1 fixed. Nothing is open or wontfix.
+- **Disposition: clean.** 3 rounds, final open count 0, no escalations.
+- The round-3 reviewer ran `test-runner.silent-no-ops.cs` (15 passed) and `dotnet test -- --filter-class Mtp_` in the MTP runner (8 passed). On the validation project, the round-2 M5 repro (`--treenode-filter .../BasicTests/PassingTest --strict-signatures`) now exits 0 with 1 succeeded. An unfiltered `--strict-signatures` run still fails on `ReturnsTaskOfInt`.
+- Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
 
 ## Learnings
 
@@ -96,8 +101,10 @@ Expect: the CI runner exits 0. This walk passed 149, including `SilentNoOps_Give
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session e9826e5e-6929-4bfb-9b9c-afc45a4b1dac, max-turns 200, artifacts general.md, merged.md — 2026-11-08T04:59:16Z
 - Review oracle round 2: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. M1 through M4 are fixed and the new M5 (suggestion) is open. Blocked for a fix pass — 2026-11-08
 - Implement-fix-3: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b99e-50a5-7cc0-915d-f8159718f5f8, GANDA_SESSION 3691322. M5 closed — 2026-11-08
+- Review oracle round 3: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 2, roster general, turn cap 120. M5 is fixed, there are no new findings, and the disposition is clean. Done — 2026-11-08
 
 ## Review
 
 - Round 1: Blocked — open M1, M2, M3, M4
 - Round 2: Blocked — open M5
+- Round 3: Done
