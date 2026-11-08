@@ -120,6 +120,11 @@ Expect: `./bin/dev test` exits 0. This walk passed 149, including `SilentNoOps_G
 - Paths: `review/round-4/general.md`, `review/round-4/merged.md`, `review/disposition.md`.
 - Next: a fix pass on this id for M6, then re-review in `review/round-5/`.
 - Implement-fix-2 closed the M6 test gap. The default run requires one Near-miss sentence for `ReturnsTaskOfInt` and skipped at most 1. The strict run requires skipped 0. The adapter design region names the three Microsoft.Testing.Platform internals the host check reads.
+- Round 5 used effort 1 with the general reviewer. It covered `4b32f74` against `9c4da2d`, confirmed M6 fixed, re-checked M1 to M5, and raised nothing new.
+- The round-5 reviewer ran the MTP runner with `--filter-class Mtp_`: 8 passed on SDK 11, and 8 passed on SDK 10.0.403 in a `git archive` copy with `global.json` pinned. On SDK 10.0.403 the default `SignatureWarning` run prints the Near-miss sentence once, with skipped 1. The strict run has failed 1 and skipped 0.
+- Final counts: bug 2 fixed (M1, M2), suggestion 3 fixed (M3, M5, M6), and nit 1 fixed (M4). Nothing is open or wontfix.
+- **Disposition: clean.** 5 rounds, final open count 0, no escalations.
+- Paths: `review/review-framework.md`, `review/round-5/general.md`, `review/round-5/merged.md`, `review/disposition.md`.
 
 ## Learnings
 
@@ -140,6 +145,7 @@ Expect: `./bin/dev test` exits 0. This walk passed 149, including `SilentNoOps_G
 - Review oracle round 4: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 3, roster general, turn cap 200. It reviewed the CI fix `16c486e`. M1 to M5 are still fixed, and the new M6 (suggestion) is open. Blocked for a fix pass — 2026-11-08
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 10132568-4b3a-4b2f-9c2a-fea3723c9dab, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-08T06:30:06Z
 - Implement-fix-2: implemented by implementer-grok (grok, vendor xai, model grok-4.7), session 01a1b9d9-9778-7ea3-8d19-c879bbc3e1b3, GANDA_SESSION 3911113. M6's two untested acceptance lines are now assertions. — 2026-11-08
+- Review oracle round 5 (review-2 node): Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 1, roster general, turn cap 80. M6 is fixed, there are no new findings, and the disposition is clean. Done — 2026-11-08
 
 ## Review
 
@@ -149,3 +155,4 @@ Expect: `./bin/dev test` exits 0. This walk passed 149, including `SilentNoOps_G
 
 - CI red on PR #40 (run 42452007606), noted by ce5c4952-6364-4ae8-824b-a0243ec9ccbe 2026-11-08: `SignatureWarnings_Should_ShowAndHonorMtpFlags` in `tests/timewarp-jaribu/single-file-tests/mtp/mtp-node-identity.cs` fails with `ShouldAssertException ... should contain (case insensitive) "Near-miss" but did not`. On CI the MTP validation run it launches prints "Test run summary: Passed! total: 1 succeeded: 1" and no signature warning line. Locally it passed. Suspects: the warning is written through a terminal path that MTP suppresses or redirects when stdout is not a TTY (GitHub runner), the warning goes to stderr while the test captures stdout only, or the near-miss fixture is filtered out by the invocation used on CI. Reproduce with output redirected to a file (`dotnet test ... > out.txt 2>&1`) or under `CI=true`, make the warning reach a stream the test captures (or assert via node properties / exit code instead of console text), then confirm on CI.
 - Round 4: Blocked — open M6
+- Round 5: Done

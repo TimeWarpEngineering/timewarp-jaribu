@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 2327
-- Effort: 3
+- Lines changed: 161
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Scope — task 044
 
@@ -38,6 +38,13 @@
 **Diff scope:** the CI fix for PR #40 (run 42452007606). This is the product part of `16c486e` against the round-3 tree `d3ffe95`. M1 to M5 were re-checked on HEAD `9c4da2d`. Kanban commits are excluded. The walk restarted after the merge gate refused a red CI, so the host's by-diff budget is measured on the whole branch: 2327 lines.
 **Effort:** 3 (by-diff budget), roster general, turn cap 200
 **Session IDs:** review oracle round 4, Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`
+
+## Round 5 scope
+
+**Date:** 2026-11-08
+**Diff scope:** the M6 fix delta: the product part of `4b32f74` against the round-4 base `9c4da2d`. Kanban commits are excluded.
+**Effort:** 1 (by-diff budget, 161 lines), roster general, turn cap 80
+**Session IDs:** review oracle round 5 (review-2 node), Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`
 
 ## Ground rules
 
