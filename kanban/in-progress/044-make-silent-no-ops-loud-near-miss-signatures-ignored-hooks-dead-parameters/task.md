@@ -14,14 +14,18 @@ Findings: CORE-4, CORE-5, CORE-16, TOOL-9 in task 038 report. Adjacent to task 0
 
 A green run must mean the tests the author wrote actually ran. Discovery that keeps only methods returning exactly `Task` hides `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` methods. A class or a batch with nothing to run still exits 0. A mis-signed `Setup` or `CleanUp` is skipped, while the once-hooks already fail the class. `clearCache` is accepted and ignored. The reported class name deletes every `Tests` substring, and `RegisteredTestClasses` hands callers the live list.
 
+Round 1 left four gaps. Strict mode throws when two near-miss methods share a name. The MTP runner drops the warnings and has no way to set the two flags. A filtered run invents an empty-class error for a class the user did not select. `RunSingleTestAsync` throws its null checks before the task starts, and the prepared path repeats them.
+
 Acceptance:
 
-- A public static near-miss test is a warning on `TestRunStats.SignatureWarnings`. `strictSignatures: true` turns each warning into an Error node and fails the run. Ordinary `void` helpers stay silent.
+- A public static near-miss test is a warning on `TestRunStats.SignatureWarnings`. `strictSignatures: true` turns each warning into an Error node and fails the run. Ordinary `void` helpers stay silent. Overloaded near-miss names become one Error node each. The node carries the method that was found, and its id includes the near-miss index. The run does not throw `AmbiguousMatchException`.
 - `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are resolved once per class run. The signature rule is the same for all four: one `public static Task Name()` with no parameters and no type parameters. A near-miss hook fails the class as Error and the message names the declaring type. Bodies do not run.
-- No discoverable tests, and `RunAllTests` with no registered classes, fails unless `allowEmpty: true`. A tag or method filter that selects nothing is not an empty class.
+- No discoverable tests, and `RunAllTests` with no registered classes, fails unless `allowEmpty: true`. A tag or method filter that selects nothing is not an empty class. A method filter, a method predicate, or a case predicate also skips the empty-class `NoTests` node and the empty-class `HookSignature` node. Those nodes do not bind a user method of the same name.
 - `RunTests` and `RunAllTests` do not take `clearCache`. Docs stop saying the runner clears the runfile cache.
 - The reported class name drops only a trailing `Tests`, and only when the name is longer than that suffix.
 - `RegisteredTestClasses` returns a copy. A later register or clear does not change a list the caller already holds.
+- Under `dotnet test`, each signature warning is written to the MTP output device when that class produced nodes, or when no selection filter is active. `--strict-signatures` and `--allow-empty` reach `RunTestsAsync`. A run of an empty class still fails, and `--allow-empty` drops that error. A uid or tree filter does not fail on an empty class that was not selected.
+- `RunSingleTestAsync` documents that a null class or method throws `ArgumentNullException` before the returned task starts. `RunPreparedTestAsync` does not repeat those checks. The design comment about the input ordinal reads as one sentence.
 
 ## Checklist
 - [x] Near-miss diagnostics
@@ -30,6 +34,10 @@ Acceptance:
 - [x] clearCache removed
 - [x] Class name and registration cleanups
 - [x] Tests
+- [ ] Overloaded near-miss strict mode
+- [ ] MTP warnings and flags
+- [ ] Selection filter skips empty-run nodes
+- [ ] RunSingleTestAsync null-guard cleanup
 
 ## Results
 
@@ -47,8 +55,27 @@ Smoke: `./bin/dev test` and `dotnet test tests/timewarp-jaribu/multi-file-runner
 
 Expect: the CI runner exits 0 and `SilentNoOps_Given_` passes 12. The MTP runner exits 0 (145 passed on this walk). `ganda repo audit` passes. `./bin/dev check-version` reports source `1.0.0-beta.16` is one prerelease ahead of published `1.0.0-beta.15`.
 
+### Review
+
+- Round 1 used effort 3 with the general reviewer. Disposition is pending, and there is no `review/disposition.md` yet.
+- Counts are 2 open bugs (M1, M2), 1 open suggestion (M3), 1 open nit (M4), and nothing fixed or wontfix.
+- M1: with `strictSignatures: true`, overloaded near-miss names throw `AmbiguousMatchException`. M2: under MTP, near-miss warnings are dropped and neither `strictSignatures` nor `allowEmpty` can be set. M3: the `NoTests` node ignores selection filters. M4: the null guards in `RunSingleTestAsync` changed and a comment wraps mid-sentence.
+- The reviewer reran `./bin/dev test`: exit 0, 145 passed.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+- Next: a fix pass on this id, then re-review in `review/round-2/`.
+
+## Learnings
+
+- Misread: the task requires that "zero executed tests" fail the run. The restatement narrowed that to "no discoverable tests". A class whose discovered tests are all `[Skip]` still executes nothing and exits 0. The narrowing is defensible, because skip nodes are reported and are deliberate, but the restatement does not say it chose to narrow. why: review round 1, 2026-11-08
+
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
 - Implementation: 3691322 (2026-11-08)
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1b959-6bb5-7ae1-bc05-0093d7aad662, max-turns 500, Done — 2026-11-08T04:53:54Z
+- Review oracle round 1: Claude Opus 5.5 (claude-opus-5-5), headless `ganda task work`, effort 3, roster general, turn cap 200. 4 findings open (M1 and M2 are bugs). Blocked for a fix pass — 2026-11-08
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session e9826e5e-6929-4bfb-9b9c-afc45a4b1dac, max-turns 200, artifacts general.md, merged.md — 2026-11-08T04:59:16Z
+
+## Review
+
+- Round 1: Blocked — open M1, M2, M3, M4
