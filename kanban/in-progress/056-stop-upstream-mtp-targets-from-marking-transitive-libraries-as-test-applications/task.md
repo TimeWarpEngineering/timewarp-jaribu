@@ -11,11 +11,15 @@ Task 048 scoped Jaribu's own packed props to `build/` so the adapter no longer f
 - Extend `tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` to assert the transitive library has `IsTestingPlatformApplication` unset or false.
 - Document the opt-in property in the readme.
 
+## Goal (implementer restatement)
+
+A class library that only references a Jaribu test project must not become a Microsoft Testing Platform application. The adapter package ships `buildTransitive/` targets that set `IsTestingPlatformApplication` to false for that library. A project that package-references `TimeWarp.Jaribu.TestingPlatform` directly keeps the existing test-project behavior (`OutputType=Exe`, `IsTestProject=true`, `IsTestingPlatformApplication=true`). A project that does not reference the adapter directly can opt in with `EnableJaribuRunner=true`, and then the flag is true. The transitive-consumer test checks the library flag. The readme documents `EnableJaribuRunner`.
+
 ## Checklist
 
-- [ ] buildTransitive targets with opt-in gate
-- [ ] Transitive-consumer test asserts the flag
-- [ ] Readme documents the property
+- [x] buildTransitive targets with opt-in gate
+- [x] Transitive-consumer test asserts the flag
+- [x] Readme documents the property
 
 ## Notes
 
@@ -24,3 +28,29 @@ Origin: task 048 review disposition, follow-up M1 (wontfix on 048, out of its ac
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-08), follow-up from task 048 review
+- Implementation: 01a1bd17-9b27-70a2-9d56-133c28a1728e (2026-11-09). `kebab-path-names` rejects `buildTransitive/`. NuGet requires that directory name, so `[ganda.audit]` sets `kebab-path-names.prune = buildTransitive` (task 056). `vscode-window-icon` remains an advisory warning because `.vscode/settings.json` is missing and gitignored.
+
+## Results
+
+`TimeWarp.Jaribu.TestingPlatform` ships `build/timewarp.jaribu.testingplatform.props` for a direct package reference and `buildTransitive/timewarp.jaribu.testingplatform.targets` for that project and every project that references it. The direct props still set `OutputType=Exe`, `IsTestProject=true`, and `IsTestingPlatformApplication=true`. They also set `_JaribuTestingPlatformDirectReference`. The transitive targets set `IsTestingPlatformApplication` to false unless that marker is set or `EnableJaribuRunner` is true. An opt-in project that does not reference the adapter directly also gets `GenerateProgramFile=false` and the Jaribu testing-platform builder hook.
+
+A class library that only project-references the test project evaluates `IsTestingPlatformApplication` as false, stays `OutputType=Library`, and does not compile `MicrosoftTestingPlatformEntryPoint.cs`. The direct consumer stays an executable testing platform application and still compiles that entry point. A transitive library with `EnableJaribuRunner=true` evaluates the flag as true and compiles the entry point while remaining a library. The readme documents `EnableJaribuRunner`.
+
+NuGet requires the directory name `buildTransitive`. `[ganda.audit]` sets `kebab-path-names.prune = buildTransitive` so the audit does not rename it.
+
+### How to validate
+
+Smoke:
+
+```bash
+./bin/dev build
+./bin/dev test
+dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj -c Release
+```
+
+Expect:
+
+- `TransitiveConsumer_Given_.ClassLibrary_Should_StayALibrary` passes. The adapter nupkg contains `build/timewarp.jaribu.testingplatform.props` and `buildTransitive/timewarp.jaribu.testingplatform.targets`, and it does not contain `buildTransitive/timewarp.jaribu.testingplatform.props`. The sandbox library's `OutputType` is `Library`, `IsTestProject` is not `true`, `IsTestingPlatformApplication` is empty or `false`, and `obj/Debug/net10.0/MicrosoftTestingPlatformEntryPoint.cs` is absent. The direct consumer's `OutputType` is `Exe`, `IsTestProject` and `IsTestingPlatformApplication` are `true`, and the entry-point source is present. The opt-in library stays a library, evaluates `IsTestingPlatformApplication` as `true`, and has the entry-point source.
+- `./bin/dev build` succeeds.
+- `./bin/dev test` reports 158 passed.
+- `dotnet test` on the MTP runner reports 158 succeeded.
