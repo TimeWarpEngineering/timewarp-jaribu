@@ -33,6 +33,7 @@ Findings: MTP-3, CORE-9, CORE-10, MTP-13 in task 038 report.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 642c5fb7-4a2c-40ed-83b3-f14eda4f64b1, max-turns 200, artifacts general.md, merged.md — 2026-11-08T08:39:26Z
 - 2026-11-08 fix pass: Removed the core `InternalsVisibleTo` for `timewarp-jaribu-testing-platform`. `ResolveFilterTag` returns the raw `--filter-tag` argument, or null when the option is unset. Core trims that value and reads `JARIBU_FILTER_TAG` only for null. `MtpTreeFilter` compares a uid list with ordinal equality. Deleted `MethodTagMatches`. Deleted `UidMatches` because the adapter was its only caller. CI runner 154/154. MTP Release runner total 154, succeeded 154, failed 0. `ganda repo audit` passed 39 checks with 0 failures.
 - Review oracle round 2 (2026-11-08): general reviewer (Claude Opus 5.5), effort 1, scope fix delta `5c09bbe..71e1344`. M1 and M2 are verified fixed and there are no new findings. The CI runner passed 154 of 154. Disposition is clean. See `review/round-2/merged.md` and `review/disposition.md`.
+- Installed ganda changed during this walk: was 50149104 bytes b51f94e1326b460cf3fb84a243f29aa6c06d50b98efd18e24bf1c72cd568bdae; now 50165856 bytes a9fb3425ddf63e8109666ff31e4e3ab0844b010d9bf42f2cc00c05cd63918409
 
 ## Results
 
