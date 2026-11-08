@@ -38,11 +38,15 @@ Expect: both exit 0. Each grand total is 165 passed and 0 failed. That total inc
 ### Review
 
 - Round 1 (effort 2, roster: general) left 3 findings open: 1 bug, 1 suggestion, 1 nit.
-- Fix pass implemented M1, M2, and M3 on this branch. Round 2 has not run.
+- Fix pass implemented M1, M2, and M3 on this branch (656d71f).
+- Round 2 (effort 2, roster: general) reviewed the fix delta `e208bc8..656d71f`. It verified M1, M2, and M3 as fixed and found nothing new.
+- Final counts: bug 1 fixed, suggestion 1 fixed, nit 1 fixed. 0 open, 0 wontfix.
+- Disposition: **clean** after 2 rounds. No exceptions and no escalations.
+- Round 2 re-ran both gates. `./bin/dev test` exits 0 with 165 passed. The MTP project exits 0 with `passed [+165/x0/?0]` and no session failure.
 - M1: `BeginTestSession` returns the clear epoch. `EndTestSessionAsync(long)` returns quietly when clear has moved past that begin. `JaribuTestFramework` keeps the epoch from create and ends with it.
 - M2: `ConcurrentBeginEnd_Should_DisposeEachCreatedInstance` starts its workers with `Task.Run` and a start gate, and yields inside the loop. `ConcurrentLoneRuns_Should_NotDisposeUnderALiveRun` stresses overlapping lone runs the same way.
 - M3: `why: task 046` is a paragraph after the session-fixture bullets.
-- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md` (the live ledger).
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md` (the final ledger), and `review/disposition.md`.
 
 ## Session
 
@@ -52,7 +56,9 @@ Expect: both exit 0. Each grand total is 165 passed and 0 failed. That total inc
 - Review oracle round 1: reviewer-claude (claude, model claude-opus-5-5, headless), effort 2, roster general, turn cap 120 — 2026-11-09. 3 open findings (M1 bug, M2 suggestion, M3 nit), so a fix pass was requested.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 246109a3-95e5-4171-9e3a-1acde0be871b, max-turns 120, artifacts general.md, merged.md — 2026-11-08T20:13:33Z
 - Fix pass: implement-fix-2 by implementer-grok (grok, vendor xai, model grok-4.7), session 01a1bccb-7a5d-7781-9bba-348e9aaf3996 — 2026-11-09. Public epoch end, MTP close uses it, concurrent workers overlap, skill why-note moved.
+- Review oracle round 2: reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, headless), effort 2, roster general, turn cap 120 — 2026-11-09. Delta `e208bc8..656d71f`. M1, M2, and M3 are fixed with 0 new findings. Disposition clean. Artifacts: round-2/general.md, round-2/merged.md, disposition.md.
 
 ## Review
 
-- Round 1: open M1, M2, M3. The fix pass implemented those three on this branch. Round 2 has not run.
+- Round 1: open M1, M2, M3. The fix pass implemented those three on this branch.
+- Round 2: Done
