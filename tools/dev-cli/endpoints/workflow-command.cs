@@ -4,9 +4,15 @@
 
 #region Design
 // PR/merge: clean -> build -> test
-// Release: clean -> build -> test -> check-version -> pack, then push when an API key is present
+// Release: clean -> build -> test -> tag guard -> NuGet index -> check-version -> pack -> push
 // Test runs ci-runner and the CI-safe MTP project on both pipelines.
-// Release continues to check-version and pack.
+// The release tag must be "v" plus the version `dotnet msbuild -getProperty:Version`
+// evaluates for each packable project. A props string search is not used.
+// A NuGet flat-container index is known only on HTTP 200. Any other status, and a
+// failed request, is unknown and the release stops. On 200, the shared check-version
+// handler decides whether that evaluated version is already published.
+// artifacts/packages is deleted before pack. The push list is the two nupkgs just
+// packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
 // Auto-detects mode from GITHUB_EVENT_NAME environment variable
 // Uses OIDC Trusted Publishing for NuGet authentication
 #endregion
@@ -124,112 +130,194 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       await RunCiRunnerAsync(repoRoot, ct);
       await RunMtpRunnerAsync(repoRoot, ct);
 
-      // Step 4: Check Version
+      // Step 4: Tag, NuGet index, and the shared check-version gate
       Terminal.WriteLine("\nStep 4/5: Check Version");
-      string propsPath = Path.Combine(repoRoot, "source", "Directory.Build.props");
-      string? version = null;
-      if (File.Exists(propsPath))
-      {
-        string content = await File.ReadAllTextAsync(propsPath, ct);
-        int versionStart = content.IndexOf("<Version>");
-        if (versionStart > 0)
-        {
-          versionStart += "<Version>".Length;
-          int versionEnd = content.IndexOf("</Version>", versionStart);
-          if (versionEnd > versionStart)
-          {
-            version = content[versionStart..versionEnd];
-          }
-        }
-      }
+      IReadOnlyList<PackableProject> packableProjects = await PackableProjectService
+        .GetPackableProjectsAsync(repoRoot, ct)
+        .ConfigureAwait(false);
+      ReleaseGate.RequirePackageIds([.. packableProjects.Select(project => project.PackageId)]);
 
-      if (string.IsNullOrEmpty(version))
+      string version = await EvaluateReleaseVersionAsync(repoRoot, packableProjects, ct);
+      string? releaseTag = Environment.GetEnvironmentVariable("GITHUB_REF_NAME");
+      if (!ReleaseGate.TagMatchesVersion(releaseTag, version))
       {
-        throw new InvalidOperationException("Could not determine version from project files");
+        string shownTag = string.IsNullOrWhiteSpace(releaseTag) ? "(not set)" : releaseTag;
+        throw new InvalidOperationException(
+          $"Release tag '{shownTag}' does not match {ReleaseGate.ExpectedTag(version)}.");
       }
 
       Terminal.WriteLine($"Current version: {version}");
-      Terminal.WriteLine("Checking NuGet.org...");
+      Terminal.WriteLine($"Release tag: {ReleaseGate.ExpectedTag(version)}");
+      await EnsureNuGetIndexKnownAsync(packableProjects, ct).ConfigureAwait(false);
 
-      using HttpClient client = new();
-      string packageId = "TimeWarp.Jaribu";
-      string url = $"https://api.nuget.org/v3-flatcontainer/{packageId.ToLowerInvariant()}/{version}/{packageId.ToLowerInvariant()}.nuspec";
-
-      try
+      Environment.ExitCode = 0;
+      CheckVersionCommand.Handler checkVersionHandler = new(
+        Terminal,
+        NuGetVersionService,
+        ConfigService,
+        PackableProjectService);
+      await checkVersionHandler
+        .Handle(new CheckVersionCommand { SourceVersion = version }, ct)
+        .ConfigureAwait(false);
+      if (Environment.ExitCode != 0)
       {
-        Uri uri = new(url);
-        HttpResponseMessage response = await client.GetAsync(uri, ct);
-        if (response.IsSuccessStatusCode)
-        {
-          Terminal.WriteLine($"\n✗ Version {version} already exists on NuGet.org");
-          Terminal.WriteLine("  Cannot publish - version must be incremented");
-          Environment.Exit(1);
-        }
-        else
-        {
-          Terminal.WriteLine($"\n✓ Version {version} is available for publishing");
-        }
-      }
-      catch (HttpRequestException ex)
-      {
-        Terminal.WriteLine($"\n⚠ Could not check NuGet: {ex.Message}");
-        Terminal.WriteLine("  Assuming version is available");
+        throw new InvalidOperationException($"Version {version} is not available to publish.");
       }
 
-      // Step 5: Pack
+      // Step 5: Pack only the projects just cleared into artifacts/packages
       Terminal.WriteLine("\nStep 5/5: Pack");
       string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
-      Directory.CreateDirectory(artifactsDir);
+      ReleaseGate.ClearPackageDirectory(artifactsDir);
 
-      // Pack main package
-      Terminal.WriteLine("  Packing TimeWarp.Jaribu...");
-      exitCode = await DotNet.Pack(Path.Combine(repoRoot, "source", "timewarp-jaribu", "timewarp-jaribu.csproj"))
-        .WithConfiguration("Release")
-        .WithOutput(artifactsDir)
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(ct);
-
-      if (exitCode != 0)
+      foreach (PackableProject project in packableProjects)
       {
-        throw new InvalidOperationException("Pack TimeWarp.Jaribu failed!");
+        Terminal.WriteLine($"  Packing {project.PackageId}...");
+        exitCode = await DotNet.Pack(project.ProjectPath)
+          .WithConfiguration("Release")
+          .WithOutput(artifactsDir)
+          .WithWorkingDirectory(repoRoot)
+          .RunAsync(ct);
+
+        if (exitCode != 0)
+        {
+          throw new InvalidOperationException($"Pack {project.PackageId} failed!");
+        }
       }
 
-      // Pack MTP adapter package
-      Terminal.WriteLine("  Packing TimeWarp.Jaribu.TestingPlatform...");
-      exitCode = await DotNet.Pack(Path.Combine(repoRoot, "source", "timewarp-jaribu-testing-platform", "timewarp-jaribu-testing-platform.csproj"))
-        .WithConfiguration("Release")
-        .WithOutput(artifactsDir)
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(ct);
+      IReadOnlyList<string> freshPackages = ReleaseGate.RequireFreshPackagePaths(
+        artifactsDir,
+        [.. packableProjects.Select(project => project.PackageId)],
+        version);
 
-      if (exitCode != 0)
+      if (!string.IsNullOrEmpty(apiKey))
       {
-        throw new InvalidOperationException("Pack TimeWarp.Jaribu.TestingPlatform failed!");
+        Terminal.WriteLine("\nPushing packages to NuGet...");
+        foreach (string packagePath in freshPackages)
+        {
+          string packageName = Path.GetFileName(packagePath);
+          Terminal.WriteLine($"  Pushing {packageName}...");
+
+          exitCode = await DotNet.NuGet()
+            .Push(packagePath)
+            .WithSource("https://api.nuget.org/v3/index.json")
+            .WithApiKey(apiKey)
+            .WithSkipDuplicate()
+            .RunAsync(ct);
+
+          if (exitCode != 0)
+          {
+            throw new InvalidOperationException($"NuGet push failed: {packageName}");
+          }
+        }
+
+        Terminal.WriteLine("✓ Packages pushed to NuGet.org");
       }
 
       Terminal.WriteLine("\n✓ Release Pipeline completed successfully");
       Terminal.WriteLine($"  Packages created in: {artifactsDir}");
-
-      // Push if api-key provided
-      if (!string.IsNullOrEmpty(apiKey))
+      foreach (string packagePath in freshPackages)
       {
-        Terminal.WriteLine("\nPushing packages to NuGet...");
-        string[] packages = Directory.GetFiles(artifactsDir, "*.nupkg");
-        foreach (string package in packages)
+        Terminal.WriteLine($"  {Path.GetFileName(packagePath)}");
+      }
+    }
+
+    private static async Task<string> EvaluateReleaseVersionAsync
+    (
+      string repoRoot,
+      IReadOnlyList<PackableProject> packableProjects,
+      CancellationToken cancellationToken
+    )
+    {
+      string? version = null;
+      foreach (PackableProject project in packableProjects)
+      {
+        string projectVersion = await EvaluateProjectVersionAsync(repoRoot, project.ProjectPath, cancellationToken)
+          .ConfigureAwait(false);
+        if (version is null)
         {
-          string packageName = Path.GetFileName(package);
-          Terminal.WriteLine($"  Pushing {packageName}...");
-
-          exitCode = await DotNet.NuGet()
-            .Push(package)
-            .WithSource("https://api.nuget.org/v3/index.json")
-            .WithApiKey(apiKey)
-            .RunAsync(ct);
-
-          if (exitCode != 0) throw new InvalidOperationException($"NuGet push failed: {packageName}");
+          version = projectVersion;
+          continue;
         }
 
-        Terminal.WriteLine("✓ Packages pushed to NuGet.org");
+        if (!string.Equals(version, projectVersion, StringComparison.Ordinal))
+        {
+          throw new InvalidOperationException(
+            $"{project.PackageId} evaluates to {projectVersion}, which differs from {version}.");
+        }
+      }
+
+      if (string.IsNullOrWhiteSpace(version))
+      {
+        throw new InvalidOperationException("Could not evaluate <Version> from the packable projects.");
+      }
+
+      return version;
+    }
+
+    private static async Task<string> EvaluateProjectVersionAsync
+    (
+      string repoRoot,
+      string projectPath,
+      CancellationToken cancellationToken
+    )
+    {
+      CommandOutput result = await Shell.Builder("dotnet")
+        .WithArguments("msbuild", projectPath, "-getProperty:Version", "-nologo")
+        .WithWorkingDirectory(repoRoot)
+        .WithNoValidation()
+        .CaptureAsync(cancellationToken)
+        .ConfigureAwait(false);
+
+      if (result.ExitCode != 0)
+      {
+        throw new InvalidOperationException(
+          $"Could not evaluate <Version> for {projectPath}: {result.Stderr}");
+      }
+
+      string version = result.Stdout.Trim();
+      if (string.IsNullOrWhiteSpace(version) || version.Contains('\n') || version.Contains(' '))
+      {
+        throw new InvalidOperationException(
+          $"MSBuild did not return a single <Version> for {projectPath}.");
+      }
+
+      return version;
+    }
+
+    private async Task EnsureNuGetIndexKnownAsync
+    (
+      IReadOnlyList<PackableProject> packableProjects,
+      CancellationToken cancellationToken
+    )
+    {
+      Terminal.WriteLine("Checking NuGet.org...");
+      using HttpClient client = new();
+      foreach (PackableProject project in packableProjects)
+      {
+        Uri url = NuGetVersionService.GetIndexUrl(project.PackageId);
+        HttpResponseMessage response;
+        try
+        {
+          response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+          throw new InvalidOperationException(
+            $"NuGet.org index for {project.PackageId} could not be read ({ex.Message}). Availability is unknown.",
+            ex);
+        }
+
+        using (response)
+        {
+          int statusCode = (int)response.StatusCode;
+          if (!ReleaseGate.IndexStatusIsKnown(statusCode))
+          {
+            throw new InvalidOperationException(
+              $"NuGet.org index for {project.PackageId} returned HTTP {statusCode}. Availability is unknown.");
+          }
+        }
+
+        Terminal.WriteLine($"  {project.PackageId}: index HTTP 200");
       }
     }
 

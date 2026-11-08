@@ -16,7 +16,7 @@
   <ItemGroup>
     <!-- Include command files in compilation -->
     <Compile Include="global-usings.cs" />
-    <Compile Include="endpoints/**/*.cs" Exclude="endpoints/clean-command.cs;endpoints/check-version-command.cs;endpoints/self-install-command.cs" />
+    <Compile Include="endpoints/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
