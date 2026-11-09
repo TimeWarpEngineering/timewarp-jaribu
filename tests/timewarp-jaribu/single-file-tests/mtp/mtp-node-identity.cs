@@ -12,7 +12,8 @@
 // run-tests, mtp-node-identity, and the multi-file project timewarp-jaribu-tests-mtp.
 // Filter and list/run parity go through dotnet test on the validation assembly,
 // because those decisions live behind the MTP host. The validation project is
-// allowed to fail; assertions read its report.
+// allowed to fail; assertions read its captured report. The child output is
+// not written to the parent log.
 #endregion
 
 #if !JARIBU_MULTI
@@ -35,6 +36,18 @@ namespace Mtp_
   {
     [ModuleInitializer]
     internal static void Register() => RegisterTests<NodeIdentity_Given_>();
+
+    public static async Task UnhandledError_Should_UseStableUid()
+    {
+      string first = JaribuTestFramework.UnhandledErrorUid(new NotSupportedException("same"));
+      string second = JaribuTestFramework.UnhandledErrorUid(new NotSupportedException("other"));
+      string other = JaribuTestFramework.UnhandledErrorUid(new InvalidOperationException("same"));
+      first.ShouldBe("Jaribu.Error.System.NotSupportedException");
+      second.ShouldBe(first);
+      other.ShouldBe("Jaribu.Error.System.InvalidOperationException");
+      first.Contains('-').ShouldBeFalse();
+      await Task.CompletedTask;
+    }
 
     public static async Task StartedFailure_Should_PublishInProgressAndParameters()
     {
@@ -221,12 +234,12 @@ namespace Mtp_
       string listedText = Normalize(listed.Combined);
       listed.ExitCode.ShouldBe(0, listedText);
       DiscoveredCount(listedText).ShouldBe(2);
-      listedText.ShouldContain("FailThenPass(fail)");
-      listedText.ShouldContain("FailThenPass(pass)");
+      listedText.ShouldContain("FailThenPass(\"fail\")");
+      listedText.ShouldContain("FailThenPass(\"pass\")");
 
       CommandOutput ran = await RunValidationAsync("--", "--filter-class", "InputIdentity");
       string ranText = Normalize(ran.Combined);
-      ranText.ShouldContain("failed FailThenPass(fail)");
+      ranText.ShouldContain("failed FailThenPass(\"fail\")");
       SummaryCount(ranText, "total").ShouldBe(2);
       SummaryCount(ranText, "failed").ShouldBe(1);
       SummaryCount(ranText, "succeeded").ShouldBe(1);
@@ -252,8 +265,8 @@ namespace Mtp_
       string bothRowsText = Normalize(bothRows.Combined);
       bothRows.ExitCode.ShouldBe(0, bothRowsText);
       DiscoveredCount(bothRowsText).ShouldBe(2);
-      bothRowsText.ShouldContain("FailThenPass(fail)");
-      bothRowsText.ShouldContain("FailThenPass(pass)");
+      bothRowsText.ShouldContain("FailThenPass(\"fail\")");
+      bothRowsText.ShouldContain("FailThenPass(\"pass\")");
       bothRowsText.ShouldNotContain("PassingTest");
 
       CommandOutput tagged = await RunValidationAsync(
@@ -277,8 +290,8 @@ namespace Mtp_
       string oneRowText = Normalize(oneRow.Combined);
       oneRow.ExitCode.ShouldBe(0, oneRowText);
       DiscoveredCount(oneRowText).ShouldBe(1);
-      oneRowText.ShouldContain("FailThenPass(fail)");
-      oneRowText.ShouldNotContain("FailThenPass(pass)");
+      oneRowText.ShouldContain("FailThenPass(\"fail\")");
+      oneRowText.ShouldNotContain("FailThenPass(\"pass\")");
 
       CommandOutput none = await RunValidationAsync(
         "--list-tests",
@@ -419,7 +432,7 @@ namespace Mtp_
         builder = builder.WithEnvironmentVariable(name, value);
       }
 
-      return builder.RunAndCaptureAsync();
+      return builder.CaptureAsync();
     }
 
     private static string FindRepoRoot()

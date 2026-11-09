@@ -91,7 +91,7 @@ public static partial class TestRunner
     try
     {
       // Synthetic session so multi-class suites share session fixtures once.
-      SessionFixture.BeginSession();
+      long clearEpoch = SessionFixture.BeginSession();
       bool disposeFailed = false;
       int exitCode = 1;
       try
@@ -107,7 +107,7 @@ public static partial class TestRunner
       {
         try
         {
-          await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+          await SessionFixture.EndHostSessionAsync(clearEpoch, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

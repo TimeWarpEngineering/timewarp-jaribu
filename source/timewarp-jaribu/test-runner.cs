@@ -27,8 +27,9 @@ namespace TimeWarp.Jaribu;
 //
 // [Input] identity:
 //   Each row is its own node. TestCaseIdentity assigns {FullName}.{Method}[ordinal]
-//   from metadata order. Discovery (DiscoverTestCases) and the run path share that
-//   list. [Skip] and a tag miss (class or method) stay one method-level node.
+//   from metadata-table order. Overloaded discovered methods append the parameter
+//   type list to that stem. Discovery (DiscoverTestCases) and the run path share
+//   that list. [Skip] and a tag miss (class or method) stay one method-level node.
 //   A bad Setup, CleanUp, SetupOnce, or CleanUpOnce signature fails that same
 //   reported list, so it does not expand a skipped or tag-mismatched method.
 //   The message names the type that declares the method. Direct RunSingleTestAsync
@@ -36,10 +37,16 @@ namespace TimeWarp.Jaribu;
 //
 // Session-scoped fixtures (RegisterSessionFixture / SessionFixture.GetAsync):
 //   Explicit registration (ModuleInitializer). Lazy create on first GetAsync within an
-//   active session; disposed when the outermost session ends. Nesting:
-//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync
-//     RunAllTests → begin/end wrap (inner RunTestsAsync does not dispose)
-//     Lone RunTestsAsync → owns session-of-one if none active
+//   active session. Dispose starts in reverse creation order when host depth and
+//   run leases are both zero.
+//     MTP CreateTestSessionAsync → BeginTestSession; Close → EndTestSessionAsync(epoch)
+//     RunAllTests → begin/end wrap (inner RunTestsAsync does not take a lease)
+//     Lone RunTestsAsync → one run lease when no host session is active.
+//       Overlapping lone runs each take a lease; the last end disposes.
+//   EndTestSessionAsync() throws when no host session is active.
+//   EndTestSessionAsync(epoch) returns when Clear has moved past that epoch.
+//   ClearRegisteredSessionFixtures zeroes depth and drops registrations. It does
+//   not dispose, and it throws while an instance is live.
 //   Authors must NOT dispose session fixtures in CleanUpOnce.
 //
 // Outcomes:
@@ -78,8 +85,9 @@ namespace TimeWarp.Jaribu;
 // case predicate that selects no nodes omits those Error nodes. A method-name
 // filter still reports them. A class with no discoverable tests fails unless
 // allowEmpty is set. A method-name or predicate filter that selects nothing does not.
-// A class or method tag miss emits Skipped nodes instead of dropping the class. A
-// method predicate or case predicate skips the empty-class NoTests and
+// A class or method tag miss emits Skipped nodes instead of dropping the class.
+// A method whose Jaribu attribute constructor throws is an Error node on either miss.
+// A method predicate or case predicate skips the empty-class NoTests and
 // HookSignature nodes, and those nodes do not bind a user method of the same
 // name.
 // RegisteredTestClasses returns a copy under RegistrationGate.

@@ -217,9 +217,14 @@ public static async Task CleanUpOnce()
 - Register with `RegisterSessionFixture<T>()` — `T` needs `public static Task<T> CreateAsync()` + `IAsyncDisposable`
 - Resolve with `SessionFixture.GetAsync<T>()` (lazy; unregistered → teaching error)
 - A create failure stays for the session. A create timeout does not: the next class retries under its own hook budget
-- Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / lone RunTestsAsync)
+- Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / last lone RunTestsAsync lease). Disposal starts in reverse creation order
+- Overlapping lone `RunTestsAsync` calls each hold a lease. A call inside a host session does not
+- `BeginTestSession` returns the clear epoch. `EndTestSessionAsync(epoch)` returns without throwing or disposing when `ClearRegisteredSessionFixtures` has run since that begin. The parameterless `EndTestSessionAsync` throws when no host session is active, including after a clear
+- `ClearRegisteredSessionFixtures` drops registrations and zeroes host and run depth. It does not dispose, and it throws while an instance is live
 - Double-register fails fast; never create if no class calls GetAsync
 - Prefer class SetupOnce when the fixture is per-class only
+
+why: task 046
 
 ## Data-Driven Tests
 
@@ -308,14 +313,14 @@ dotnet run -- --filter-method Login
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG`. A blank variable is ignored and a non-blank value is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped |
+| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG`. A blank variable is ignored and a non-blank value is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped. A rejected attribute on that method is an **Error** node, and the run fails |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
 | `--strict-signatures` | Flag | Near-miss signatures fail the run. The default warns |
 | `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
-Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method-name and predicate filters are selection (omit). A tag miss at class or method level emits one Skipped node per method.
-why: task 043
+Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method-name and predicate filters are selection (omit). A tag miss at class or method level emits one Skipped node per method. A rejected attribute on that method is an Error node, and the run fails.
+why: task 043; task 053, a class tag miss does not hide a rejected attribute
 
 ## Sink-Based API
 

@@ -18,7 +18,7 @@ A new reader can follow `readme.md` and get a program that compiles. The depende
 
 `tests/timewarp-jaribu/test-plan.md` describes the suite that exists: `single-file-tests/`, `multi-file-runners/`, and the separate MTP validation project.
 
-Every public member of the shipping libraries has XML documentation. `TestingPlatformBuilderHook`, `JaribuExtension`, and `JaribuCapabilities` have Purpose regions. The hook's unused argument is `args`, not `_`. `NullSink`, `TerminalSink`, and `MtpSink` reject null lifecycle arguments the same way. `SkipAttribute`, `TestTagAttribute`, and `InputAttribute` reject a null reason, tag, or parameter array. Empty and whitespace skip reasons and tags stay valid.
+Every public member of the shipping libraries has XML documentation. `TestingPlatformBuilderHook`, `JaribuExtension`, and `JaribuCapabilities` have Purpose regions. The hook's unused argument is `args`, not `_`. `NullSink`, `TerminalSink`, and `MtpSink` reject null lifecycle arguments the same way. `SkipAttribute` and `TestTagAttribute` reject a null reason or tag. `[Input(null)]` stays one null argument. Empty and whitespace skip reasons and tags stay valid.
 
 The readme's test-file sample compiles, including `[ModuleInitializer]`. A Jaribu attribute constructor that throws `ArgumentException` or `CustomAttributeFormatException` does not abort the process. The runner reports that method as an Error node, the message names the attribute, and the run's exit code is 1. A sibling test in the same class still runs.
 
@@ -77,7 +77,7 @@ The readme sample uses `#!/usr/bin/env -S dotnet --`, calls `TestRunner.Register
 
 `agent.md` links `source/timewarp-jaribu-testing-platform/mtp-sink.cs` and places `<Version>` in `source/Directory.Build.props`. `tests/timewarp-jaribu/test-plan.md` describes `single-file-tests/`, `multi-file-runners/`, and `tests/timewarp-jaribu-mtp-validation/`.
 
-`TestingPlatformBuilderHook.AddExtensions` documents `args` and rejects a null builder or argument array. `JaribuExtension` has a Purpose region and XML docs. `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute` and `TestTagAttribute` reject a null reason or tag. Empty and whitespace stay valid. `InputAttribute` rejects a null parameter array. `[Input(null)]` is that null array.
+`TestingPlatformBuilderHook.AddExtensions` documents `args` and rejects a null builder or argument array. `JaribuExtension` has a Purpose region and XML docs. `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute` and `TestTagAttribute` reject a null reason or tag. Empty and whitespace stay valid. `InputAttribute` keeps master semantics: `[Input(null)]` is one null argument.
 
 A method `[Timeout(0)]` or `[Skip(null)]`, and a class `[Timeout(0)]`, are Error nodes. The message names the attribute. A sibling test in the same class still runs, and `RunTests` returns 1. `[Skip("")]` stays Skipped.
 

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  buildTransitive/timewarp.jaribu.testingplatform.targets
+  Imported for a direct package reference and for every project that references
+  that consumer. Microsoft.Testing.Platform defaults an empty
+  IsTestingPlatformApplication to true. These targets force it false unless the
+  project references the adapter directly or sets EnableJaribuRunner to true.
+  The direct-reference marker is set in build/ props, which NuGet does not
+  import for a transitive consumer. The gate lives in targets so it sees
+  EnableJaribuRunner from the project body.
+-->
+<Project>
+
+  <PropertyGroup Condition="'$(EnableJaribuRunner)' == 'true' AND '$(_JaribuTestingPlatformDirectReference)' != 'true'">
+    <IsTestingPlatformApplication>true</IsTestingPlatformApplication>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(EnableJaribuRunner)' == 'true' AND '$(_JaribuTestingPlatformDirectReference)' != 'true'">
+    <TestingPlatformBuilderHook Include="TimeWarp.Jaribu.TestingPlatform">
+      <DisplayName>TimeWarp.Jaribu</DisplayName>
+      <TypeFullName>TimeWarp.Jaribu.TestingPlatform.TestingPlatformBuilderHook</TypeFullName>
+    </TestingPlatformBuilderHook>
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(EnableJaribuRunner)' != 'true' AND '$(_JaribuTestingPlatformDirectReference)' != 'true'">
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+  </PropertyGroup>
+
+</Project>

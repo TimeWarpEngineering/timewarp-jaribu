@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   build/timewarp.jaribu.testingplatform.props
-  Imported for a direct package reference. Not packed to buildTransitive/.
+  Imported for a direct package reference. NuGet does not import build/ for a
+  transitive consumer. _JaribuTestingPlatformDirectReference tells the
+  buildTransitive targets to leave this project as a testing platform application.
 -->
 <Project>
 
   <PropertyGroup>
+    <_JaribuTestingPlatformDirectReference>true</_JaribuTestingPlatformDirectReference>
+
     <!-- Mark as test project for IDE recognition -->
     <IsTestProject>true</IsTestProject>
     
