@@ -58,7 +58,23 @@ Projects are not in `timewarp-jaribu.slnx`. Pull-request `dev build` / `dev test
 
 Runs are serial. Framework versions are the pins in `Directory.Packages.props`, plus the Jaribu `Version` in `source/Directory.Build.props`. The report header copies them, plus the SDK (`dotnet --version`) and the test runtime (`BENCH runtime`).
 
-Compare a result only with another result from the same SDK band. The workflow installs SDK `10.0.403`. This repo has no `global.json`, so a machine with a newer SDK selects that newer SDK. A local run that should match the committed baseline needs a `global.json` of `{ "sdk": { "version": "10.0.403", "rollForward": "disable" } }` at the repo root for the duration of the run.
+Compare a result only with another result from the same SDK band. The committed baseline and the nightly workflow use SDK `10.0.403`. The tracked root `global.json` sets `test.runner` to `Microsoft.Testing.Platform` and does not pin an SDK, so a machine with a newer SDK selects that newer SDK. Keep `test.runner`. Replacing the file with an SDK-only `global.json` drops MTP mode, and on SDK 10 the `jaribu-mtp`, `tunit`, and `xunit` hosts then fail or measure a different path.
+
+A local run that should match the committed baseline adds an `sdk` block to that existing file for the duration of the run:
+
+```json
+{
+  "sdk": {
+    "version": "10.0.403",
+    "rollForward": "disable"
+  },
+  "test": {
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
+```
+
+`dotnet --version` must print `10.0.403` before `dev benchmark`. Revert `global.json` after the run. The workflow makes the same edit on its checked-out copy and fails when the selected SDK is not `10.0.403`.
 
 ## Run
 
@@ -75,4 +91,4 @@ Output:
 
 ## CI
 
-`.github/workflows/benchmark.yml` runs on `workflow_dispatch` and a nightly schedule. It installs SDK `10.0.403`. It does not run on pull requests. The job uploads the results directory and does not commit.
+`.github/workflows/benchmark.yml` runs on `workflow_dispatch` and a nightly schedule. It installs SDK `10.0.403`, merges an `sdk` block (`version` `10.0.403`, `rollForward` `disable`) into the checked-out `global.json`, and keeps `test.runner`. The job fails when `dotnet --version` is not `10.0.403`. It does not run on pull requests. The job uploads the results directory and does not commit. The checkout edit is not pushed.

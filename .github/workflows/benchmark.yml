@@ -21,9 +21,28 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          # Same 10.0 band as the committed baseline. A floating 10.0.x or a
-          # different major is a different band and is not comparable.
+          # Installs 10.0.403 beside the SDKs already on the runner image.
+          # The next step is what makes the muxer select it.
           dotnet-version: '10.0.403'
+
+      - name: Pin the benchmark SDK
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("global.json")
+          document = json.loads(path.read_text())
+          document["sdk"] = {"version": "10.0.403", "rollForward": "disable"}
+          runner = document.get("test", {}).get("runner")
+          if runner != "Microsoft.Testing.Platform":
+              raise SystemExit(
+                  f"test.runner must stay Microsoft.Testing.Platform, found {runner!r}"
+              )
+          path.write_text(json.dumps(document, indent=2) + "\n")
+          PY
+          version="$(dotnet --version)"
+          echo "Selected SDK: ${version}"
+          test "${version}" = "10.0.403"
 
       - name: Cache NuGet packages
         uses: actions/cache@v6

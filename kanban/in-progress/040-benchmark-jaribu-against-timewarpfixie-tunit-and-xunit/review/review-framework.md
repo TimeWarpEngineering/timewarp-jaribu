@@ -2,7 +2,7 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 3215
+- Lines changed: 830
 - Effort: 3
 - TCB hits: none
 - Roster axes: general
@@ -17,6 +17,8 @@
 **Effort:** 3 (by-diff budget). Roster axes: general.
 **Reviewer roster:** general (review oracle, Claude Opus 5.5, `claude-opus-5-5`)
 **Session IDs:** review oracle under `ganda task work` (headless print mode, no session id exposed to the oracle)
+
+**Round 2 scope:** the fix delta `d210af4..521e37d` (round-1 base through the Release baseline). Same roster and effort.
 
 ## Ground rules
 
