@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Hand-written benchmark sources keep the repo analyzers, BannedApi, and
+         TimeWarp.Build.Tasks. Generated *.g.cs is generated_code in .editorconfig
+         and each file starts with the auto-generated marker, so those files stay
+         out of that pass. Framework source generators (TUnit, xUnit) stay on. -->
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <BenchWorkload Condition="'$(BenchWorkload)' == ''">startup</BenchWorkload>
+  </PropertyGroup>
+</Project>

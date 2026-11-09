@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Assembly name matches the project file. BenchmarkDotNet locates the csproj by that name. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <ProjectReference Include="../../../source/timewarp-jaribu/timewarp-jaribu.csproj" />
+    <!-- Each workload folder carries the same probe. Compile one copy with every workload. -->
+    <Compile Include="../../generated/jaribu/**/*.g.cs" Exclude="../../generated/jaribu/**/bench-probe.g.cs" />
+    <Compile Include="../../generated/jaribu/startup/bench-probe.g.cs" />
+  </ItemGroup>
+</Project>

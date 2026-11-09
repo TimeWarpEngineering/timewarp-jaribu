@@ -11,6 +11,18 @@ root = true
 [_Imports.cs]
 generated_code = true
 
+[*.g.cs]
+generated_code = true
+
+# BannedApiAnalyzers reports RS0030 in generated code. The probe's job is the
+# measured process's real stdout, so Console stays. ITerminal is the dev CLI.
+[**/bench-probe.g.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Fixie discovers a public ITestProject. The type stays public for that scan.
+[benchmarks/fixie/testing-convention.cs]
+dotnet_diagnostic.CA1515.severity = none
+
 [*.csproj]
 generated_code = true
 
@@ -434,8 +446,18 @@ dotnet_diagnostic.IDE1006.severity = none
 csharp_style_prefer_primary_constructors = false
 
 # ganda repo audit configuration
-# TW0007 file-level usings (TimeWarp.SourceGenerators)
+# TW0007 file-level usings (TimeWarp.SourceGenerators). This key stays in [*.cs].
+# A later file section hides it from global-usings-analyzer.
 dotnet_diagnostic.TW0007.filename = global-usings.cs
+
+# BenchmarkDotNet requires public instance methods. The names are the workload ids
+# in the report, so they do not take an Async suffix, and they cannot be static.
+# This section is after [*.cs] so it wins over the repo RCS1046 warning.
+[benchmarks/jaribu/in-process/jaribu-runner-bench.cs]
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.RCS1046.severity = none
+
 [ganda.audit]
 # IDE0005 requires GenerateDocumentationFile; not enabled for this package
 dotnet_diagnostic.IDE0005.severity = none

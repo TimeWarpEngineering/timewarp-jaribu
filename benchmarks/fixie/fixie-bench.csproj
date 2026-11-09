@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>fixie-bench</AssemblyName>
+    <!-- Fixie compiles Fixie.Main.cs into this project. That file awaits without ConfigureAwait. -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fixie" />
+    <PackageReference Include="Fixie.TestAdapter" />
+    <PackageReference Include="TimeWarp.Fixie" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../generated/fixie/$(BenchWorkload)/*.g.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../../source/timewarp-jaribu-testing-platform/build/timewarp.jaribu.testingplatform.props" />
+
+  <PropertyGroup>
+    <AssemblyName>jaribu-mtp-bench</AssemblyName>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
+    <Compile Include="../../generated/jaribu/$(BenchWorkload)/*.g.cs" />
+  </ItemGroup>
+</Project>
