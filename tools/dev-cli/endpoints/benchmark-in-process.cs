@@ -3,8 +3,9 @@
 #endregion
 
 #region Design
-// Statistics.Mean in the full JSON export is nanoseconds. One unfiltered run covers
-// every workload. A subset runs once per workload so the class filter stays a single pattern.
+// Statistics.Mean in the full JSON export is nanoseconds. Every workload in one run
+// passes --filter * because BenchmarkSwitcher otherwise waits for a console selection.
+// A subset runs once per workload so the class filter stays a single pattern.
 // The JSON file is parsed before the next run overwrites it.
 // Artifacts stay under the project so the report is not a repo-root file from another tool.
 // dotnet run forwards --nologo into BenchmarkDotNet, which rejects that option, so this launch passes none.
@@ -61,11 +62,8 @@ internal static class BenchmarkInProcess
       "--artifacts",
       Path.Combine(projectDirectory, "BenchmarkDotNet.Artifacts")
     ];
-    if (filter is not null)
-    {
-      arguments.Add("--filter");
-      arguments.Add(filter);
-    }
+    arguments.Add("--filter");
+    arguments.Add(filter ?? "*");
 
     CommandOutput output = await Shell.Builder("dotnet")
       .WithArguments([.. arguments])
