@@ -31,7 +31,7 @@ Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07), triaged from task 038 code review
-- Implementation: 01a1be00-e376-7272-829b-f5034dc8d072 (2026-11-09). Closed the nine grab-bag items on this branch. `ganda repo audit` exits 0 with two advisory warnings: `memsearch-scaffold` (the git hooks now fail closed, so they no longer match the scaffold bytes) and `vscode-window-icon` (`.vscode/settings.json` is still absent; task 052 left it untracked).
+- Implementation: 01a1be00-e376-7272-829b-f5034dc8d072 (2026-11-09). Closed the nine grab-bag items on this branch. `ganda repo audit` exits 0 with two advisory warnings: `memsearch-scaffold` (the git hooks now fail closed, so they no longer match the scaffold bytes) and `vscode-window-icon` (`.vscode/settings.json` is still absent; task 052 left it untracked). The two new runfiles are executable. `kanban-landed` is cleared by landing this kitchen.
 
 ## Results
 
