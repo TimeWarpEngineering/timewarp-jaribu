@@ -47,10 +47,12 @@ Local SDK 11.0.100-rc.3 is installed; CI currently uses 10.0.403.
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-09)
 - Implementation (2026-11-09): moved the repo to net11.0 and pinned Amuru 3.0.0-beta.2. `ganda repo audit --fix` wrote the gitignored `.vscode/settings.json` window title. The follow-up audit passed 40, failed 0, skipped 1. Amuru pins stayed on 3.0.0-beta.2.
-- Windows CI fix (2026-11-09): PR #53 Windows job failed `ClassLibrary_Should_StayALibrary` with UnauthorizedAccessException on `Microsoft.Testing.Platform.MSBuild.dll` (sandbox cleanup, read-only or locked package file). The test now shuts down the build server and clears read-only attributes with retry before deleting the sandbox.
+- Windows CI fix (2026-11-09): PR #53 Windows job failed `ClassLibrary_Should_StayALibrary` with UnauthorizedAccessException on `Microsoft.Testing.Platform.MSBuild.dll` (sandbox cleanup, read-only or locked package file). The test now shuts down the build server and clears read-only attributes with retry before deleting the sandbox. A workflow dispatch of that commit passed test on ubuntu-latest, windows-latest, and macos-latest.
+- Nuru pin (2026-11-09): `ganda repo audit` failed because TimeWarp.Nuru 4.0.0-beta.12 is the newest publish. The pin moved to beta.12 with Nuru.DevCli. Amuru stayed at 3.0.0-beta.2. Follow-up `ganda repo audit --fix` passed 40, failed 0, skipped 1.
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-09T08:50:55Z
 - Review oracle (2026-11-09): reviewed by Claude Opus 5.5 (claude-opus-5-5) with the tw-implementation-review body, effort 2, roster general, turn cap 120. Session id is not exposed to the agent. 1 round, disposition clean.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 61f80d6b-b919-4bbb-9f8a-7ad43e0040d8, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-09T09:00:42Z
+- Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-09T10:03:15Z
 
 ## Results
 
@@ -60,18 +62,18 @@ The build now targets net11.0, so the audit's newest Amuru pin restores.
 | --- | --- | --- |
 | TimeWarp.Amuru | 2.0.0 | 3.0.0-beta.2 |
 | TimeWarp.Amuru.Tools | 2.0.0 | 3.0.0-beta.2 |
-| TimeWarp.Nuru | 4.0.0-beta.11 | 4.0.0-beta.11 |
-| TimeWarp.Nuru.DevCli | 4.0.0-beta.11 | 4.0.0-beta.11 |
+| TimeWarp.Nuru | 4.0.0-beta.11 | 4.0.0-beta.12 |
+| TimeWarp.Nuru.DevCli | 4.0.0-beta.11 | 4.0.0-beta.12 |
 
 3.0.0-beta.2 is the newest Amuru and Amuru.Tools publish. Both nuspecs ship only a net11.0 asset.
 
-NuGet's newest TimeWarp.Nuru and TimeWarp.Nuru.DevCli remain 4.0.0-beta.11. That Nuru nuspec has a net10.0 dependency group and depends on TimeWarp.Amuru 2.0.0. No published Nuru version depends on Amuru 3.x, so the pin was not moved past the newest publish. A net11.0 project restores Nuru's net10.0 asset, and the direct Amuru 3.0.0-beta.2 reference satisfies the 2.0.0 minimum. `dotnet build tools/dev-cli/dev.cs`, `self-install`, `./bin/dev --capabilities`, and `./bin/dev test` succeeded on that graph.
+NuGet's newest TimeWarp.Nuru and TimeWarp.Nuru.DevCli are 4.0.0-beta.12. That Nuru nuspec has a net11.0 dependency group and still depends on TimeWarp.Amuru 2.0.0. No published Nuru version depends on Amuru 3.x, so the pin was not moved to an Amuru 3 package that does not exist. The direct Amuru 3.0.0-beta.2 reference satisfies the 2.0.0 minimum. Mediator 15, which beta.12 brings in, dropped `ICommandHandler<TRequest, TResponse>` and `Task<TResponse>` handlers. The five dev-cli handlers now implement `IRequestHandler<TRequest, TResponse>` and return `ValueTask<Unit>`. The handle bodies are unchanged. `dotnet build tools/dev-cli/dev.cs`, `self-install`, and `./bin/dev --capabilities` succeeded on that graph.
 
 .NET 11 adds `string.IndexOf(char, int, StringComparison)` and `string.LastIndexOf(char, StringComparison)`. CA1307 then rejects the char overloads that omit a comparison. `WarningDisplayName` and the benchmark attribute reader now pass `StringComparison.Ordinal`. The search is still an ordinal character search. The SDK 10 skipped-node fallback for a dropped `WarningMessageOutputDeviceData` is unchanged.
 
 Local `dotnet --version` is `11.0.100-rc.3.26522.148`. Workflow jobs install `11.0.x` with `dotnet-quality: preview`. The benchmark job pins `global.json` to the SDK that step installs and keeps `test.runner`. No runfile had `#:property TargetFramework`. `benchmarks/generator/generate-workloads.cs` and `.githooks/pre-push.cs` build on this SDK. `self-install` wrote gitignored `bin/dev`.
 
-`./bin/dev test` exited 0. The CI runner printed Passed 204. The MTP runner reported succeeded 204 and failed 0, from `bin/Release/net11.0/timewarp-jaribu-tests-mtp.dll`. Fixie, TUnit, xUnit, and the Jaribu MTP bench projects build for net11.0. The in-process bench still expects generated `bench-probe.g.cs` files that `dev benchmark` writes; that missing file is not a TFM failure.
+`./bin/dev test` exited 0, including a re-run after the Nuru 4.0.0-beta.12 pin. The CI runner printed Passed 204. The MTP runner reported succeeded 204 and failed 0, from `bin/Release/net11.0/timewarp-jaribu-tests-mtp.dll`. Fixie, TUnit, xUnit, and the Jaribu MTP bench projects build for net11.0. The in-process bench still expects generated `bench-probe.g.cs` files that `dev benchmark` writes; that missing file is not a TFM failure.
 
 `ganda repo audit --fix` and the following `ganda repo audit` each exited 0: 40 passed, 0 failed, 1 skipped. The Amuru pins stayed at 3.0.0-beta.2. `--fix` wrote the gitignored VS Code window title.
 
@@ -79,7 +81,7 @@ Local `dotnet --version` is `11.0.100-rc.3.26522.148`. Workflow jobs install `11
 
 Smoke: `dotnet --version`, then `dotnet build timewarp-jaribu.slnx --nologo -c Release`, then `./bin/dev test`, then `ganda repo audit`.
 
-Expect: `dotnet --version` prints an 11.0 SDK (`11.0.100-rc.3.26522.148` here). The solution build reports 0 warnings and 0 errors and writes `net11.0` outputs. `./bin/dev test` exits 0, the CI runner prints `Passed: 204`, and the MTP runner reports `succeeded: 204` and `failed: 0`. `ganda repo audit` exits 0. `Directory.Packages.props` still pins TimeWarp.Amuru and TimeWarp.Amuru.Tools at `3.0.0-beta.2`.
+Expect: `dotnet --version` prints an 11.0 SDK (`11.0.100-rc.3.26522.148` here). The solution build reports 0 warnings and 0 errors and writes `net11.0` outputs. `./bin/dev test` exits 0, the CI runner prints `Passed: 204`, and the MTP runner reports `succeeded: 204` and `failed: 0`. `ganda repo audit` exits 0. `Directory.Packages.props` pins TimeWarp.Amuru and TimeWarp.Amuru.Tools at `3.0.0-beta.2`, and TimeWarp.Nuru and TimeWarp.Nuru.DevCli at `4.0.0-beta.12`.
 
 ### Review disposition
 
