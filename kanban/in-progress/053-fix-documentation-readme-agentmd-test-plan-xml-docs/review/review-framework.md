@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 829
-- Effort: 3
+- Lines changed: 575
+- Effort: 2
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 120 (--max-turns; cursor uncapped)
 
 ## Framework — task 053
 
@@ -17,6 +17,7 @@
 **Effort:** 3 (budget by diff); roster axes from the budget: general only
 **Reviewer roster:** general
 **Session IDs:** review oracle (claude, claude-opus-5-5) 0722b109-5e01-4592-b6a0-09b30a6e9bed
+**Round 2:** scope is the fix delta `7d59c1e..ebf94c2`. Effort 2, roster general, turn cap 120. Reviewer: claude-opus-5-5. The oracle cannot see its session id.
 
 ## Ground rules
 
