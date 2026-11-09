@@ -21,7 +21,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          # Same 10.0 band as the committed baseline. A floating 10.0.x or a
+          # different major is a different band and is not comparable.
+          dotnet-version: '10.0.403'
 
       - name: Cache NuGet packages
         uses: actions/cache@v6

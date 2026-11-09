@@ -9,6 +9,8 @@
 // dotnet flags after the project options.
 #endregion
 
+namespace FixieBench;
+
 using TimeWarp.Fixie;
 
 [NotTest]

@@ -56,7 +56,7 @@ static void WriteRunfile(string generated, WorkloadSpec spec)
   }
 
   writer.WriteLine();
-  writer.WriteLine("int exitCode = await TimeWarp.Jaribu.TestRunner.RunAllTests();");
+  writer.WriteLine("int exitCode = await TimeWarp.Jaribu.TestRunner.RunAllTests().ConfigureAwait(false);");
   writer.WriteLine("Bench.BenchProbe.Report();");
   writer.WriteLine("return exitCode;");
 }

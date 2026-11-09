@@ -95,6 +95,7 @@ internal static class BenchmarkSuite
       sha,
       shortSha,
       sdk,
+      JoinRuntimes(results),
       specId,
       warmRuns,
       ReadVersions(repo),
@@ -102,6 +103,31 @@ internal static class BenchmarkSuite
       inProcess);
     terminal.WriteLine("Wrote " + path);
     terminal.WriteLine("Wrote " + Path.Combine(repo, "benchmarks", "results", "latest.md"));
+  }
+
+  private static string? JoinRuntimes(IReadOnlyList<WorkloadResult> results)
+  {
+    List<string> values = [];
+    foreach (WorkloadResult result in results)
+    {
+      AddRuntime(values, result.Cold.Runtime);
+      foreach (TimedSample sample in result.Warm)
+      {
+        AddRuntime(values, sample.Runtime);
+      }
+    }
+
+    return values.Count == 0 ? null : string.Join("; ", values);
+  }
+
+  private static void AddRuntime(List<string> values, string? runtime)
+  {
+    if (string.IsNullOrWhiteSpace(runtime) || values.Contains(runtime, StringComparer.Ordinal))
+    {
+      return;
+    }
+
+    values.Add(runtime);
   }
 
   private static int ParseRuns(string text)

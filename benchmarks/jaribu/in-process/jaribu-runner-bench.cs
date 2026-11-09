@@ -8,6 +8,8 @@
 // RunAllTests. Other benchmarks time a single class. Counts come from the generator spec.
 #endregion
 
+namespace Jaribu.InProcess;
+
 using System.Globalization;
 using System.Reflection;
 using BenchmarkDotNet.Attributes;
@@ -21,19 +23,19 @@ using TimeWarp.Jaribu;
 public class JaribuRunnerBench
 {
   [Benchmark]
-  public Task Startup() => Run<StartupTests>(1);
+  public Task Startup() => RunAsync<StartupTests>(1);
 
   [Benchmark]
-  public Task Volume1K() => Run<Volume1KTests>(1_000);
+  public Task Volume1K() => RunAsync<Volume1KTests>(1_000);
 
   [Benchmark]
-  public Task Volume10K() => Run<Volume10KTests>(10_000);
+  public Task Volume10K() => RunAsync<Volume10KTests>(10_000);
 
   [Benchmark]
-  public Task Parameterized() => Run<ParameterizedTests>(5_000);
+  public Task Parameterized() => RunAsync<ParameterizedTests>(5_000);
 
   [Benchmark]
-  public Task Async1K() => Run<Async1KTests>(1_000);
+  public Task Async1K() => RunAsync<Async1KTests>(1_000);
 
   [Benchmark]
   public async Task Fixtures()
@@ -46,23 +48,23 @@ public class JaribuRunnerBench
       {
         string name = "Jaribu.Benchmarks.FixtureClass" + index.ToString("000", CultureInfo.InvariantCulture);
         Type? type = assembly.GetType(name, throwOnError: true);
-        await Run(type!, 10);
+        await RunAsync(type!, 10).ConfigureAwait(false);
       }
     }
     finally
     {
-      await TestRunner.EndTestSessionAsync(epoch);
+      await TestRunner.EndTestSessionAsync(epoch).ConfigureAwait(false);
     }
   }
 
-  private static async Task Run<T>(int expected) where T : class
+  private static async Task RunAsync<T>(int expected) where T : class
   {
-    await Run(typeof(T), expected);
+    await RunAsync(typeof(T), expected).ConfigureAwait(false);
   }
 
-  private static async Task Run(Type testClass, int expected)
+  private static async Task RunAsync(Type testClass, int expected)
   {
-    TestRunStats stats = await TestRunner.RunTestsAsync(testClass, NullSink.Instance);
+    TestRunStats stats = await TestRunner.RunTestsAsync(testClass, NullSink.Instance).ConfigureAwait(false);
     if (!stats.Success || stats.PassedCount != expected)
     {
       throw new InvalidOperationException(

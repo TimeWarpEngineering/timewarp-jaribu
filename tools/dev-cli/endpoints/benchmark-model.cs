@@ -21,6 +21,7 @@ internal sealed class TimedSample
   public double? TtftMs { get; init; }
   public long? AllocatedBytes { get; init; }
   public long PeakBytes { get; init; }
+  public string? Runtime { get; init; }
 }
 
 internal sealed class WorkloadResult

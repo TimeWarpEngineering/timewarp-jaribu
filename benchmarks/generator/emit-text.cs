@@ -4,8 +4,10 @@
 
 #region Design
 // Touch prints BENCH first once, from inside the first test body, so time-to-first-test
-// is the same signal on every host. Report prints allocated bytes once on process exit.
-// The probe type is internal so Fixie does not discover it as a test class.
+// is the same signal on every host. Init prints BENCH runtime from the test process.
+// Report prints allocated bytes and that runtime again on process exit, including
+// the allocation file, because some hosts drop console lines. The probe type is
+// internal so Fixie does not discover it as a test class.
 #endregion
 
 using System.Globalization;
@@ -31,6 +33,7 @@ internal static class EmitText
 #nullable enable
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Bench;
 
@@ -44,6 +47,7 @@ internal static class BenchProbe
   [ModuleInitializer]
   internal static void Init()
   {
+    Write("BENCH runtime=" + RuntimeInformation.FrameworkDescription);
     AppDomain.CurrentDomain.ProcessExit += static (_, _) => Report();
   }
 
@@ -68,8 +72,14 @@ internal static class BenchProbe
 
     long allocated = GC.GetTotalAllocatedBytes(true) - AllocatedAtStart;
     string allocatedLine = "BENCH allocated_bytes=" + allocated.ToString(CultureInfo.InvariantCulture);
+    string runtimeLine = "BENCH runtime=" + RuntimeInformation.FrameworkDescription;
     Write(allocatedLine);
-    WriteFile("JARIBU_BENCH_ALLOC", allocatedLine);
+    Write(runtimeLine);
+    string? path = Environment.GetEnvironmentVariable("JARIBU_BENCH_ALLOC");
+    if (!string.IsNullOrEmpty(path))
+    {
+      File.WriteAllText(path, allocatedLine + "\n" + runtimeLine + "\n");
+    }
   }
 
   private static void Write(string line)

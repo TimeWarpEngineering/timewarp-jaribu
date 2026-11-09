@@ -9,6 +9,7 @@
 
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
+using Jaribu.InProcess;
 
 IEnumerable<Summary> summaries = BenchmarkSwitcher.FromAssembly(typeof(JaribuRunnerBench).Assembly).Run(args);
 int failed = 0;

@@ -6,6 +6,9 @@
 // Warm median is the middle sorted sample (the mean of the two middle samples when the
 // count is even). Per-test mean divides that median by the case count. Marginal per-test
 // subtracts the 1,000-case warm median from the 10,000-case warm median and divides by 9,000.
+// That marginal value assumes linear per-test cost. A host that scales with class size
+// reports a class-size-dependent number. Time-to-first-test is the earlier of the captured
+// BENCH first line and the signal file's last write. The runtime line is the test process.
 #endregion
 
 using System.Globalization;
@@ -20,6 +23,7 @@ internal static class BenchmarkReport
     string sha,
     string shortSha,
     string sdk,
+    string? runtime,
     string specId,
     int warmRuns,
     IReadOnlyDictionary<string, string> versions,
@@ -37,6 +41,8 @@ internal static class BenchmarkReport
     builder.AppendLine("- Date (UTC): " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "Z");
     builder.AppendLine("- Spec: " + specId);
     builder.AppendLine("- SDK: " + sdk);
+    builder.AppendLine("- Runtime: " + (string.IsNullOrWhiteSpace(runtime) ? "n/a" : runtime));
+    builder.AppendLine("- Comparability: compare these numbers only with a run on this SDK band.");
     builder.AppendLine("- OS: " + RuntimeInformation.OSDescription);
     builder.AppendLine("- Processors: " + Environment.ProcessorCount.ToString(CultureInfo.InvariantCulture));
     builder.AppendLine("- Warm launches: " + warmRuns.ToString(CultureInfo.InvariantCulture));
@@ -92,7 +98,7 @@ internal static class BenchmarkReport
     builder.AppendLine();
     builder.AppendLine("## Time-to-first-test, working set, allocations");
     builder.AppendLine();
-    builder.AppendLine("Time-to-first-test is the `BENCH first` timestamp minus (capture end − process runtime). A negative delta is 0.");
+    builder.AppendLine("Time-to-first-test is the earlier of the captured `BENCH first` line and the signal file's last-write time, measured from process start (capture end minus process runtime). A negative delta is 0. When only one signal exists, that one is used.");
     builder.AppendLine("Peak bytes are the sampled sum of `VmRSS`. A launch shorter than the 15 ms sample can report 0.");
     builder.AppendLine("Allocated bytes are the `BENCH allocated_bytes` probe delta.");
     builder.AppendLine();
@@ -117,7 +123,7 @@ internal static class BenchmarkReport
     builder.AppendLine();
     builder.AppendLine("## Marginal per-test");
     builder.AppendLine();
-    builder.AppendLine("`(warm volume-10k − warm volume-1k) / 9000` microseconds. Shared startup drops out. A host needs both volume rows.");
+    builder.AppendLine("`(warm volume-10k − warm volume-1k) / 9000` microseconds. Shared startup drops out when per-test cost is linear. A host whose cost grows with methods per class reports a class-size-dependent value, not a constant. A host needs both volume rows.");
     builder.AppendLine();
     builder.AppendLine("| Host | Volume-1k warm ms | Volume-10k warm ms | Marginal µs |");
     builder.AppendLine("| --- | ---: | ---: | ---: |");

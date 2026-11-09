@@ -5,7 +5,9 @@
 #region Design
 // TUnit's generator requires async test methods. The trivial workload still
 // awaits a completed task, which is this host's required shape. Before(Class)
-// is the once-per-class hook. Before(TestSession) on one type is the session hook.
+// is the once-per-class hook and sets that class's Ready flag. A process-wide
+// counter would let a later class pass after some other class's hook ran.
+// Before(TestSession) on one type is the session hook.
 #endregion
 
 using System.Globalization;
@@ -59,7 +61,6 @@ internal static class TUnitEmit
     writer.WriteLine("public static class SessionHooks");
     writer.WriteLine("{");
     writer.WriteLine("  public static int Created;");
-    writer.WriteLine("  public static int ClassSetups;");
     writer.WriteLine();
     writer.WriteLine("  [Before(TestSession)]");
     writer.WriteLine("  public static Task Start()");
@@ -76,10 +77,12 @@ internal static class TUnitEmit
     string className = EmitText.FixtureClassName(typeIndex);
     writer.WriteLine("public class " + className);
     writer.WriteLine("{");
+    writer.WriteLine("  private static int Ready;");
+    writer.WriteLine();
     writer.WriteLine("  [Before(Class)]");
     writer.WriteLine("  public static Task SetupOnce()");
     writer.WriteLine("  {");
-    writer.WriteLine("    Interlocked.Increment(ref SessionHooks.ClassSetups);");
+    writer.WriteLine("    Interlocked.Increment(ref Ready);");
     writer.WriteLine("    return Task.CompletedTask;");
     writer.WriteLine("  }");
     writer.WriteLine();
@@ -89,7 +92,7 @@ internal static class TUnitEmit
       writer.WriteLine("  [Test]");
       writer.WriteLine("  public async Task " + name + "()");
       writer.WriteLine("  {");
-      writer.WriteLine("    if (SessionHooks.Created < 1 || SessionHooks.ClassSetups < 1)");
+      writer.WriteLine("    if (SessionHooks.Created < 1 || Ready < 1)");
       writer.WriteLine("    {");
       writer.WriteLine("      throw new InvalidOperationException(\"fixture hooks did not run\");");
       writer.WriteLine("    }");

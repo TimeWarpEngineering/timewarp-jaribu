@@ -3,9 +3,13 @@
 #endregion
 
 #region Design
-// Wall-clock is CommandOutput.RunTime. Time-to-first-test is the BENCH first
-// line timestamp minus (capture time − RunTime), so both ends use the process clock.
-// A non-zero exit or a missing BENCH first line fails the launch.
+// Wall-clock is CommandOutput.RunTime. Process start is capture end minus that
+// runtime. Time-to-first-test is the earlier of the BENCH first line and the
+// signal file's last write, measured from process start. A negative delta is 0.
+// When only one signal exists, that one is used. A non-zero exit or a missing
+// BENCH first signal fails the launch. The runfile host passes -c Release on
+// the cache fill and on every timed launch, the same configuration as the
+// project hosts. BENCH runtime is the test process FrameworkDescription.
 #endregion
 
 using System.Text;
@@ -129,8 +133,9 @@ internal static class BenchmarkMeasure
     }
 
     DateTimeOffset started = DateTimeOffset.UtcNow - output.RunTime;
-    double? ttft = null;
+    double? lineTtft = null;
     long? allocated = null;
+    string? runtime = null;
     foreach (OutputLine line in output.OutputLines)
     {
       if (line.Text.Contains("BENCH first", StringComparison.Ordinal))
@@ -141,43 +146,27 @@ internal static class BenchmarkMeasure
           ms = 0;
         }
 
-        if (ttft is null || ms < ttft)
+        if (lineTtft is null || ms < lineTtft)
         {
-          ttft = ms;
+          lineTtft = ms;
         }
       }
 
-      const string marker = "BENCH allocated_bytes=";
-      int index = line.Text.IndexOf(marker, StringComparison.Ordinal);
-      if (index >= 0
-        && long.TryParse(
-          line.Text[(index + marker.Length)..].Trim(),
-          System.Globalization.NumberStyles.Integer,
-          System.Globalization.CultureInfo.InvariantCulture,
-          out long bytes))
-      {
-        allocated = bytes;
-      }
+      ReadProbeMarkers(line.Text, ref allocated, ref runtime);
     }
 
-    if (ttft is null && File.Exists(signal))
+    double? fileTtft = null;
+    if (File.Exists(signal))
     {
       double ms = (File.GetLastWriteTimeUtc(signal) - started).TotalMilliseconds;
-      ttft = ms < 0 ? 0 : ms;
+      fileTtft = ms < 0 ? 0 : ms;
     }
 
-    if (allocated is null && File.Exists(allocation))
+    if (File.Exists(allocation))
     {
-      string text = File.ReadAllText(allocation).Trim();
-      const string marker = "BENCH allocated_bytes=";
-      if (text.StartsWith(marker, StringComparison.Ordinal)
-        && long.TryParse(
-          text[marker.Length..],
-          System.Globalization.NumberStyles.Integer,
-          System.Globalization.CultureInfo.InvariantCulture,
-          out long bytes))
+      foreach (string raw in File.ReadAllLines(allocation))
       {
-        allocated = bytes;
+        ReadProbeMarkers(raw, ref allocated, ref runtime);
       }
     }
 
@@ -187,9 +176,10 @@ internal static class BenchmarkMeasure
     return new TimedSample
     {
       WallMs = output.RunTime.TotalMilliseconds,
-      TtftMs = ttft,
+      TtftMs = Earlier(lineTtft, fileTtft),
       AllocatedBytes = allocated,
-      PeakBytes = peak
+      PeakBytes = peak,
+      Runtime = runtime
     };
   }
 
@@ -200,9 +190,52 @@ internal static class BenchmarkMeasure
     [
       "run",
       runfile,
+      "-c",
+      "Release",
       "-p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true",
       "--nologo"
     ];
+  }
+
+  private static void ReadProbeMarkers(string text, ref long? allocated, ref string? runtime)
+  {
+    const string allocatedMarker = "BENCH allocated_bytes=";
+    int allocatedIndex = text.IndexOf(allocatedMarker, StringComparison.Ordinal);
+    if (allocatedIndex >= 0
+      && long.TryParse(
+        text[(allocatedIndex + allocatedMarker.Length)..].Trim(),
+        System.Globalization.NumberStyles.Integer,
+        System.Globalization.CultureInfo.InvariantCulture,
+        out long bytes))
+    {
+      allocated = bytes;
+    }
+
+    const string runtimeMarker = "BENCH runtime=";
+    int runtimeIndex = text.IndexOf(runtimeMarker, StringComparison.Ordinal);
+    if (runtimeIndex >= 0)
+    {
+      string value = text[(runtimeIndex + runtimeMarker.Length)..].Trim();
+      if (value.Length > 0)
+      {
+        runtime = value;
+      }
+    }
+  }
+
+  private static double? Earlier(double? left, double? right)
+  {
+    if (left is null)
+    {
+      return right;
+    }
+
+    if (right is null)
+    {
+      return left;
+    }
+
+    return left.Value <= right.Value ? left : right;
   }
 
   private static void TryDelete(string path)

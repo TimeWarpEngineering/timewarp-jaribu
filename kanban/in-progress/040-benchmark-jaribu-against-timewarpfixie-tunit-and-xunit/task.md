@@ -68,9 +68,14 @@ Smoke: `dotnet run tools/dev-cli/dev.cs -- benchmark --runs 1 --workloads startu
 
 Expect: exit 0. The command rewrites `benchmarks/results/<utc-date>-<12-char-sha>.md` and `benchmarks/results/latest.md`. The Fixie startup row has cases 1, a warm wall-clock, and a non-blank allocation. The committed baseline `benchmarks/results/2026-11-09-5f2862e7e2d1.md` matches `latest.md` before that smoke, names commit `5f2862e7e2d1`, and contains six workloads for jaribu-runfile, jaribu-mtp, fixie, tunit, and xunit, plus six in-process rows. `ganda repo audit` exits 0.
 
+### Review
+
+Round 1 (effort 3, roster: general) is open. Counts: bug 2 open, suggestion 3 open, nit 1 open. There is no disposition yet. Ledger: `review/round-1/merged.md`. Framework: `review/review-framework.md`. M1 is the main item: the runfile host runs in Debug while every other host runs in Release. Fixing it requires re-measuring the baseline and updating the numbers above. M2 is a time-to-first-test definition mismatch. M3 asks that the hot-spot list name the quadratic scaling with methods per class (`ResolveHook` → `GetMethods` per test).
+
 ## Session
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07)
 - Baseline recorded at `5f2862e7e2d1` (2026-11-09). `dotnet run tools/dev-cli/dev.cs -- benchmark --runs 3` exited 0.
 - Took the landed task 055 kitchen from origin-home (`kanban/done/...`) so `kanban-landed` matches. `ganda repo audit --fix` wrote the gitignored window-icon settings.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1be93-15e5-72f0-86ba-d19e1799093a, max-turns 500, Done — 2026-11-09T06:11:52Z
+- Review oracle round 1 (2026-11-09): reviewer general (Claude Opus 5.5, `claude-opus-5-5`), effort 3, turn cap 200. Result: 6 open findings (M1–M6) and a fix pass requested. No disposition yet. `ganda repo audit` exited 0. The smoke command was not run because it rewrites `benchmarks/results/latest.md`.
