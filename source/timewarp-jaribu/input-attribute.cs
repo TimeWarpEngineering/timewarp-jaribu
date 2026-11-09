@@ -1,29 +1,35 @@
+namespace TimeWarp.Jaribu;
+
 #region Purpose
-// One row of arguments for a parameterized test method.
+// Marks one argument row of a parameterized test.
 #endregion
 
 #region Design
-// A null params array is the compiler's encoding of [Input(null)]: one null argument.
-// An empty array stays empty. Callers that want several arguments, including nulls, pass them.
+// The constructor is params object?[]. The compiler binds a lone null as a
+// null array, not as a one-element array. That row is one null argument.
+// An empty [Input] stays an empty array and is a zero-argument row.
 #endregion
-
-namespace TimeWarp.Jaribu;
 
 /// <summary>
 /// Provides input parameters for a parameterized test.
 /// Can be applied multiple times to run the test with different inputs.
 /// Similar to xUnit's [InlineData] or Fixie's [Input].
 /// </summary>
-/// <param name="parameters">
-/// The parameter values to pass to the test method.
-/// Null is <c>[Input(null)]</c> and means one null argument.
-/// </param>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-public sealed class InputAttribute(params object?[]? parameters) : Attribute
+public sealed class InputAttribute : Attribute
 {
   /// <summary>
-  /// Gets the parameter values for this test input.
-  /// A null array, which is what <c>[Input(null)]</c> supplies, is one null argument.
+  /// Provides one input row.
+  /// A single null argument is <c>[Input(null)]</c>.
   /// </summary>
-  public object?[] Parameters { get; } = parameters ?? [null];
+  /// <param name="parameters">The parameter values to pass to the test method.</param>
+  public InputAttribute(params object?[]? parameters)
+  {
+    Parameters = parameters ?? [null];
+  }
+
+  /// <summary>
+  /// Gets the parameter values for this test input.
+  /// </summary>
+  public object?[] Parameters { get; }
 }

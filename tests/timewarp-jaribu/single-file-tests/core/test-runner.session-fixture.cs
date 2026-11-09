@@ -3,6 +3,7 @@
 #:include test-runner.session-fixture.lifecycle.cs
 #:include test-runner.session-fixture.failure.cs
 #:include test-runner.session-fixture.fixtures.cs
+#:include test-runner.session-fixture.concurrency.cs
 
 #region Purpose
 // Tests session-scoped fixtures: RegisterSessionFixture + SessionFixture.GetAsync,

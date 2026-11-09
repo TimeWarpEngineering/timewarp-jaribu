@@ -24,6 +24,10 @@ using Microsoft.Testing.Platform.Services;
 // context.CancellationToken is passed into the class run and into session
 // close. A fired token stops the class loop. Cooperative cancellation is not
 // republished as an Error node.
+// CreateTestSessionAsync keeps the clear epoch BeginTestSession returns.
+// CloseTestSessionAsync ends that epoch. A clear since the begin makes the
+// close return without a session failure. A close with no stored epoch uses
+// the parameterless end, which throws when no host session is active.
 // The adapter passes the raw --filter-tag argument, or null when that option
 // is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
 // and read JARIBU_FILTER_TAG only when the argument is null. A class or
@@ -44,6 +48,9 @@ using Microsoft.Testing.Platform.Services;
 // DotnetTestPassthroughOutputDevice, and
 // IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
 // An unresolved IPushOnlyProtocol counts as a host that drops the warning.
+// An exception that escapes the request publishes one Error node, then rethrows.
+// That node's uid is Jaribu.Error.{ExceptionType.FullName}. One request publishes
+// at most one such node, so the exception type is enough to keep the uid stable.
 // When the host drops it, and strict mode did not already publish an Error,
 // the same text is published as a skipped node. That is the line the SDK 10
 // reporter prints. A host that forwards the warning does not get the node.
@@ -57,6 +64,8 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 {
   private readonly IExtension Extension;
   private readonly IServiceProvider ServiceProvider;
+  private readonly Lock SessionEpochGate = new();
+  private readonly Stack<long> SessionClearEpochs = new();
 
   public JaribuTestFramework
   (
@@ -91,7 +100,12 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       });
     }
 
-    TestRunner.BeginTestSession();
+    long clearEpoch = TestRunner.BeginTestSession();
+    lock (SessionEpochGate)
+    {
+      SessionClearEpochs.Push(clearEpoch);
+    }
+
     return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
   }
 
@@ -99,7 +113,23 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
   {
     try
     {
-      await TestRunner.EndTestSessionAsync(context.CancellationToken).ConfigureAwait(false);
+      long? clearEpoch;
+      lock (SessionEpochGate)
+      {
+        clearEpoch = SessionClearEpochs.Count == 0
+          ? null
+          : SessionClearEpochs.Pop();
+      }
+
+      if (clearEpoch is long epoch)
+      {
+        await TestRunner.EndTestSessionAsync(epoch, context.CancellationToken).ConfigureAwait(false);
+      }
+      else
+      {
+        await TestRunner.EndTestSessionAsync(context.CancellationToken).ConfigureAwait(false);
+      }
+
       if (context.CancellationToken.IsCancellationRequested)
       {
         return new CloseTestSessionResult
@@ -347,6 +377,14 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
     return supported?.GetValue(protocol) is not true;
   }
 
+  internal static string UnhandledErrorUid(Exception exception)
+  {
+    ArgumentNullException.ThrowIfNull(exception);
+    Type type = exception.GetType();
+    string typeName = type.FullName ?? type.Name;
+    return $"Jaribu.Error.{typeName}";
+  }
+
   private async Task ReportUnhandledExceptionAsync(ExecuteRequestContext context, Exception ex)
   {
     await context.MessageBus.PublishAsync
@@ -357,7 +395,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
         sessionUid: context.Request.Session.SessionUid,
         testNode: new TestNode
         {
-          Uid = new TestNodeUid($"Jaribu.Error.{Guid.NewGuid()}"),
+          Uid = new TestNodeUid(UnhandledErrorUid(ex)),
           DisplayName = $"Unhandled: {ex.GetType().Name}",
           Properties = new PropertyBag(new ErrorTestNodeStateProperty(ex))
         }

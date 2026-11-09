@@ -21,6 +21,7 @@
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.lifecycle.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.failure.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.fixtures.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.session-fixture.concurrency.cs" />
   </ItemGroup>
 
   <ItemGroup>

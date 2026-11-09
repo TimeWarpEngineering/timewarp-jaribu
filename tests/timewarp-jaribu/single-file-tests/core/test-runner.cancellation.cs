@@ -336,7 +336,17 @@ namespace TestRunner_
           // Dispose did not finish. The session end below still runs when it is open.
         }
 
-        await TestRunner.EndTestSessionAsync();
+        try
+        {
+          await TestRunner.EndTestSessionAsync();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(
+          "no active host session",
+          StringComparison.Ordinal))
+        {
+          // The cancelled end already closed the host session.
+        }
+
         TestRunner.ClearRegisteredSessionFixtures();
       }
     }

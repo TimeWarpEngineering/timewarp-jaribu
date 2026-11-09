@@ -217,9 +217,14 @@ public static async Task CleanUpOnce()
 - Register with `RegisterSessionFixture<T>()` — `T` needs `public static Task<T> CreateAsync()` + `IAsyncDisposable`
 - Resolve with `SessionFixture.GetAsync<T>()` (lazy; unregistered → teaching error)
 - A create failure stays for the session. A create timeout does not: the next class retries under its own hook budget
-- Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / lone RunTestsAsync)
+- Session owns dispose at outermost session end (MTP CloseTestSession / RunAllTests finally / last lone RunTestsAsync lease). Disposal starts in reverse creation order
+- Overlapping lone `RunTestsAsync` calls each hold a lease. A call inside a host session does not
+- `BeginTestSession` returns the clear epoch. `EndTestSessionAsync(epoch)` returns without throwing or disposing when `ClearRegisteredSessionFixtures` has run since that begin. The parameterless `EndTestSessionAsync` throws when no host session is active, including after a clear
+- `ClearRegisteredSessionFixtures` drops registrations and zeroes host and run depth. It does not dispose, and it throws while an instance is live
 - Double-register fails fast; never create if no class calls GetAsync
 - Prefer class SetupOnce when the fixture is per-class only
+
+why: task 046
 
 ## Data-Driven Tests
 
