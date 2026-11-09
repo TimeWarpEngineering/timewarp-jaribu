@@ -241,7 +241,8 @@ This allows CI pipelines to run different subsets of tests by configuring separa
 Jaribu uses this pattern for its own test suite:
 
 - `tests/timewarp-jaribu/single-file-tests/` — test files following the dual-mode pattern
-- `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI orchestrator with curated test selection
+- `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI-safe runfile. `./bin/dev test` runs this and the MTP project below
+- `tests/timewarp-jaribu/multi-file-runners/mtp-runner/` — the same CI-safe compile set under `dotnet test`
 
 ---
 
@@ -266,6 +267,16 @@ Create a test project with the TestingPlatform package:
   </ItemGroup>
 </Project>
 ```
+
+A project that references this package directly is a testing platform application. A project that only references such a test project is not. Set `EnableJaribuRunner` to `true` when a project without a direct package reference should still be a testing platform application:
+
+```xml
+<PropertyGroup>
+  <EnableJaribuRunner>true</EnableJaribuRunner>
+</PropertyGroup>
+```
+
+A direct package reference does not need `EnableJaribuRunner`.
 
 ### Test Class Example
 
@@ -548,7 +559,7 @@ public static async Task CleanUpOnce()
 |-----|------|
 | `RegisterSessionFixture<T>()` | Explicit registration (ModuleInitializer); requires `public static Task<T> CreateAsync()` and `IAsyncDisposable` |
 | `SessionFixture.GetAsync<T>()` | Lazy resolve within an active session |
-| Session end | Disposes all created instances |
+| Session end | Starts disposal in reverse creation order |
 
 **Lifetime:**
 
@@ -557,8 +568,13 @@ public static async Task CleanUpOnce()
 | **M.T.P. run** | CreateTestSession → CloseTestSession | Lazy on first `GetAsync` | All created in CloseTestSession |
 | **M.T.P. discovery** | Session still opens/closes | Never (no `GetAsync`) | No-op |
 | **`RunAllTests`** | Synthetic session wrap | Lazy across classes | After last registered class |
-| **Lone `RunTestsAsync`** | Session-of-one if none active | Lazy within that class | End of that call |
+| **Lone `RunTestsAsync`** | Run lease when no host session is active | Lazy within that class | When the last overlapping lease ends |
 
+- Disposal starts with the newest created fixture. A cancelled end still starts every fixture before it throws.
+- Overlapping lone `RunTestsAsync` calls share one session. Each call holds a lease, so the first call to finish does not dispose under the others. A call inside `BeginTestSession`, `RunAllTests`, or an M.T.P. session does not take a lease; the host ends the session.
+- `BeginTestSession` returns the clear epoch for that begin. Pass it to `EndTestSessionAsync(long)`. That end returns without throwing and without disposing when `ClearRegisteredSessionFixtures` has run since the begin.
+- The parameterless `EndTestSessionAsync` throws `InvalidOperationException` when no host session is active, including after a clear.
+- `ClearRegisteredSessionFixtures` is a process-wide reset for meta-tests. It drops every registration and sets host depth and run depth to zero. It does not dispose, and it throws when a created instance is still live.
 - Double-registration of the same `T` fails fast.
 - Unregistered `GetAsync` throws a teaching error (not null).
 - Classes that never call `GetAsync` never create the fixture.
@@ -572,7 +588,7 @@ See the [architecture overview](documentation/architecture.md) for how the runne
 
 1. Clone the repository.
 2. Run `dotnet build`.
-3. Run tests with `./bin/dev test` (CI-safe subset via `tests/timewarp-jaribu/multi-file-runners/ci-runner/`).
+3. Run tests with `./bin/dev test`. That is the CI set: the CI-safe runfile at `tests/timewarp-jaribu/multi-file-runners/ci-runner/`, then `dotnet test` on `tests/timewarp-jaribu/multi-file-runners/mtp-runner/`. The MTP validation project is not a third pass/fail target. The harness inside the CI-safe suite runs it out of process and checks the expected node states.
 
 ## Contributing
 

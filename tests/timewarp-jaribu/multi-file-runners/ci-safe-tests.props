@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/api/test-runner.structured-results.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/api/test-runner.multi-class-registration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.input-identity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.case-display.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cleanup-outcome.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.runner-guards.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-node-identity.cs" />
@@ -27,6 +28,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.silent-no-ops.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cancellation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.timeout-policy.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.exit-and-helpers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-validation-harness.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/test-runner.reporting-cleanup.cs" />
   </ItemGroup>
 </Project>

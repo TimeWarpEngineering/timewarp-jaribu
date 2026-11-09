@@ -7,11 +7,13 @@
 #endregion
 
 #region Design
-// The props set OutputType=Exe, IsTestProject, and IsTestingPlatformApplication.
-// NuGet imports build/ for a direct PackageReference. It imports buildTransitive/
-// for every project that references that consumer, and when both folders contain
-// the package props it imports the buildTransitive copy for the direct reference
-// as well. The package therefore ships build/ only.
+// The direct props set OutputType=Exe, IsTestProject, IsTestingPlatformApplication,
+// and _JaribuTestingPlatformDirectReference. NuGet imports build/ for a direct
+// PackageReference and buildTransitive/ for that project and every project that
+// references it. The transitive targets force IsTestingPlatformApplication false
+// unless the marker is set or EnableJaribuRunner is true. Microsoft.Testing.Platform
+// defaults an empty flag to true, so the targets assign false rather than leaving
+// the property unset.
 // Packing the adapter does not emit the TimeWarp.Jaribu nupkg for its project
 // reference into the -o directory. GeneratePackageOnBuild writes that package
 // to the repo package output. The test packs the core project into the feed so
@@ -102,8 +104,10 @@ namespace TestingPlatformProps_
         string app = Path.Combine(sandbox, "app");
         string consumerDirectory = Path.Combine(app, "adapter-consumer");
         string libraryDirectory = Path.Combine(app, "transitive-library");
+        string optInDirectory = Path.Combine(app, "opt-in-library");
         Directory.CreateDirectory(consumerDirectory);
         Directory.CreateDirectory(libraryDirectory);
+        Directory.CreateDirectory(optInDirectory);
         WriteSandboxProps(app);
         WriteNuGetConfig(sandbox, feed);
         File.WriteAllText(
@@ -112,6 +116,9 @@ namespace TestingPlatformProps_
         File.WriteAllText(
           Path.Combine(libraryDirectory, "transitive-library.csproj"),
           LibraryProject());
+        File.WriteAllText(
+          Path.Combine(optInDirectory, "opt-in-library.csproj"),
+          OptInLibraryProject());
 
         string config = Path.Combine(sandbox, "nuget.config");
         string libraryProject = Path.Combine(libraryDirectory, "transitive-library.csproj");
@@ -132,6 +139,29 @@ namespace TestingPlatformProps_
         Dictionary<string, string> libraryProperties = await EvaluateAsync(libraryProject);
         libraryProperties["OutputType"].ShouldBe("Library");
         libraryProperties["IsTestProject"].ShouldNotBe("true");
+        string libraryTestingPlatform =
+          libraryProperties.GetValueOrDefault("IsTestingPlatformApplication") ?? "";
+        (libraryTestingPlatform is "" or "false").ShouldBeTrue(
+          $"IsTestingPlatformApplication was '{libraryTestingPlatform}'.");
+
+        string optInProject = Path.Combine(optInDirectory, "opt-in-library.csproj");
+        CommandOutput optInBuild = await RunDotNetAsync(
+          root,
+          "build",
+          optInProject,
+          "-c",
+          "Debug",
+          "--configfile",
+          config,
+          "--packages",
+          packages,
+          "--nologo");
+        optInBuild.ExitCode.ShouldBe(0, optInBuild.Combined);
+
+        Dictionary<string, string> optInProperties = await EvaluateAsync(optInProject);
+        optInProperties["OutputType"].ShouldBe("Library");
+        optInProperties["IsTestProject"].ShouldNotBe("true");
+        optInProperties["IsTestingPlatformApplication"].ShouldBe("true");
 
         Dictionary<string, string> consumerProperties = await EvaluateAsync(consumerProject);
         consumerProperties["OutputType"].ShouldBe("Exe");
@@ -141,10 +171,16 @@ namespace TestingPlatformProps_
         string libraryOutput = Path.Combine(libraryDirectory, "bin", "Debug", "net10.0");
         File.Exists(Path.Combine(libraryOutput, "transitive-library.dll")).ShouldBeTrue();
         File.Exists(Path.Combine(libraryOutput, ApphostName("transitive-library"))).ShouldBeFalse();
+        File.Exists(EntryPointSource(libraryDirectory)).ShouldBeFalse();
+
+        string optInOutput = Path.Combine(optInDirectory, "bin", "Debug", "net10.0");
+        File.Exists(Path.Combine(optInOutput, "opt-in-library.dll")).ShouldBeTrue();
+        File.Exists(EntryPointSource(optInDirectory)).ShouldBeTrue();
 
         string consumerOutput = Path.Combine(consumerDirectory, "bin", "Debug", "net10.0");
         File.Exists(Path.Combine(consumerOutput, "adapter-consumer.dll")).ShouldBeTrue();
         File.Exists(Path.Combine(consumerOutput, ApphostName("adapter-consumer"))).ShouldBeTrue();
+        File.Exists(EntryPointSource(consumerDirectory)).ShouldBeTrue();
       }
       finally
       {
@@ -163,9 +199,17 @@ namespace TestingPlatformProps_
           "build/timewarp.jaribu.testingplatform.props",
           StringComparison.OrdinalIgnoreCase));
       bool hasTransitiveProps = archive.Entries.Any(entry =>
-        entry.FullName.StartsWith("buildTransitive/", StringComparison.OrdinalIgnoreCase));
+        entry.FullName.Equals(
+          "buildTransitive/timewarp.jaribu.testingplatform.props",
+          StringComparison.OrdinalIgnoreCase));
+      bool hasTransitiveTargets = archive.Entries.Any(entry =>
+        entry.FullName.Equals(
+          "buildTransitive/timewarp.jaribu.testingplatform.targets",
+          StringComparison.OrdinalIgnoreCase));
+      string entryNames = string.Join(Environment.NewLine, archive.Entries.Select(entry => entry.FullName));
       hasDirectProps.ShouldBeTrue(packagePath);
-      hasTransitiveProps.ShouldBeFalse(string.Join(Environment.NewLine, archive.Entries.Select(entry => entry.FullName)));
+      hasTransitiveProps.ShouldBeFalse(entryNames);
+      hasTransitiveTargets.ShouldBeTrue(entryNames);
     }
 
     private static void WriteSandboxProps(string app)
@@ -223,6 +267,23 @@ namespace TestingPlatformProps_
         """;
     }
 
+    private static string OptInLibraryProject()
+    {
+      return """
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <TargetFramework>net10.0</TargetFramework>
+            <ImplicitUsings>enable</ImplicitUsings>
+            <Nullable>enable</Nullable>
+            <EnableJaribuRunner>true</EnableJaribuRunner>
+          </PropertyGroup>
+          <ItemGroup>
+            <ProjectReference Include="..\adapter-consumer\adapter-consumer.csproj" />
+          </ItemGroup>
+        </Project>
+        """;
+    }
+
     private static async Task<Dictionary<string, string>> EvaluateAsync(string projectPath)
     {
       CommandOutput evaluation = await RunDotNetAsync(
@@ -255,6 +316,9 @@ namespace TestingPlatformProps_
 
     private static string ApphostName(string name) =>
       OperatingSystem.IsWindows() ? name + ".exe" : name;
+
+    private static string EntryPointSource(string projectDirectory) =>
+      Path.Combine(projectDirectory, "obj", "Debug", "net10.0", "MicrosoftTestingPlatformEntryPoint.cs");
 
     private static string FindRepoRoot()
     {

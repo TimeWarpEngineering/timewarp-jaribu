@@ -439,3 +439,6 @@ dotnet_diagnostic.TW0007.filename = global-usings.cs
 [ganda.audit]
 # IDE0005 requires GenerateDocumentationFile; not enabled for this package
 dotnet_diagnostic.IDE0005.severity = none
+# NuGet imports this directory name as written. A kebab rename would not flow
+# the adapter targets (task 056).
+kebab-path-names.prune = buildTransitive

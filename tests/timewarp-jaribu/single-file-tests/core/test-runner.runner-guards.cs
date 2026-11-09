@@ -126,7 +126,7 @@ namespace TestRunner_
       Should.Throw<ArgumentNullException>(() => new TestTagAttribute(null!));
       new TestTagAttribute(string.Empty).Tag.ShouldBe(string.Empty);
       new TestTagAttribute(" ").Tag.ShouldBe(" ");
-      Should.Throw<ArgumentNullException>(() => new InputAttribute(null!));
+      new InputAttribute(null).Parameters.ShouldBe([null]);
       InputAttribute row = new(null, 1);
       row.Parameters.Length.ShouldBe(2);
       row.Parameters[0].ShouldBeNull();

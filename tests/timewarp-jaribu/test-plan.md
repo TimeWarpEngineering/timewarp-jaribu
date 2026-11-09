@@ -43,7 +43,7 @@ Runfiles use `#!/usr/bin/env -S dotnet --`.
 - A cleanup failure does not replace the body outcome. The run still fails.
 - Cancelled counts as a failing state.
 - An empty class fails unless `allowEmpty` is set.
-- `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute`, `TestTagAttribute`, and `InputAttribute` reject a null reason, tag, or parameter array. Empty and whitespace skip reasons and tags stay valid.
+- `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute` and `TestTagAttribute` reject a null reason or tag. `[Input(null)]` is one null argument. Empty and whitespace skip reasons and tags stay valid.
 
 ## Out of scope
 

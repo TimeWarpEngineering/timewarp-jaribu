@@ -35,7 +35,7 @@ TestRunner.RunTestsAsync(sink)
 |-----------|------|
 | `[TestTag("name")]` | Class or method tag. Null is rejected. Empty and whitespace are kept. |
 | `[Skip("reason")]` | Skips the method. Null is rejected. Empty and whitespace are kept. |
-| `[Input(...)]` | One invocation per attribute. A null array is rejected. `[Input(null)]` is a null array, not one null argument. |
+| `[Input(...)]` | One invocation per attribute. `[Input(null)]` is one null argument. |
 | `[Timeout(ms)]` | Positive milliseconds. On a method it limits that body. On a class it limits hooks and session-fixture creation. Zero and negative are rejected. |
 
 A constructor rejection (`ArgumentException` or `CustomAttributeFormatException`) on a discovered method, or on the class, is one Error node for that method. The message names the attribute. The run fails. The process stays up, and a sibling method still runs. A class tag miss and a method tag miss do not replace that Error. The healthy sibling of a class tag miss stays Skipped and does not run. The healthy sibling of a method tag miss still runs.
