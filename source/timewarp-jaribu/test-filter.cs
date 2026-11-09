@@ -20,6 +20,8 @@ using System.Reflection;
 // compares uid lists itself.
 // [Skip] stays a Skipped node. Its reason is the attribute text.
 // SkippedNode is the factory for those short-circuit nodes.
+// A class or method whose Jaribu attribute constructor throws is one
+// method-level case. This filter does not decide the Error state.
 // RunSingleTestAsync keeps its own node because that call measures duration
 // and keeps the caller's parameters.
 #endregion
@@ -134,6 +136,32 @@ internal static class TestFilter
     ArgumentNullException.ThrowIfNull(testClass);
     filterTag = Normalize(filterTag);
 
+    if (JaribuAttributeRead.TryRejectClass(testClass, out _))
+    {
+      foreach (MethodInfo method in TestRunner.DiscoverTests(testClass))
+      {
+        if (!MethodNameMatches(method, methodNameContains))
+        {
+          continue;
+        }
+
+        if (methodPredicate is not null && !methodPredicate(method))
+        {
+          continue;
+        }
+
+        ReportedTestCase rejectedCase = TestCaseIdentity.MethodCase(testClass, method);
+        if (!JaribuAttributeRead.PredicateKeeps(casePredicate, rejectedCase))
+        {
+          continue;
+        }
+
+        yield return rejectedCase;
+      }
+
+      yield break;
+    }
+
     foreach (MethodInfo method in TestRunner.DiscoverTests(testClass))
     {
       if (!MethodNameMatches(method, methodNameContains))
@@ -143,6 +171,18 @@ internal static class TestFilter
 
       if (methodPredicate is not null && !methodPredicate(method))
       {
+        continue;
+      }
+
+      if (JaribuAttributeRead.TryRejectMethod(method, out _))
+      {
+        ReportedTestCase rejectedCase = TestCaseIdentity.MethodCase(testClass, method);
+        if (!JaribuAttributeRead.PredicateKeeps(casePredicate, rejectedCase))
+        {
+          continue;
+        }
+
+        yield return rejectedCase;
         continue;
       }
 

@@ -33,10 +33,12 @@ TestRunner.RunTestsAsync(sink)
 
 | Attribute | Role |
 |-----------|------|
-| `[TestTag("name")]` | Class or method tag. Null, empty, and whitespace are rejected. |
-| `[Skip("reason")]` | Skips the method. Null, empty, and whitespace are rejected. |
+| `[TestTag("name")]` | Class or method tag. Null is rejected. Empty and whitespace are kept. |
+| `[Skip("reason")]` | Skips the method. Null is rejected. Empty and whitespace are kept. |
 | `[Input(...)]` | One invocation per attribute. A null array is rejected. `[Input(null)]` is a null array, not one null argument. |
-| `[Timeout(ms)]` | Positive milliseconds. On a method it limits that body. On a class it limits hooks and session-fixture creation. |
+| `[Timeout(ms)]` | Positive milliseconds. On a method it limits that body. On a class it limits hooks and session-fixture creation. Zero and negative are rejected. |
+
+A constructor rejection (`ArgumentException` or `CustomAttributeFormatException`) on a discovered method, or on the class, is one Error node for that method. The message names the attribute. The run fails. The process stays up, and a sibling method still runs.
 
 `TestRunner.DefaultHookTimeout` is the hook budget when the class has no `[Timeout]`. Zero, negative, and sub-millisecond values throw.
 

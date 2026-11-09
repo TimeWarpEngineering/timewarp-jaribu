@@ -3,7 +3,8 @@
 
 #region Purpose
 // Covers discovery of open generics, the RunAllTests registration snapshot,
-// Cancelled counting as a failing state, and null guards on sinks and attributes.
+// Cancelled counting as a failing state, null guards on sinks and attributes,
+// and a rejected attribute reported as an Error node.
 #endregion
 
 #region Design
@@ -120,9 +121,11 @@ namespace TestRunner_
     public static async Task NullArguments_Should_Throw()
     {
       Should.Throw<ArgumentNullException>(() => new SkipAttribute(null!));
-      Should.Throw<ArgumentException>(() => new SkipAttribute(" "));
+      new SkipAttribute(string.Empty).Reason.ShouldBe(string.Empty);
+      new SkipAttribute(" ").Reason.ShouldBe(" ");
       Should.Throw<ArgumentNullException>(() => new TestTagAttribute(null!));
-      Should.Throw<ArgumentException>(() => new TestTagAttribute(string.Empty));
+      new TestTagAttribute(string.Empty).Tag.ShouldBe(string.Empty);
+      new TestTagAttribute(" ").Tag.ShouldBe(" ");
       Should.Throw<ArgumentNullException>(() => new InputAttribute(null!));
       InputAttribute row = new(null, 1);
       row.Parameters.Length.ShouldBe(2);
@@ -141,6 +144,58 @@ namespace TestRunner_
       Should.Throw<ArgumentNullException>(() => sink.OnRunStartedAsync(null!));
       Should.Throw<ArgumentNullException>(() => sink.OnRunCompletedAsync(stats, null!));
       await Task.CompletedTask;
+    }
+
+    public static async Task RejectedAttribute_Should_FailTheRun()
+    {
+      RejectedAttributeFixture.GoodRuns = 0;
+      RunnerGuardsCollectingSink sink = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<RejectedAttributeFixture>(sink);
+      stats.PassedCount.ShouldBe(1);
+      stats.FailedCount.ShouldBe(2);
+      stats.SkippedCount.ShouldBe(1);
+      stats.Success.ShouldBeFalse();
+      RejectedAttributeFixture.GoodRuns.ShouldBe(1);
+
+      TestNodeInfo timeoutError = sink.Results.Single(
+        node => node.DisplayName == nameof(RejectedAttributeFixture.ZeroTimeout_Should_NotRun));
+      timeoutError.State.ShouldBe(TestNodeState.Error);
+      timeoutError.Message.ShouldNotBeNull();
+      timeoutError.Message.ShouldContain(nameof(TimeoutAttribute));
+
+      TestNodeInfo skipError = sink.Results.Single(
+        node => node.DisplayName == nameof(RejectedAttributeFixture.NullSkip_Should_NotRun));
+      skipError.State.ShouldBe(TestNodeState.Error);
+      skipError.Message.ShouldNotBeNull();
+      skipError.Message.ShouldContain(nameof(SkipAttribute));
+
+      TestNodeInfo skipped = sink.Results.Single(node => node.State == TestNodeState.Skipped);
+      skipped.DisplayName.ShouldBe(nameof(RejectedAttributeFixture.EmptySkip_Should_Skip));
+      skipped.Message.ShouldBe(string.Empty);
+
+      System.Reflection.MethodInfo zeroTimeout = typeof(RejectedAttributeFixture)
+        .GetMethod(nameof(RejectedAttributeFixture.ZeroTimeout_Should_NotRun))!;
+      TestNodeInfo single = await TestRunner.RunSingleTestAsync(typeof(RejectedAttributeFixture), zeroTimeout);
+      single.State.ShouldBe(TestNodeState.Error);
+      single.Message.ShouldNotBeNull();
+      single.Message.ShouldContain(nameof(TimeoutAttribute));
+
+      int exitCode = await TestRunner.RunTests<RejectedAttributeFixture>();
+      exitCode.ShouldBe(1);
+      RejectedAttributeFixture.GoodRuns.ShouldBe(2);
+
+      ClassTimeoutFixture.Runs = 0;
+      RunnerGuardsCollectingSink classSink = new();
+      TestRunStats classStats = await TestRunner.RunTestsAsync<ClassTimeoutFixture>(classSink);
+      classStats.Success.ShouldBeFalse();
+      classStats.PassedCount.ShouldBe(0);
+      classStats.FailedCount.ShouldBe(1);
+      ClassTimeoutFixture.Runs.ShouldBe(0);
+      TestNodeInfo classError = classSink.Results.Single();
+      classError.State.ShouldBe(TestNodeState.Error);
+      classError.Message.ShouldNotBeNull();
+      classError.Message.ShouldContain(nameof(TimeoutAttribute));
+      classError.Message.ShouldContain("the class");
     }
 
 #if JARIBU_MULTI
@@ -188,6 +243,50 @@ namespace TestRunner_
     {
       TestRunner.ClearRegisteredTests();
       TestRunner.RegisterTests<RegistrationSnapshotOther>();
+      await Task.CompletedTask;
+    }
+  }
+
+// Attribute arguments cannot use the null-forgiving operator. Null is the value under test.
+#nullable disable
+  public class RejectedAttributeFixture
+  {
+    public static int GoodRuns;
+
+    public static async Task Good_Should_Pass()
+    {
+      GoodRuns++;
+      await Task.CompletedTask;
+    }
+
+    [Skip("")]
+    public static async Task EmptySkip_Should_Skip()
+    {
+      throw new InvalidOperationException("empty skip must not run");
+    }
+
+    [Skip(null)]
+    public static async Task NullSkip_Should_NotRun()
+    {
+      throw new InvalidOperationException("null skip must not run");
+    }
+
+    [Timeout(0)]
+    public static async Task ZeroTimeout_Should_NotRun()
+    {
+      throw new InvalidOperationException("rejected timeout must not run");
+    }
+  }
+#nullable restore
+
+  [Timeout(0)]
+  public class ClassTimeoutFixture
+  {
+    public static int Runs;
+
+    public static async Task Good_Should_NotRun()
+    {
+      Runs++;
       await Task.CompletedTask;
     }
   }

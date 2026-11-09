@@ -14,12 +14,11 @@ public sealed class SkipAttribute : Attribute
   /// <summary>
   /// Creates a skip mark.
   /// </summary>
-  /// <param name="reason">Why the test is skipped. Null, empty, and whitespace are rejected.</param>
+  /// <param name="reason">Why the test is skipped. Null is rejected. Empty and whitespace are kept.</param>
   /// <exception cref="ArgumentNullException"><paramref name="reason"/> is null.</exception>
-  /// <exception cref="ArgumentException"><paramref name="reason"/> is empty or whitespace.</exception>
   public SkipAttribute(string reason)
   {
-    ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+    ArgumentNullException.ThrowIfNull(reason);
     Reason = reason;
   }
 }

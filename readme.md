@@ -186,7 +186,7 @@ return await RunAllTests();
 [TestTag("Unit")]
 public class MyTests
 {
-  [ModuleInitializer]
+  [System.Runtime.CompilerServices.ModuleInitializer]
   internal static void Register() => RegisterTests<MyTests>();
 
   public static async Task SomeTest()

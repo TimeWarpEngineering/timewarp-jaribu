@@ -29,6 +29,8 @@ using System.Reflection;
 // Near-miss tests warn unless strictSignatures is set. A method predicate
 // or case predicate that selects no nodes omits those strict Error nodes.
 // A method-name filter still reports them.
+// A class Timeout or TestTag constructor that throws reports each selected
+// method as Error and does not open the hook-timeout scope.
 #endregion
 
 public static partial class TestRunner
@@ -167,7 +169,12 @@ public static partial class TestRunner
     CancellationToken cancellationToken = default)
   {
     using CancellationScope scope = new(cancellationToken);
-    using HookTimeoutScope hookTimeout = new(testClass);
+    bool classAttributeRejected = JaribuAttributeRead.TryRejectClass(
+      testClass,
+      out JaribuAttributeRead.Rejection classRejection);
+    HookTimeoutScope? hookTimeout = classAttributeRejected
+      ? null
+      : new HookTimeoutScope(testClass);
     bool ownsSession = false;
     if (!SessionFixture.IsSessionActive)
     {
@@ -210,7 +217,9 @@ public static partial class TestRunner
       string className = ReportedClassName(testClass);
 
       // Class tag miss: same Skipped nodes discovery lists. No hooks, no signature diagnostics.
-      if (filterTag is not null && !TestFilter.ClassTagMatches(testClass, filterTag))
+      if (!classAttributeRejected &&
+          filterTag is not null &&
+          !TestFilter.ClassTagMatches(testClass, filterTag))
       {
         await sink.OnRunStartedAsync(className, filterTag);
         string reason = TestFilter.TagMissMessage(filterTag);
@@ -278,12 +287,49 @@ public static partial class TestRunner
         setupOnceResolve.ValidationError ??
         cleanUpOnceResolve.ValidationError;
 
-      if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
+      if (classAttributeRejected && !cancellationToken.IsCancellationRequested)
+      {
+        foreach (MethodInfo method in testMethods)
+        {
+          if (cancellationToken.IsCancellationRequested)
+          {
+            break;
+          }
+
+          results.AddRange(
+            await ReportAttributeRejectionAsync(
+              testClass,
+              method,
+              classRejection,
+              casePredicate,
+              sink));
+        }
+      }
+      else if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
       {
         // Bad hook signature: fail the nodes discovery lists, without invoking hooks.
         bool reported = false;
         foreach (MethodInfo method in testMethods)
         {
+          if (JaribuAttributeRead.TryRejectMethod(
+            method,
+            out JaribuAttributeRead.Rejection methodRejection))
+          {
+            List<TestNodeInfo> rejected = await ReportAttributeRejectionAsync(
+              testClass,
+              method,
+              methodRejection,
+              casePredicate,
+              sink);
+            if (rejected.Count > 0)
+            {
+              reported = true;
+              results.AddRange(rejected);
+            }
+
+            continue;
+          }
+
           List<ReportedTestCase> cases = SelectCases(
             TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
             casePredicate);
@@ -316,7 +362,7 @@ public static partial class TestRunner
             lookupMethod: false).ConfigureAwait(false);
         }
       }
-      else
+      else if (!classAttributeRejected)
       {
         ClassOnceState onceState = new()
         {
@@ -429,6 +475,8 @@ public static partial class TestRunner
       {
         await EndOwnedSessionWithoutMaskingAsync(cancellationToken).ConfigureAwait(false);
       }
+
+      hookTimeout?.Dispose();
     }
   }
 }

@@ -18,6 +18,8 @@ using System.Reflection;
 // discovery, the skip and tag short-circuits, and bad once-hook fan-out.
 // ExpandInputs is only the rows that actually execute, after those short-circuits.
 // DiscoverTestCases reads JARIBU_FILTER_TAG when filterTag is null, matching RunTestsAsync.
+// A method whose Jaribu attribute constructor throws is one method-level case.
+// The run reports that case as Error.
 #endregion
 
 /// <summary>
@@ -128,6 +130,11 @@ public static class TestCaseIdentity
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
+    if (JaribuAttributeRead.TryRejectMethod(method, out _))
+    {
+      return [MethodCase(testClass, method)];
+    }
+
     if (TestFilter.TagSkipReason(testClass, method, filterTag) is not null ||
         method.GetCustomAttribute<SkipAttribute>() is not null)
     {
@@ -168,7 +175,7 @@ public static class TestCaseIdentity
       casePredicate);
   }
 
-  private static ReportedTestCase MethodCase(Type testClass, MethodInfo method)
+  internal static ReportedTestCase MethodCase(Type testClass, MethodInfo method)
   {
     return new ReportedTestCase(
       method,

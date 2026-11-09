@@ -38,12 +38,12 @@ Runfiles use `#!/usr/bin/env -S dotnet --`.
 - `[Skip("reason")]` reports Skipped and does not fail the run.
 - A tag miss, at class or method level, is one Skipped node per method. A blank `JARIBU_FILTER_TAG` is not a filter.
 - `[Input]` adds one node per attribute. Discovery and execution share that node's uid.
-- `[Timeout]` rejects zero and negative milliseconds. A method budget limits that body. A class budget, or `TestRunner.DefaultHookTimeout`, limits hooks and session-fixture creation.
+- `[Timeout]` rejects zero and negative milliseconds. A method budget limits that body. A class budget, or `TestRunner.DefaultHookTimeout`, limits hooks and session-fixture creation. A rejected attribute on a discovered method is an Error node. The message names the attribute, the run fails, and the process stays up.
 - `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` must be `public static Task` with no parameters. A near-miss hook fails the class.
 - A cleanup failure does not replace the body outcome. The run still fails.
 - Cancelled counts as a failing state.
 - An empty class fails unless `allowEmpty` is set.
-- `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute`, `TestTagAttribute`, and `InputAttribute` reject a null reason, tag, or parameter array.
+- `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute`, `TestTagAttribute`, and `InputAttribute` reject a null reason, tag, or parameter array. Empty and whitespace skip reasons and tags stay valid.
 
 ## Out of scope
 

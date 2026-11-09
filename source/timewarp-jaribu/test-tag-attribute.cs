@@ -15,12 +15,11 @@ public sealed class TestTagAttribute : Attribute
   /// <summary>
   /// Creates a tag.
   /// </summary>
-  /// <param name="tag">The tag name, for example <c>Fast</c> or <c>Integration</c>. Null, empty, and whitespace are rejected.</param>
+  /// <param name="tag">The tag name, for example <c>Fast</c> or <c>Integration</c>. Null is rejected. Empty and whitespace are kept.</param>
   /// <exception cref="ArgumentNullException"><paramref name="tag"/> is null.</exception>
-  /// <exception cref="ArgumentException"><paramref name="tag"/> is empty or whitespace.</exception>
   public TestTagAttribute(string tag)
   {
-    ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+    ArgumentNullException.ThrowIfNull(tag);
     Tag = tag;
   }
 }
