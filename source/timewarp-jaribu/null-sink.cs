@@ -12,9 +12,46 @@ public sealed class NullSink : ITestResultSink
 
   private NullSink() { }
 
-  public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
-  public Task OnTestStartedAsync(TestNodeInfo node) => Task.CompletedTask;
-  public Task OnTestCompletedAsync(TestNodeInfo node) => Task.CompletedTask;
-  public Task OnRunStartedAsync(string className, string? filterTag = null) => Task.CompletedTask;
-  public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results) => Task.CompletedTask;
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
+  public Task OnTestDiscoveredAsync(TestNodeInfo node)
+  {
+    ArgumentNullException.ThrowIfNull(node);
+    return Task.CompletedTask;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
+  public Task OnTestStartedAsync(TestNodeInfo node)
+  {
+    ArgumentNullException.ThrowIfNull(node);
+    return Task.CompletedTask;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
+  public Task OnTestCompletedAsync(TestNodeInfo node)
+  {
+    ArgumentNullException.ThrowIfNull(node);
+    return Task.CompletedTask;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="className"/> is null.</exception>
+  public Task OnRunStartedAsync(string className, string? filterTag = null)
+  {
+    ArgumentNullException.ThrowIfNull(className);
+    return Task.CompletedTask;
+  }
+
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException">
+  /// <paramref name="stats"/> or <paramref name="results"/> is null.
+  /// </exception>
+  public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results)
+  {
+    ArgumentNullException.ThrowIfNull(stats);
+    ArgumentNullException.ThrowIfNull(results);
+    return Task.CompletedTask;
+  }
 }

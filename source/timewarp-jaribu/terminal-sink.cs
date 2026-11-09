@@ -63,8 +63,16 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     IsDisposed = true;
   }
 
-  public Task OnTestDiscoveredAsync(TestNodeInfo node) => Task.CompletedTask;
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
+  public Task OnTestDiscoveredAsync(TestNodeInfo node)
+  {
+    ArgumentNullException.ThrowIfNull(node);
+    return Task.CompletedTask;
+  }
 
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
   public Task OnTestStartedAsync(TestNodeInfo node)
   {
     ArgumentNullException.ThrowIfNull(node);
@@ -74,6 +82,8 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     return Task.CompletedTask;
   }
 
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
   public Task OnTestCompletedAsync(TestNodeInfo node)
   {
     ArgumentNullException.ThrowIfNull(node);
@@ -96,8 +106,11 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     return Task.CompletedTask;
   }
 
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException"><paramref name="className"/> is null.</exception>
   public Task OnRunStartedAsync(string className, string? filterTag = null)
   {
+    ArgumentNullException.ThrowIfNull(className);
 #pragma warning disable CA1849
     Terminal.WriteLine($"🧪 Testing {className}...");
     if (filterTag is not null)
@@ -110,9 +123,14 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
     return Task.CompletedTask;
   }
 
+  /// <inheritdoc />
+  /// <exception cref="ArgumentNullException">
+  /// <paramref name="stats"/> or <paramref name="results"/> is null.
+  /// </exception>
   public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results)
   {
     ArgumentNullException.ThrowIfNull(stats);
+    ArgumentNullException.ThrowIfNull(results);
 #pragma warning disable CA1849
     Terminal.WriteTable(table =>
     {

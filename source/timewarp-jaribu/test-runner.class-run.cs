@@ -24,11 +24,16 @@ using System.Reflection;
 // with no discoverable tests fails unless allowEmpty is set. A bad hook
 // on that empty class is still an Error. A method filter, method predicate,
 // or case predicate skips that empty-class node. A case filter that selects
-// nothing does not invent a node. A class or method tag miss emits one
-// Skipped node per method and does not run hooks or signature diagnostics.
+// nothing does not invent a node. A class tag miss emits one Skipped node
+// per method and does not run hooks or signature diagnostics. A method
+// whose Jaribu attribute constructor throws is an Error node on that path
+// too, and the run fails. A method tag miss is Skipped unless that
+// constructor throws.
 // Near-miss tests warn unless strictSignatures is set. A method predicate
 // or case predicate that selects no nodes omits those strict Error nodes.
 // A method-name filter still reports them.
+// A class Timeout or TestTag constructor that throws reports each selected
+// method as Error and does not open the hook-timeout scope.
 #endregion
 
 public static partial class TestRunner
@@ -41,7 +46,7 @@ public static partial class TestRunner
   /// <param name="filterTag">
   /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
   /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method.
+  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
@@ -99,7 +104,7 @@ public static partial class TestRunner
   /// <param name="filterTag">
   /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
   /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method.
+  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
@@ -167,7 +172,12 @@ public static partial class TestRunner
     CancellationToken cancellationToken = default)
   {
     using CancellationScope scope = new(cancellationToken);
-    using HookTimeoutScope hookTimeout = new(testClass);
+    bool classAttributeRejected = JaribuAttributeRead.TryRejectClass(
+      testClass,
+      out JaribuAttributeRead.Rejection classRejection);
+    HookTimeoutScope? hookTimeout = classAttributeRejected
+      ? null
+      : new HookTimeoutScope(testClass);
     bool ownsSession = SessionFixture.TryBeginRunLease(out long runEpoch);
 
     try
@@ -205,8 +215,11 @@ public static partial class TestRunner
 
       string className = ReportedClassName(testClass);
 
-      // Class tag miss: same Skipped nodes discovery lists. No hooks, no signature diagnostics.
-      if (filterTag is not null && !TestFilter.ClassTagMatches(testClass, filterTag))
+      // Class tag miss: same nodes discovery lists. No hooks, no signature diagnostics.
+      // A rejected method stays an Error node, the same as a method tag miss.
+      if (!classAttributeRejected &&
+          filterTag is not null &&
+          !TestFilter.ClassTagMatches(testClass, filterTag))
       {
         await sink.OnRunStartedAsync(className, filterTag);
         string reason = TestFilter.TagMissMessage(filterTag);
@@ -220,6 +233,20 @@ public static partial class TestRunner
           if (cancellationToken.IsCancellationRequested)
           {
             break;
+          }
+
+          if (JaribuAttributeRead.TryRejectMethod(
+            testCase.Method,
+            out JaribuAttributeRead.Rejection methodRejection))
+          {
+            results.AddRange(
+              await ReportAttributeRejectionAsync(
+                testClass,
+                testCase.Method,
+                methodRejection,
+                casePredicate: null,
+                sink));
+            continue;
           }
 
           results.AddRange(await ReportSkippedAsync(testCase, reason, casePredicate: null, sink));
@@ -274,12 +301,49 @@ public static partial class TestRunner
         setupOnceResolve.ValidationError ??
         cleanUpOnceResolve.ValidationError;
 
-      if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
+      if (classAttributeRejected && !cancellationToken.IsCancellationRequested)
+      {
+        foreach (MethodInfo method in testMethods)
+        {
+          if (cancellationToken.IsCancellationRequested)
+          {
+            break;
+          }
+
+          results.AddRange(
+            await ReportAttributeRejectionAsync(
+              testClass,
+              method,
+              classRejection,
+              casePredicate,
+              sink));
+        }
+      }
+      else if (resolutionError is not null && !cancellationToken.IsCancellationRequested)
       {
         // Bad hook signature: fail the nodes discovery lists, without invoking hooks.
         bool reported = false;
         foreach (MethodInfo method in testMethods)
         {
+          if (JaribuAttributeRead.TryRejectMethod(
+            method,
+            out JaribuAttributeRead.Rejection methodRejection))
+          {
+            List<TestNodeInfo> rejected = await ReportAttributeRejectionAsync(
+              testClass,
+              method,
+              methodRejection,
+              casePredicate,
+              sink);
+            if (rejected.Count > 0)
+            {
+              reported = true;
+              results.AddRange(rejected);
+            }
+
+            continue;
+          }
+
           List<ReportedTestCase> cases = SelectCases(
             TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
             casePredicate);
@@ -312,7 +376,7 @@ public static partial class TestRunner
             lookupMethod: false).ConfigureAwait(false);
         }
       }
-      else
+      else if (!classAttributeRejected)
       {
         ClassOnceState onceState = new()
         {
@@ -425,6 +489,8 @@ public static partial class TestRunner
       {
         await EndOwnedSessionWithoutMaskingAsync(runEpoch, cancellationToken).ConfigureAwait(false);
       }
+
+      hookTimeout?.Dispose();
     }
   }
 }

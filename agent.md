@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TimeWarp.Jaribu is a lightweight testing framework for single-file C# programs and scripts. It enables convention-based test discovery and execution for executable .cs files without heavy test frameworks.
 
-Target framework: net10.0 (preview)
+Target framework: net10.0
 
 ## Build Commands
 
@@ -61,7 +61,7 @@ TestRunner.RunTestsAsync(sink)
 - An empty class, and `RunAllTests` with no registered classes, fails unless `allowEmpty` or `--allow-empty` is set. A method, method-predicate, or case filter skips that empty-class node
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
 - Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally. They do not clear the runfile cache
-- Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`. A blank variable is ignored. A class or method whose tags exist and none match is one Skipped node per method
+- Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`. A blank variable is ignored. A class or method whose tags exist and none match is one Skipped node per method. A rejected attribute on that method is an Error node, and the run fails
 - Supports parameterized tests via [Input] attributes
 - Resolves Setup/CleanUp once per class with the same signature rule as SetupOnce/CleanUpOnce. A near-miss hook fails the class
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed, none executed, or cancelled)
@@ -69,7 +69,7 @@ TestRunner.RunTestsAsync(sink)
 **Sinks** ([source/timewarp-jaribu/](source/timewarp-jaribu/))
 - **TerminalSink** — Pretty console output with colored tables via TimeWarp.Terminal
 - **NullSink** — Singleton silent sink for testing/benchmarking
-- **MtpSink** ([source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs](source/TimeWarp.Jaribu.TestingPlatform/MtpSink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
+- **MtpSink** ([source/timewarp-jaribu-testing-platform/mtp-sink.cs](source/timewarp-jaribu-testing-platform/mtp-sink.cs)) — Translates TestNodeInfo to MTP TestNodeUpdateMessage
 
 **TestHelpers** ([source/timewarp-jaribu/test-helpers.cs](source/timewarp-jaribu/test-helpers.cs))
 - FormatTestName: Converts PascalCase to readable format
@@ -121,14 +121,14 @@ The compile set is [tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props
 
 ## Version Management
 
-Version is centralized in [Directory.Build.props](Directory.Build.props) `<Version>` property. Update this single location to change package version.
+Package version is `<Version>` in [source/Directory.Build.props](source/Directory.Build.props). The root [Directory.Build.props](Directory.Build.props) sets the target framework and analyzers. It does not set the package version.
 
 ## Writing Tests
 
 Test files use SUT_Action_Given_Should_Result naming convention:
 
 ```csharp
-#!/usr/bin/dotnet --
+#!/usr/bin/env -S dotnet --
 
 #region Purpose
 // Tests for TestRunner discovery - validates method discovery via reflection

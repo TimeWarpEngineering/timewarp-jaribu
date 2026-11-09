@@ -15,6 +15,7 @@ using System.Reflection;
 // the body. Exceptions from the body, or from a Setup task, are Failed, sync
 // or async. Reflection failures that prevent Invoke of the body or of Setup
 // are Error. A bad Setup or CleanUp signature is Error before the body.
+// A rejected Jaribu attribute is Error before Setup. The message names it.
 // Fixture creation marks are Error, and a fixture create timeout
 // is Timeout.
 // CleanUp still runs after a body outcome. A CleanUp interrupted by the same
@@ -54,6 +55,16 @@ public static partial class TestRunner
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
+
+    if (JaribuAttributeRead.TryRejectClass(testClass, out JaribuAttributeRead.Rejection classRejection))
+    {
+      return Task.FromResult(AttributeRejectionNode(testClass, method, classRejection));
+    }
+
+    if (JaribuAttributeRead.TryRejectMethod(method, out JaribuAttributeRead.Rejection methodRejection))
+    {
+      return Task.FromResult(AttributeRejectionNode(testClass, method, methodRejection));
+    }
 
     HookResolveResult setupHook = ResolveHook(testClass, "Setup");
     HookResolveResult cleanUpHook = ResolveHook(testClass, "CleanUp");

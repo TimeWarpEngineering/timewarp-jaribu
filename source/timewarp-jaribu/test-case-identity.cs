@@ -19,6 +19,8 @@ using System.Text;
 // node. EnumerateReportedCases is that list for discovery, those short-circuits,
 // and bad once-hook fan-out. ExpandInputs is only the rows that execute.
 // DiscoverTestCases reads JARIBU_FILTER_TAG when filterTag is null.
+// A method whose Jaribu attribute constructor throws is one method-level case.
+// The run reports that case as Error, including when the class tag misses.
 #endregion
 
 /// <summary>
@@ -151,6 +153,11 @@ public static class TestCaseIdentity
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
+    if (JaribuAttributeRead.TryRejectMethod(method, out _))
+    {
+      return [MethodCase(testClass, method)];
+    }
+
     if (TestFilter.TagSkipReason(testClass, method, filterTag) is not null ||
         method.GetCustomAttribute<SkipAttribute>() is not null)
     {
@@ -191,7 +198,7 @@ public static class TestCaseIdentity
       casePredicate);
   }
 
-  private static ReportedTestCase MethodCase(Type testClass, MethodInfo method)
+  internal static ReportedTestCase MethodCase(Type testClass, MethodInfo method)
   {
     return new ReportedTestCase(
       method,

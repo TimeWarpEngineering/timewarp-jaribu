@@ -11,6 +11,9 @@ using System.Reflection;
 // does not resolve them again. SetupOnce still runs lazily on the first row
 // that actually executes. Tag misses and [Skip] both go through
 // TestFilter.SkippedNode, one method-level node, before that hook.
+// A Jaribu attribute constructor that throws is an Error node for the method.
+// The message names the attribute. That Error wins over a method tag miss.
+// Sibling methods still run.
 #endregion
 
 public static partial class TestRunner
@@ -34,6 +37,11 @@ public static partial class TestRunner
     if (cancellationToken.IsCancellationRequested)
     {
       return results;
+    }
+
+    if (JaribuAttributeRead.TryRejectMethod(method, out JaribuAttributeRead.Rejection rejection))
+    {
+      return await ReportAttributeRejectionAsync(testClass, method, rejection, casePredicate, sink);
     }
 
     if (TestFilter.TagSkipReason(testClass, method, filterTag) is string tagReason)
@@ -130,5 +138,44 @@ public static partial class TestRunner
     await sink.OnTestStartedAsync(skipNode);
     await sink.OnTestCompletedAsync(skipNode);
     return [skipNode];
+  }
+
+  /// <summary>
+  /// Publishes one Error node unless <paramref name="casePredicate"/> rejects it.
+  /// The node is the method. Its message names the attribute.
+  /// </summary>
+  private static async Task<List<TestNodeInfo>> ReportAttributeRejectionAsync(
+    Type testClass,
+    MethodInfo method,
+    JaribuAttributeRead.Rejection rejection,
+    Func<ReportedTestCase, bool>? casePredicate,
+    ITestResultSink sink)
+  {
+    ReportedTestCase errorCase = TestCaseIdentity.MethodCase(testClass, method);
+    if (!JaribuAttributeRead.PredicateKeeps(casePredicate, errorCase))
+    {
+      return [];
+    }
+
+    TestNodeInfo node = AttributeRejectionNode(testClass, method, rejection);
+    await sink.OnTestStartedAsync(node);
+    await sink.OnTestCompletedAsync(node);
+    return [node];
+  }
+
+  /// <summary>Error node for a rejected Jaribu attribute. The message names the attribute.</summary>
+  private static TestNodeInfo AttributeRejectionNode(
+    Type testClass,
+    MethodInfo method,
+    JaribuAttributeRead.Rejection rejection)
+  {
+    return new TestNodeInfo(
+      TestCaseIdentity.MethodUid(testClass, method),
+      method.Name,
+      TestNodeState.Error,
+      TimeSpan.Zero,
+      rejection.Exception,
+      rejection.Message,
+      Method: method);
   }
 }

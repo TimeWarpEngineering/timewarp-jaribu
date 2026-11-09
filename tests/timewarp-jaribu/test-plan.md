@@ -1,140 +1,50 @@
-# Jaribu Test Runner Test Plan
+# Jaribu test plan
 
-## Introduction
-This test plan outlines the strategy for validating the design and implementation of the `TestRunner` class in the TimeWarp.Jaribu project. Jaribu is a lightweight test runner for single-file C# programs, focusing on discovering and executing public static async Task methods as tests. The plan covers unit tests, integration tests, and edge cases to ensure reliability, correctness, and adherence to the documented behavior.
+This suite checks `TestRunner`, the sinks, and the pieces of the Microsoft.Testing.Platform adapter that can be asserted from a runfile. Jaribu runs the suite against itself. Each meta-test class is the only `[ModuleInitializer]` registration in its file. Intentional failures live in nested fixtures that the meta-test drives through `RunTestsAsync`, so a green run exits 0.
 
-The test runner supports:
-- Automatic discovery of test methods via reflection.
-- Async test execution.
-- Parameterized tests using `[Input]` attributes.
-- Tag-based filtering (`[TestTag]`) at class and method levels.
-- Skipping tests with `[Skip]`.
+## Layout
 
-- Basic reporting and exit codes.
+| Path | What it holds |
+|------|----------------|
+| `tests/timewarp-jaribu/single-file-tests/core/` | Discovery, tags, filter parity, skip, `[Input]`, edges, hooks, session fixtures, cancellation, timeouts, and runner guards |
+| `tests/timewarp-jaribu/single-file-tests/api/` | Structured `TestRunStats` and multi-class registration |
+| `tests/timewarp-jaribu/single-file-tests/output/` | `TerminalSink` tables and reporting |
+| `tests/timewarp-jaribu/single-file-tests/mtp/` | MTP node identity and the packed-props transitive consumer |
+| `tests/timewarp-jaribu/multi-file-runners/` | `run-tests.cs`, `ci-runner/`, and `mtp-runner/` |
+| `tests/timewarp-jaribu-mtp-validation/` | Samples with intentional failures for an out-of-process adapter check. `./bin/dev test` does not run this project |
 
-This plan will guide the creation of test classes under `tests/TimeWarp.Jaribu.Tests/` to self-validate the runner.
+`tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props` is the compile set shared by the CI runner, the MTP runner, and `run-tests.cs`.
 
-## Scope
-- **In Scope**: Core functionality (discovery, execution, filtering, skipping, parameterization, reporting). Compatibility with .NET 10.0+ single-file scenarios. The .NET runfile cache is managed outside TestRunner (`dotnet clean`, `ganda runfile cache --clear`).
-- **Out of Scope**: Performance benchmarks (use Benchmarks/ project), security testing, cross-platform specifics beyond Linux/Windows/macOS basics, integration with external test frameworks (e.g., xUnit).
-- **Assumptions**: Tests run in a development environment with .NET SDK installed. Custom attributes (`[Input]`, `[Skip]`, etc.) are defined in the Jaribu project. Reflection-based discovery assumes trusted code.
+Files are kebab-case `sut.action.cs`. A large behavior is split across a meta-test file and sibling fixtures that the meta-test includes. There is no `tests/TimeWarp.Jaribu.Tests/` tree.
 
-## Test Objectives
-- Verify test discovery and execution for valid/invalid methods.
-- Ensure filtering skips correctly without affecting untagged tests.
-- Validate parameterized tests run multiple times with correct args.
-- Confirm exceptions are caught and reported properly.
-- Cache clearing is not a TestRunner responsibility.
-- Ensure static counters reset per run (or handle accumulation if by design).
-- Check console output matches expected formats.
-- Validate exit codes: 0 for all pass, 1 for any failure.
+## How to run
 
-## Test Environment
-- **Runtime**: .NET 10.0 (single-file publish mode where applicable).
-- **Platform**: Linux (primary), with the same runner behavior on Windows and macOS.
-- **Tools**: `dotnet build`, `dotnet run` for invoking `TestRunner.RunTests<T>()`.
-- **Test Framework**: Self-hosted via Jaribu (ironic self-testing); supplement with manual assertions or simple console checks.
+```bash
+./bin/dev test
+dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/
+```
 
-## Test Categories and Cases
+`./bin/dev test` runs `tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs`. A single file also runs on its own:
 
-### 1. Test Discovery and Execution
-**Objective**: Ensure only qualifying methods (public, static, async Task, not Setup/CleanUp) are discovered and executed.
+```bash
+dotnet run tests/timewarp-jaribu/single-file-tests/core/test-runner.discovery.cs
+```
 
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| DISC-01 | Basic test method execution | Test class with one valid test method | Call `RunTests<BasicTests>()` | Method invoked, "✓ PASSED" output, PassCount=1, TotalTests=1, exit=0 | High |
-| DISC-02 | Skip non-qualifying methods | Test class with public static void, private async Task, Setup/CleanUp | Call `RunTests<NonQualifyingTests>()` | No invocation, TotalTests=0 (or 1 if counting skipped implicitly) | High |
-| DISC-03 | Multiple test methods | Test class with 3 valid tests (2 pass, 1 fails) | Call `RunTests<MultiTest>()` | All executed, correct pass/fail counts, exit=1 | High |
-| DISC-04 | Async test with await | Test method with `await Task.Delay(1)` | Call `RunTests<AsyncTest>()` | Await completes, "✓ PASSED" | Medium |
-| DISC-05 | ValueTask support (future) | Test method returning ValueTask | Call `RunTests<ValueTaskTest>()` | Executed successfully (if implemented) | Low |
+Runfiles use `#!/usr/bin/env -S dotnet --`.
 
-### 2. Parameterized Tests
-**Objective**: Validate `[Input]` attributes drive multiple invocations.
+## What a green run means
 
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| PARAM-01 | Single [Input] with args | Method with 2 params, one [Input("arg1", 42)] | Call `RunTests<ParamTest>()` | Invoked once with args, display name shows "(arg1, 42)", PASS | High |
-| PARAM-02 | Multiple [Input] | Two [Input] attrs with different args | Call `RunTests<MultiParamTest>()` | Invoked twice, TotalTests=2, correct display names | High |
-| PARAM-03 | No [Input] - empty params | Method with no attrs | Call `RunTests<NoParamTest>()` | Invoked once with empty array, display name without params | High |
-| PARAM-04 | Type mismatch in [Input] | [Input] string for int param | Call `RunTests<TypeMismatchTest>()` | Invocation fails with ArgumentException, reported as ✗ FAILED | Medium |
-| PARAM-05 | Null params handling | [Input(nullValue)] for nullable param | Call `RunTests<NullParamTest>()` | Passed as null, "null" in display name | Medium |
+- Qualifying tests are `public static Task`. `ValueTask`, `Task<T>`, `async void`, and an open generic `Task` are near-misses. They are not executed. Strict mode fails the run. The default records a warning.
+- `[Skip("reason")]` reports Skipped and does not fail the run.
+- A tag miss, at class or method level, is one Skipped node per method, unless that method's attribute constructor throws. A blank `JARIBU_FILTER_TAG` is not a filter.
+- `[Input]` adds one node per attribute. Discovery and execution share that node's uid.
+- `[Timeout]` rejects zero and negative milliseconds. A method budget limits that body. A class budget, or `TestRunner.DefaultHookTimeout`, limits hooks and session-fixture creation. A rejected attribute on a discovered method is an Error node, including when a class tag or a method tag misses. The message names the attribute, the run fails, and the process stays up. A healthy sibling on a class tag miss stays Skipped. A healthy sibling on a method tag miss still runs.
+- `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` must be `public static Task` with no parameters. A near-miss hook fails the class.
+- A cleanup failure does not replace the body outcome. The run still fails.
+- Cancelled counts as a failing state.
+- An empty class fails unless `allowEmpty` is set.
+- `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. `SkipAttribute` and `TestTagAttribute` reject a null reason or tag. `[Input(null)]` is one null argument. Empty and whitespace skip reasons and tags stay valid.
 
-### 3. Tag Filtering
-**Objective**: Confirm class/method-level filtering via param or env var.
+## Out of scope
 
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| TAG-01 | Class-level match | Class with [TestTag("feature1")], filter="feature1" | Call `RunTests<ClassTagged>()` with filter | All methods run | High |
-| TAG-02 | Class-level mismatch | Class with [TestTag("other")], filter="feature1" | Call `RunTests<ClassMismatched>()` with filter | No methods run, TotalTests=0, exit=0 | High |
-| TAG-03 | Method-level match | Untagged class, method with [TestTag("feature1")], filter="feature1" | Call `RunTests<MethodTagged>()` with filter | Tagged method runs, others skipped if tagged differently | High |
-| TAG-04 | Method-level mismatch | Method with [TestTag("other")], filter="feature1" | Call `RunTests<MethodMismatched>()` with filter | Method skipped, "⚠ SKIPPED: No matching tag", TotalTests=1 | High |
-| TAG-05 | Untagged method with filter | No tags, filter="feature1" | Call `RunTests<Untagged>()` with filter | Method runs (implicit match) | High |
-| TAG-06 | Env var filtering | Set JARIBU_FILTER_TAG="feature1", no param | Call `RunTests<EnvFilterTest>()` | Filters as per env var | Medium |
-| TAG-07 | Case-insensitive matching | Tags "Feature1" vs filter "feature1" | Call with filter | Matches | Medium |
-
-### 4. Skipping and Exceptions
-**Objective**: Handle [Skip] and runtime errors gracefully.
-
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| SKIP-01 | [Skip] with reason | Method with [Skip("WIP")] | Call `RunTests<SkippedTest>()` | "⚠ SKIPPED: WIP", TotalTests=1, PassCount=0, exit=1? (debate: skip as non-failure) | High |
-| SKIP-02 | Runtime exception in test | Test throws ArgumentException | Call `RunTests<ExceptionTest>()` | "✗ FAILED: ArgumentException", message shown, exit=1 | High |
-| SKIP-03 | TargetInvocationException unwrapping | Reflection-invoked exception | Call `RunTests<InvocationTest>()` | Inner exception type/message shown | High |
-| SKIP-04 | Async exception | Await throws after delay | Call `RunTests<AsyncExceptionTest>()` | Caught and reported | Medium |
-
-### 5. Reporting and Cleanup
-**Objective**: Validate output, counters, and post-run actions.
-
-| Test Case ID | Description | Preconditions | Steps | Expected Result | Priority |
-|--------------|-------------|---------------|-------|-----------------|----------|
-| REPORT-01 | Summary output | 2/3 tests pass | Call `RunTests<ReportTest>()` | "Results: 2/3 tests passed", correct emojis | High |
-| REPORT-02 | Filtered summary | Filter skips 1, 2 pass | Call with filter | TotalTests=3 (including skipped?), accurate count | High |
-| REPORT-03 | CleanUp invocation | Static void CleanUp method | Call `RunTests<CleanupTest>()` | Invoked after tests (verify via log/assert) | Medium |
-| REPORT-04 | Async CleanUp (future) | If Task-returning CleanUp | Call | Awaited properly | Low |
-| REPORT-05 | Counter reset (if implemented) | Multiple RunTests calls | Sequential calls | Counters reset per call | Medium |
-
-### 6. Edge Cases
-- **DISC-EDGE-01**: Generic test methods – Ensure reflection handles.
-- **PARAM-EDGE-01**: [Input] with 0 params for multi-param method – Fail gracefully.
-- **TAG-EDGE-01**: Multiple tags per method/class – Any match suffices.
-- **REPORT-EDGE-01**: 0 tests – "Results: 0/0", exit=0.
-
-## Test Execution Strategy
-- **Automation**: Write test classes (e.g., `DiscoveryTests.cs`) using Jaribu itself. Use a meta-runner script (e.g., `run-jaribu-tests.cs`) to invoke and assert outputs/exit codes.
-- **Manual Verification**: For console output, inspect logs/files.
-- **Coverage**: Aim for 90%+ code coverage (use `dotnet test --collect:"XPlat Code Coverage"` if integrating with MSTest).
-- **Pass/Fail Criteria**: All high-priority cases pass; no regressions in existing Nuru tests using Jaribu.
-
-## Risks and Mitigations
-- **Risk**: Self-testing circularity – **Mitigation**: Use simple assertions in tests; fallback to manual runs.
-
-- **Risk**: Reflection changes in future .NET – **Mitigation**: Pin to .NET 10.0; monitor updates.
-
-## Next Steps
-1. Create test class files based on this plan (e.g., `DiscoveryTests.cs`).
-2. Implement meta-runner for automated validation.
-3. Run plan and document results in `TestResults.md`.
-4. Iterate on TestRunner based on findings.
-
-## Architecture Changes (Epic 018)
-
-As of the MTP alignment refactoring (tasks 019-023), the following types were replaced:
-
-| Old Type | New Type |
-|----------|----------|
-| `TestOutcome` | `TestNodeState` |
-| `TestStatus` | `TestNodeState` |
-| `TestResult` | `TestNodeInfo` |
-| `MtpTestResult` | `TestNodeInfo` |
-| `TestRunSummary` | `TestRunStats` |
-| `TestSuiteSummary` | Collecting sinks aggregate per-class |
-
-The TestRunner uses a sink-based architecture (`ITestResultSink`) with pluggable output destinations:
-- `TerminalSink` for console output
-- `MtpSink` for `dotnet test` integration
-- `NullSink` for silent testing/benchmarking
-
-Test files `jaribu-08`, `jaribu-09`, and `jaribu-10` were rewritten to use the new API.
-
-*Document Version: 1.0 | Date: 2025-10-05*
-*Updated: 2026-02-09 — Epic 018 architectural changes*
+Performance comparison with other frameworks is task 040. Tautological-test detection is task 039. The .NET runfile cache is not a `TestRunner` responsibility.
