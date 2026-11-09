@@ -48,6 +48,8 @@ Local SDK 11.0.100-rc.3 is installed; CI currently uses 10.0.403.
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-09)
 - Implementation (2026-11-09): moved the repo to net11.0 and pinned Amuru 3.0.0-beta.2. `ganda repo audit --fix` wrote the gitignored `.vscode/settings.json` window title. The follow-up audit passed 40, failed 0, skipped 1. Amuru pins stayed on 3.0.0-beta.2.
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-09T08:50:55Z
+- Review oracle (2026-11-09): reviewed by Claude Opus 5.5 (claude-opus-5-5) with the tw-implementation-review body, effort 2, roster general, turn cap 120. Session id is not exposed to the agent. 1 round, disposition clean.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 61f80d6b-b919-4bbb-9f8a-7ad43e0040d8, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-09T09:00:42Z
 
 ## Results
 
@@ -78,6 +80,42 @@ Smoke: `dotnet --version`, then `dotnet build timewarp-jaribu.slnx --nologo -c R
 
 Expect: `dotnet --version` prints an 11.0 SDK (`11.0.100-rc.3.26522.148` here). The solution build reports 0 warnings and 0 errors and writes `net11.0` outputs. `./bin/dev test` exits 0, the CI runner prints `Passed: 204`, and the MTP runner reports `succeeded: 204` and `failed: 0`. `ganda repo audit` exits 0. `Directory.Packages.props` still pins TimeWarp.Amuru and TimeWarp.Amuru.Tools at `3.0.0-beta.2`.
 
+### Review disposition
+
+**Outcome:** clean. One round with the general reviewer at effort 2 (budget by diff, 279 lines).
+
+| Severity | open | fixed | wontfix |
+|----------|------|-------|---------|
+| bug | 0 | 0 | 0 |
+| suggestion | 0 | 0 | 0 |
+| nit | 0 | 0 | 0 |
+
+The reviewer checked each acceptance item against the repo:
+
+- nuget.org lists Amuru and Amuru.Tools 3.0.0-beta.2 as the newest. The `3.0.0` in the local NuGet cache came from a local timewarp-amuru build and is not published.
+- Nuru 4.0.0-beta.11 calls `Shell.Builder`, `WithArguments`, `WithNoValidation`, `WithStandardInput`, `CaptureAsync`, `RunAsync`, and `CommandOutput.Success` / `Stdout`. Those signatures are the same in Amuru 2.0.0 and 3.0.0-beta.2, so running Nuru on Amuru 3 does not change those calls.
+- On SDK 11.0.100-rc.3 the Release solution build had 0 warnings and 0 errors. `./bin/dev test` passed, and the MTP runner reported 204/204 on net11.0.
+
+These were noted but are not findings:
+
+- `TargetFrameworkMoniker()` is copied into three standalone runfiles.
+- The published Jaribu packages now target only net11.0, which leaves net10.0 consumers behind while .NET 11 is RC. The release flow decides the version bump.
+
+Paths:
+
+- `review/review-framework.md`
+- `review/round-1/general.md`
+- `review/round-1/merged.md`
+- `review/disposition.md`
+
+## Review
+
+- Round 1: Done
+
 ## Notes
 
 Origin: follow-up from tasks 052 and 055, where the reviewer flagged that every `audit --fix` run re-bumps Amuru to 3.x and breaks restore on net10.0. Mentioned in `kanban/done/052-*/task.md` Results.
+
+## Learnings
+
+- Review round 1: the implementer restatement matches the original task. No misread.
