@@ -91,7 +91,6 @@ namespace TestRunner_
         }
         finally
         {
-          await EndTestSessionAsync();
           ClearRegisteredSessionFixtures();
         }
       });
