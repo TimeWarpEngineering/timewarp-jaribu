@@ -20,9 +20,10 @@
   </ItemGroup>
 
   <!--
-    Local test assemblies. The grants are compiled into the assembly, so a packed
-    build that leaves this at its default still names those assemblies.
-    Pass -p:JaribuExposeInternals=false to omit them.
+    Local test assemblies. The grants are compiled into the assembly.
+    The default stays on so a test build can reach internal types.
+    The release pack passes JaribuExposeInternals=false, and the release gate
+    rejects a packed lib assembly that still carries InternalsVisibleTo.
   -->
   <ItemGroup Condition="'$(JaribuExposeInternals)' != 'false'">
     <InternalsVisibleTo Include="run-ci-tests" />

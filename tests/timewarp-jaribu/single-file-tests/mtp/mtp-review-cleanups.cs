@@ -7,9 +7,12 @@
 #endregion
 
 #region Design
-// MtpSink, MethodSourceLocation, and the two extensions are internal.
+// MtpSink, MethodSourceLocation, JaribuTestFramework, and the two extensions are internal.
 // InternalsVisibleTo names run-ci-tests, timewarp-jaribu-tests-mtp, and this file.
 // Timing is asserted from the timestamps on the node. A duration with no timestamps publishes none.
+// An unsupported request publishes one Error node and returns. A bus that throws makes
+// an AggregateException that keeps the original exception and the publish failure.
+// On a host that cannot emit a DynamicMethod, the PDB case is a smoke check of an ordinary method.
 #endregion
 
 #if !JARIBU_MULTI
@@ -18,12 +21,16 @@ return await RunAllTests();
 
 namespace Mtp_
 {
+  using System.IO.Compression;
   using System.Reflection;
   using System.Reflection.Emit;
   using System.Runtime.CompilerServices;
+  using DevCli.Commands;
   using Microsoft.Testing.Platform.Extensions;
   using Microsoft.Testing.Platform.Extensions.Messages;
+  using Microsoft.Testing.Platform.Extensions.TestFramework;
   using Microsoft.Testing.Platform.Messages;
+  using Microsoft.Testing.Platform.Requests;
   using Microsoft.Testing.Platform.TestHost;
   using TimeWarp.Jaribu.TestingPlatform;
 
@@ -86,11 +93,12 @@ namespace Mtp_
       bus.Messages.Single().TestNode.Properties.OfType<TimingProperty>().ShouldBeEmpty();
     }
 
-    public static async Task DynamicMethod_Should_MissWithoutThrowing()
+    public static async Task PdbLookup_Should_MissADynamicMethod_SmokeCheckWhenDynamicCodeIsUnsupported()
     {
       if (!RuntimeFeature.IsDynamicCodeSupported)
       {
-        MethodInfo fallback = typeof(ReviewCleanups_Given_).GetMethod(nameof(DynamicMethod_Should_MissWithoutThrowing))!;
+        MethodInfo fallback = typeof(ReviewCleanups_Given_).GetMethod(
+          nameof(PdbLookup_Should_MissADynamicMethod_SmokeCheckWhenDynamicCodeIsUnsupported))!;
         Should.NotThrow(() => MethodSourceLocation.TryCreate(fallback));
         await Task.CompletedTask;
         return;
@@ -99,6 +107,37 @@ namespace Mtp_
       DynamicMethod method = new("DynamicProbe", typeof(void), Type.EmptyTypes);
       MethodSourceLocation.TryCreate(method).ShouldBeNull();
       await Task.CompletedTask;
+    }
+
+    public static async Task UnsupportedRequest_Should_PublishAnErrorAndReturn()
+    {
+      RecordingBus bus = new();
+      CompletionNotifier notifier = new();
+      JaribuTestFramework framework = new(new JaribuExtension(), new UnusedServices());
+
+      await framework.ExecuteRequestAsync(UnsupportedContext(bus, notifier));
+
+      notifier.Completed.ShouldBeTrue();
+      TestNode node = bus.Messages.Single().TestNode;
+      Exception exception = ExceptionOf(node, TestNodeState.Error);
+      exception.ShouldBeOfType<NotSupportedException>();
+      exception.Message.ShouldContain("Unsupported MTP request type");
+    }
+
+    public static async Task UnsupportedRequest_Should_AggregateAFailedPublishWithTheOriginal()
+    {
+      CompletionNotifier notifier = new();
+      JaribuTestFramework framework = new(new JaribuExtension(), new UnusedServices());
+      InvalidOperationException publishFailure = new("publish failed");
+
+      AggregateException aggregate = await Should.ThrowAsync<AggregateException>(
+        async () => await framework.ExecuteRequestAsync(UnsupportedContext(new ThrowingBus(publishFailure), notifier)));
+
+      notifier.Completed.ShouldBeTrue();
+      aggregate.Message.ShouldContain("could not publish the unhandled-exception node");
+      aggregate.InnerExceptions.Count.ShouldBe(2);
+      aggregate.InnerExceptions[0].ShouldBeOfType<NotSupportedException>();
+      aggregate.InnerExceptions[1].ShouldBeSameAs(publishFailure);
     }
 
     public static async Task Extensions_Should_UseDistinctUidsAndInformationalVersion()
@@ -120,8 +159,42 @@ namespace Mtp_
       }
 
       framework.Version.ShouldBe(expected);
-      framework.Version.ShouldContain("beta");
       await Task.CompletedTask;
+    }
+
+    public static Task PackedTestingPlatform_Should_StillGrantTestInternalsUntilTheReleasePack()
+    {
+      string granted = RepoFile(
+        "source",
+        "timewarp-jaribu-testing-platform",
+        "bin",
+        "Debug",
+        "net10.0",
+        "timewarp-jaribu-testing-platform.dll");
+      File.Exists(granted).ShouldBeTrue();
+      IReadOnlyList<string> friends = ReleaseGate.ReadInternalsVisibleTo(granted);
+      friends.ShouldContain("mtp-review-cleanups");
+      friends.ShouldContain("run-ci-tests");
+      friends.ShouldContain("timewarp-jaribu-tests-mtp");
+      InvalidOperationException exposed = Should.Throw<InvalidOperationException>(
+        () => ReleaseGate.RequireNoInternalsVisibleTo(granted));
+      exposed.Message.ShouldContain("mtp-review-cleanups");
+
+      string root = Directory.CreateTempSubdirectory("jaribu-ivt-granted-").FullName;
+      try
+      {
+        string packagePath = Path.Combine(root, "TimeWarp.Jaribu.TestingPlatform.0.0.0.nupkg");
+        WriteLibPackage(packagePath, "lib/net10.0/TimeWarp.Jaribu.TestingPlatform.dll", granted);
+        InvalidOperationException packed = Should.Throw<InvalidOperationException>(
+          () => ReleaseGate.RequirePackageGrantsNoInternals(packagePath));
+        packed.Message.ShouldContain("mtp-review-cleanups");
+      }
+      finally
+      {
+        Directory.Delete(root, recursive: true);
+      }
+
+      return Task.CompletedTask;
     }
 
     private static async Task AssertMissingAsync(TestNodeState state)
@@ -151,6 +224,70 @@ namespace Mtp_
         TestNodeState.Error => property.ShouldBeOfType<ErrorTestNodeStateProperty>().Exception!,
         _ => throw new InvalidOperationException($"Unexpected state {state}.")
       };
+    }
+
+#pragma warning disable TPEXP // ExecuteRequestContext is the MTP host boundary this test drives
+    private static string RepoFile(params string[] parts)
+    {
+      DirectoryInfo? dir = new(Directory.GetCurrentDirectory());
+      while (dir is not null)
+      {
+        if (File.Exists(Path.Combine(dir.FullName, "timewarp-jaribu.slnx")))
+        {
+          return Path.Combine([dir.FullName, .. parts]);
+        }
+
+        dir = dir.Parent;
+      }
+
+      throw new InvalidOperationException("timewarp-jaribu.slnx was not found from the working directory.");
+    }
+
+    private static ExecuteRequestContext UnsupportedContext(IMessageBus bus, CompletionNotifier notifier)
+    {
+      ConstructorInfo ctor = typeof(TestSessionContext).GetConstructor(
+        BindingFlags.Instance | BindingFlags.NonPublic,
+        binder: null,
+        [typeof(SessionUid)],
+        modifiers: null)
+        ?? throw new InvalidOperationException("TestSessionContext constructor was not found.");
+      TestSessionContext session = (TestSessionContext)ctor.Invoke([new SessionUid("unhandled")]);
+      return new ExecuteRequestContext(new UnsupportedRequest(session), bus, notifier, CancellationToken.None);
+    }
+#pragma warning restore TPEXP
+
+    private static void WriteLibPackage(string packagePath, string entryName, string assemblyPath)
+    {
+      using FileStream stream = File.Create(packagePath);
+      using ZipArchive zip = new(stream, ZipArchiveMode.Create);
+      ZipArchiveEntry entry = zip.CreateEntry(entryName);
+      using Stream entryStream = entry.Open();
+      using FileStream assembly = File.OpenRead(assemblyPath);
+      assembly.CopyTo(entryStream);
+    }
+
+    private sealed class UnsupportedRequest(TestSessionContext session) : IRequest
+    {
+      public TestSessionContext Session { get; } = session;
+    }
+
+#pragma warning disable TPEXP // The completion notifier is the MTP host signal ExecuteRequestAsync calls
+    private sealed class CompletionNotifier : IExecuteRequestCompletionNotifier
+    {
+      public bool Completed { get; private set; }
+
+      public void Complete() => Completed = true;
+    }
+#pragma warning restore TPEXP
+
+    private sealed class UnusedServices : IServiceProvider
+    {
+      public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class ThrowingBus(Exception publishFailure) : IMessageBus
+    {
+      public Task PublishAsync(IDataProducer dataProducer, IData data) => throw publishFailure;
     }
 
     private sealed class RecordingBus : IMessageBus

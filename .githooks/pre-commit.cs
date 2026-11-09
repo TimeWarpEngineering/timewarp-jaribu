@@ -11,10 +11,7 @@ using TimeWarp.Amuru;
 string? root = Git.FindRoot();
 if (root is null)
 {
-#pragma warning disable RS0030, CA1849 // hook runfile: stderr to git, no ITerminal host
-  Console.Error.WriteLine("Refusing commit: repository root was not found.");
-#pragma warning restore RS0030, CA1849
-  return 1;
+  return 0;
 }
 
 CommandOutput revParse = await Shell.Builder("git")

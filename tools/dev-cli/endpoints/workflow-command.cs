@@ -15,6 +15,9 @@
 // handler decides whether that evaluated version is already published.
 // artifacts/packages is deleted before pack. The push list is the two nupkgs just
 // packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
+// Pack passes JaribuExposeInternals=false so the testing platform omits its test
+// InternalsVisibleTo grants. The release gate then reads each packed lib assembly
+// and refuses the release when any grant remains.
 // Auto-detects mode from GITHUB_EVENT_NAME. A non-empty API key also selects release.
 // The key is NUGET_API_KEY or --api-key. Push forwards it only as NUGET_API_KEY.
 // NuGet 7.6 and later read that variable, so the key is not a child-process argument.
@@ -184,6 +187,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         Terminal.WriteLine($"  Packing {project.PackageId}...");
         exitCode = await DotNet.Pack(project.ProjectPath)
           .WithConfiguration("Release")
+          .WithProperty("JaribuExposeInternals", "false")
           .WithOutput(artifactsDir)
           .WithWorkingDirectory(repoRoot)
           .RunAsync(ct);
@@ -198,6 +202,10 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         artifactsDir,
         [.. packableProjects.Select(project => project.PackageId)],
         version);
+      foreach (string packagePath in freshPackages)
+      {
+        ReleaseGate.RequirePackageGrantsNoInternals(packagePath);
+      }
 
       if (!string.IsNullOrEmpty(apiKey))
       {

@@ -20,7 +20,8 @@ using Microsoft.Testing.Platform.Services;
 // requests that select or run cases. Any other request type throws, and the
 // handler publishes an error node for that failure and then returns. The Error
 // node is the report. Rethrowing would also crash the framework. A throw from
-// the publish is aggregated with the original exception and does replace it.
+// the publish is an AggregateException that keeps the original exception and
+// the publish failure.
 // Tree and uid filters go
 // through MtpTreeFilter; a filter this adapter does not recognize throws too.
 //

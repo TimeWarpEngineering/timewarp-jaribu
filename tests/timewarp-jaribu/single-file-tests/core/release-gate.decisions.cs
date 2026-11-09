@@ -17,6 +17,7 @@ return await RunAllTests();
 
 namespace ReleaseGate_
 {
+  using System.IO.Compression;
   using DevCli.Commands;
 
   [TestTag("Jaribu")]
@@ -103,6 +104,69 @@ namespace ReleaseGate_
       }
 
       return Task.CompletedTask;
+    }
+
+    public static Task PackedAssembly_Should_AcceptALibDllThatGrantsNoInternals()
+    {
+      string clean = RepoFile(
+        "source",
+        "timewarp-jaribu",
+        "bin",
+        "Debug",
+        "net10.0",
+        "timewarp-jaribu.dll");
+      File.Exists(clean).ShouldBeTrue();
+      ReleaseGate.ReadInternalsVisibleTo(clean).ShouldBeEmpty();
+      ReleaseGate.RequireNoInternalsVisibleTo(clean);
+
+      string root = Directory.CreateTempSubdirectory("jaribu-ivt-clean-").FullName;
+      try
+      {
+        string packagePath = Path.Combine(root, "TimeWarp.Jaribu.0.0.0.nupkg");
+        using (FileStream stream = File.Create(packagePath))
+        using (ZipArchive zip = new(stream, ZipArchiveMode.Create))
+        {
+          ZipArchiveEntry entry = zip.CreateEntry("lib/net10.0/TimeWarp.Jaribu.dll");
+          using Stream entryStream = entry.Open();
+          using FileStream assembly = File.OpenRead(clean);
+          assembly.CopyTo(entryStream);
+        }
+
+        ReleaseGate.RequirePackageGrantsNoInternals(packagePath);
+
+        string empty = Path.Combine(root, "Empty.0.0.0.nupkg");
+        using (FileStream stream = File.Create(empty))
+        using (ZipArchive zip = new(stream, ZipArchiveMode.Create))
+        {
+          zip.CreateEntry("README.md");
+        }
+
+        InvalidOperationException missing = Should.Throw<InvalidOperationException>(
+          () => ReleaseGate.RequirePackageGrantsNoInternals(empty));
+        missing.Message.ShouldContain("no lib assembly");
+      }
+      finally
+      {
+        Directory.Delete(root, recursive: true);
+      }
+
+      return Task.CompletedTask;
+    }
+
+    private static string RepoFile(params string[] parts)
+    {
+      DirectoryInfo? dir = new(Directory.GetCurrentDirectory());
+      while (dir is not null)
+      {
+        if (File.Exists(Path.Combine(dir.FullName, "timewarp-jaribu.slnx")))
+        {
+          return Path.Combine([dir.FullName, .. parts]);
+        }
+
+        dir = dir.Parent;
+      }
+
+      throw new InvalidOperationException("timewarp-jaribu.slnx was not found from the working directory.");
     }
   }
 }
