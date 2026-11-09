@@ -258,6 +258,16 @@ Create a test project with the TestingPlatform package:
 </Project>
 ```
 
+A project that references this package directly is a testing platform application. A project that only references such a test project is not. Set `EnableJaribuRunner` to `true` when a project without a direct package reference should still be a testing platform application:
+
+```xml
+<PropertyGroup>
+  <EnableJaribuRunner>true</EnableJaribuRunner>
+</PropertyGroup>
+```
+
+A direct package reference does not need `EnableJaribuRunner`.
+
 ### Test Class Example
 
 ```csharp

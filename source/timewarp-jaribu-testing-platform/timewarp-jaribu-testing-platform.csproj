@@ -35,13 +35,15 @@
   </ItemGroup>
 
   <!--
-    Pack props to build/ only. NuGet imports build/ for a direct PackageReference
-    and buildTransitive/ into every project that references that consumer.
-    When both folders contain the package props, NuGet imports the buildTransitive
-    copy for the direct reference as well. These props set OutputType=Exe and the
-    test-project flags, so a transitive copy turns a class library into a test executable.
+    Pack the test-project props to build/ only. NuGet imports build/ for a direct
+    PackageReference and buildTransitive/ into that project and every project that
+    references it. The buildTransitive targets force IsTestingPlatformApplication
+    false unless EnableJaribuRunner is true or build/ set the direct-reference
+    marker. Copying the build/ props into buildTransitive would mark a class
+    library as a test executable.
   -->
   <ItemGroup>
     <None Include="build/**" Pack="true" PackagePath="build/" />
+    <None Include="buildTransitive/**" Pack="true" PackagePath="buildTransitive/" />
   </ItemGroup>
 </Project>
