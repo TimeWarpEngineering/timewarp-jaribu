@@ -3,7 +3,7 @@
 
 #region Purpose
 // Covers discovery of open generics, the RunAllTests registration snapshot,
-// and Cancelled counting as a failing state.
+// Cancelled counting as a failing state, and null guards on sinks and attributes.
 #endregion
 
 #region Design
@@ -114,6 +114,32 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(1);
       stats.Success.ShouldBeFalse();
       stats.TotalTests.ShouldBe(2);
+      await Task.CompletedTask;
+    }
+
+    public static async Task NullArguments_Should_Throw()
+    {
+      Should.Throw<ArgumentNullException>(() => new SkipAttribute(null!));
+      Should.Throw<ArgumentException>(() => new SkipAttribute(" "));
+      Should.Throw<ArgumentNullException>(() => new TestTagAttribute(null!));
+      Should.Throw<ArgumentException>(() => new TestTagAttribute(string.Empty));
+      Should.Throw<ArgumentNullException>(() => new InputAttribute(null!));
+      InputAttribute row = new(null, 1);
+      row.Parameters.Length.ShouldBe(2);
+      row.Parameters[0].ShouldBeNull();
+
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnTestDiscoveredAsync(null!));
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnTestStartedAsync(null!));
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnTestCompletedAsync(null!));
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnRunStartedAsync(null!));
+      TestRunStats stats = new("C", DateTimeOffset.UnixEpoch, TimeSpan.Zero, 0, 0, 0);
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnRunCompletedAsync(null!, []));
+      Should.Throw<ArgumentNullException>(() => NullSink.Instance.OnRunCompletedAsync(stats, null!));
+
+      using TerminalSink sink = new();
+      Should.Throw<ArgumentNullException>(() => sink.OnTestDiscoveredAsync(null!));
+      Should.Throw<ArgumentNullException>(() => sink.OnRunStartedAsync(null!));
+      Should.Throw<ArgumentNullException>(() => sink.OnRunCompletedAsync(stats, null!));
       await Task.CompletedTask;
     }
 

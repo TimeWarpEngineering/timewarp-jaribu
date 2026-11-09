@@ -15,7 +15,7 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 - **Attributes**: Support for [Skip], [TestTag], [Timeout], and [Input].
 - **Parameterized Tests**: Easy data-driven testing.
 - **Tag Filtering**: Run specific test groups.
-- **Minimal Dependencies**: Only Shouldly for assertions.
+- **Small dependency set**: Shouldly for assertions, TimeWarp.Terminal for console output, and TimeWarp.Amuru on the package graph for runfiles that shell out.
 - **Visual Studio Test Explorer integration** (M.T.P. Mode)
 - **VS Code Test Explorer integration** (M.T.P. Mode)
 - **`dotnet test` support** (M.T.P. Mode)
@@ -76,28 +76,31 @@ dotnet my-tests.cs      # Works on all platforms
 Create a single-file test script (e.g., `my-tests.cs`):
 
 ```csharp
-#!/usr/bin/env dotnet run
-#:package TimeWarp.Jaribu
+#!/usr/bin/env -S dotnet --
+#:package TimeWarp.Jaribu@1.0.0-beta.16
 
-using static TimeWarp.Jaribu.TestHelpers;
+using Shouldly;
+using TimeWarp.Jaribu;
+using static TimeWarp.Jaribu.TestRunner;
 
 return await RunAllTests();
 
-public static class MyTests
+public class MyTests
 {
-    [System.Runtime.CompilerServices.ModuleInitializer]
-    internal static void Register() => RegisterTests<MyTests>();
+  [System.Runtime.CompilerServices.ModuleInitializer]
+  internal static void Register() => RegisterTests<MyTests>();
 
-    public static async Task BasicTest()
-    {
-        1.ShouldBe(1);
-    }
+  public static async Task BasicTest()
+  {
+    1.ShouldBe(1);
+  }
 
-    [TestTag("integration")]
-    public static async Task IntegrationTest()
-    {
-        // Test logic here
-    }
+  [TestTag("integration")]
+  public static async Task IntegrationTest()
+  {
+    // Test logic here
+    await Task.CompletedTask;
+  }
 }
 ```
 
@@ -170,8 +173,11 @@ This pattern uses `[ModuleInitializer]` for auto-registration and conditional co
 #### Test file pattern
 
 ```csharp
-#!/usr/bin/dotnet --
+#!/usr/bin/env -S dotnet --
 #:project ../../source/MyProject/MyProject.csproj
+
+using TimeWarp.Jaribu;
+using static TimeWarp.Jaribu.TestRunner;
 
 #if !JARIBU_MULTI
 return await RunAllTests();
@@ -180,19 +186,20 @@ return await RunAllTests();
 [TestTag("Unit")]
 public class MyTests
 {
-    [ModuleInitializer]
-    internal static void Register() => RegisterTests<MyTests>();
+  [ModuleInitializer]
+  internal static void Register() => RegisterTests<MyTests>();
 
-    public static async Task SomeTest()
-    {
-        // Test logic
-    }
+  public static async Task SomeTest()
+  {
+    // Test logic
+    await Task.CompletedTask;
+  }
 }
 ```
 
 **Key elements:**
 
-- `#!/usr/bin/dotnet --` enables direct execution as a script
+- `#!/usr/bin/env -S dotnet --` enables direct execution as a script
 - `#:project` references dependencies (Jaribu, your project, etc.)
 - `#if !JARIBU_MULTI` only self-executes when run standalone
 - `[ModuleInitializer]` auto-registers when compiled in multi mode
@@ -202,8 +209,10 @@ public class MyTests
 Create a simple entry point that runs all auto-registered tests:
 
 ```csharp
-#!/usr/bin/dotnet --
+#!/usr/bin/env -S dotnet --
 #:project ../source/MyProject/MyProject.csproj
+
+using static TimeWarp.Jaribu.TestRunner;
 
 // Tests auto-registered via [ModuleInitializer]
 return await RunAllTests();
@@ -253,7 +262,7 @@ Create a test project with the TestingPlatform package:
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="*" />
+    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="1.0.0-beta.16" />
   </ItemGroup>
 </Project>
 ```
@@ -261,32 +270,33 @@ Create a test project with the TestingPlatform package:
 ### Test Class Example
 
 ```csharp
-using System.Runtime.CompilerServices;
-using static TimeWarp.Jaribu.TestHelpers;
+using Shouldly;
+using TimeWarp.Jaribu;
+using static TimeWarp.Jaribu.TestRunner;
 
 public class MyTests
 {
-    [ModuleInitializer]
-    internal static void Register() => RegisterTests<MyTests>();
+  [System.Runtime.CompilerServices.ModuleInitializer]
+  internal static void Register() => RegisterTests<MyTests>();
 
-    public static async Task AdditionTest()
-    {
-        (1 + 1).ShouldBe(2);
-        await Task.CompletedTask;
-    }
+  public static async Task AdditionTest()
+  {
+    (1 + 1).ShouldBe(2);
+    await Task.CompletedTask;
+  }
 
-    [TestTag("Integration")]
-    public static async Task IntegrationTest()
-    {
-        // Integration test logic
-        await Task.CompletedTask;
-    }
+  [TestTag("Integration")]
+  public static async Task IntegrationTest()
+  {
+    // Integration test logic
+    await Task.CompletedTask;
+  }
 
-    [Skip("Not yet implemented")]
-    public static async Task FutureTest()
-    {
-        await Task.CompletedTask;
-    }
+  [Skip("Not yet implemented")]
+  public static async Task FutureTest()
+  {
+    await Task.CompletedTask;
+  }
 }
 ```
 
@@ -349,33 +359,33 @@ Selection filters never emit Skipped nodes for omitted items. A tag miss, at cla
 // Test state aligned with Microsoft.Testing.Platform
 public enum TestNodeState
 {
-    Discovered, InProgress, Passed, Failed,
-    Skipped, Timeout, Error, Cancelled
+  Discovered, InProgress, Passed, Failed,
+  Skipped, Timeout, Error, Cancelled
 }
 
 // Individual test result
 public record TestNodeInfo(
-    string Uid,                          // "Namespace.Class.Method" or "Namespace.Class.Method[0]" per [Input]
-    string DisplayName,                  // "MethodName" or "MethodName(param1, param2)"
-    TestNodeState State,
-    TimeSpan? Duration = null,
-    Exception? Exception = null,
-    string? Message = null,
-    IReadOnlyList<object?>? Parameters = null
+  string Uid,                          // "Namespace.Class.Method" or "Namespace.Class.Method[0]" per [Input]
+  string DisplayName,                  // "MethodName" or "MethodName(param1, param2)"
+  TestNodeState State,
+  TimeSpan? Duration = null,
+  Exception? Exception = null,
+  string? Message = null,
+  IReadOnlyList<object?>? Parameters = null
 );
 
 // Aggregated stats for a test class run
 public record TestRunStats(
-    string ClassName,
-    DateTimeOffset StartTime,
-    TimeSpan Duration,
-    int PassedCount,
-    int FailedCount,
-    int SkippedCount
+  string ClassName,
+  DateTimeOffset StartTime,
+  TimeSpan Duration,
+  int PassedCount,
+  int FailedCount,
+  int SkippedCount
 )
 {
-    public int TotalTests => PassedCount + FailedCount + SkippedCount;
-    public bool Success => FailedCount == 0;
+  public int TotalTests => PassedCount + FailedCount + SkippedCount;
+  public bool Success => FailedCount == 0;
 }
 // FailedCount includes Failed, Error, Timeout, and Cancelled. Skipped does not fail the run.
 ```
@@ -388,11 +398,11 @@ Test output flows through `ITestResultSink` implementations, enabling pluggable 
 // Interface for receiving test lifecycle events
 public interface ITestResultSink
 {
-    Task OnTestDiscoveredAsync(TestNodeInfo node);
-    Task OnTestStartedAsync(TestNodeInfo node);
-    Task OnTestCompletedAsync(TestNodeInfo node);
-    Task OnRunStartedAsync(string className, string? filterTag = null);
-    Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results);
+  Task OnTestDiscoveredAsync(TestNodeInfo node);
+  Task OnTestStartedAsync(TestNodeInfo node);
+  Task OnTestCompletedAsync(TestNodeInfo node);
+  Task OnRunStartedAsync(string className, string? filterTag = null);
+  Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results);
 }
 ```
 
@@ -406,35 +416,37 @@ public interface ITestResultSink
 Define `Setup()` and `CleanUp()` methods to run code before and after each test:
 
 ```csharp
-public static class MyTests
+public class MyTests
 {
-    public static async Task Setup()
-    {
-        // Runs before EACH test
-        // Initialize test data, create temp files, etc.
-        await Task.CompletedTask;
-    }
+  public static async Task Setup()
+  {
+    // Runs before EACH test
+    // Initialize test data, create temp files, etc.
+    await Task.CompletedTask;
+  }
 
-    public static async Task CleanUp()
-    {
-        // Runs after EACH test
-        // Clean up resources, delete temp files, etc.
-        await Task.CompletedTask;
-    }
+  public static async Task CleanUp()
+  {
+    // Runs after EACH test
+    // Clean up resources, delete temp files, etc.
+    await Task.CompletedTask;
+  }
 
-    public static async Task Test1()
-    {
-        // Setup runs before this test
-        // Test logic here
-        // CleanUp runs after this test
-    }
+  public static async Task Test1()
+  {
+    // Setup runs before this test
+    // Test logic here
+    // CleanUp runs after this test
+    await Task.CompletedTask;
+  }
 
-    public static async Task Test2()
-    {
-        // Setup runs before this test (fresh state)
-        // Test logic here
-        // CleanUp runs after this test
-    }
+  public static async Task Test2()
+  {
+    // Setup runs before this test (fresh state)
+    // Test logic here
+    // CleanUp runs after this test
+    await Task.CompletedTask;
+  }
 }
 ```
 
@@ -445,27 +457,36 @@ public static class MyTests
 Class-scoped fixture hooks run once around a class's tests (not per test):
 
 ```csharp
-public static class MyTests
+public class MyTests
 {
-    private static ApiTestServerApplication? Host;
+  private static ApiTestServerApplication? Host;
 
-    public static async Task SetupOnce()
-    {
-        // Runs once before the first test that actually executes
-        Host = new ApiTestServerApplication();
-        await Task.CompletedTask;
-    }
+  public static async Task SetupOnce()
+  {
+    // Runs once before the first test that actually executes
+    Host = new ApiTestServerApplication();
+    await Task.CompletedTask;
+  }
 
-    public static async Task CleanUpOnce()
-    {
-        // Runs once after the last test, only if SetupOnce ran
-        if (Host is IAsyncDisposable disposable)
-            await disposable.DisposeAsync();
-        Host = null;
-    }
+  public static async Task CleanUpOnce()
+  {
+    // Runs once after the last test, only if SetupOnce ran
+    if (Host is IAsyncDisposable disposable)
+      await disposable.DisposeAsync();
+    Host = null;
+  }
 
-    public static async Task Test1() { /* uses Host */ await Task.CompletedTask; }
-    public static async Task Test2() { /* uses Host */ await Task.CompletedTask; }
+  public static async Task Test1()
+  {
+    // uses Host
+    await Task.CompletedTask;
+  }
+
+  public static async Task Test2()
+  {
+    // uses Host
+    await Task.CompletedTask;
+  }
 }
 ```
 
@@ -491,33 +512,33 @@ Session scope amortizes create cost across classes under M.T.P. or `RunAllTests`
 ```csharp
 public sealed class AppHostFixture : IAsyncDisposable
 {
-    public static async Task<AppHostFixture> CreateAsync()
-    {
-        // boot host
-        return new AppHostFixture();
-    }
+  public static async Task<AppHostFixture> CreateAsync()
+  {
+    // boot host
+    return new AppHostFixture();
+  }
 
-    public async ValueTask DisposeAsync() { /* tear down */ }
+  public async ValueTask DisposeAsync() { /* tear down */ }
 }
 
 [ModuleInitializer]
 internal static void Register()
 {
-    RegisterTests<SpaSuiteA>();
-    RegisterTests<SpaSuiteB>();
-    RegisterSessionFixture<AppHostFixture>();
+  RegisterTests<SpaSuiteA>();
+  RegisterTests<SpaSuiteB>();
+  RegisterSessionFixture<AppHostFixture>();
 }
 
 // In each class that needs the host
 public static async Task SetupOnce()
 {
-    Host = await SessionFixture.GetAsync<AppHostFixture>();
+  Host = await SessionFixture.GetAsync<AppHostFixture>();
 }
 
 public static async Task CleanUpOnce()
 {
-    // Do NOT dispose the session fixture — the session owns dispose.
-    Host = null;
+  // Do NOT dispose the session fixture — the session owns dispose.
+  Host = null;
 }
 ```
 
@@ -545,7 +566,7 @@ public static async Task CleanUpOnce()
 
 ## Documentation
 
-See the [developer documentation](documentation/) for advanced usage, attributes, and best practices.
+See the [architecture overview](documentation/architecture.md) for how the runner, sinks, and Microsoft.Testing.Platform adapter fit together.
 
 ## Building from Source
 
@@ -555,8 +576,8 @@ See the [developer documentation](documentation/) for advanced usage, attributes
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome. Open an issue or a pull request.
 
 ## License
 
-[MIT License](license)
+[Unlicense](license)
