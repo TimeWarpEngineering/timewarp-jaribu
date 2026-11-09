@@ -26,6 +26,8 @@ The runner re-reads hook methods and Jaribu attributes for every test, copies pa
 - Implementation: 2026-11-09, cached class hooks and attribute reads, awaited `Task<T>` in `SessionFixture`, and cleared MTP location caches on the outermost session close
 - `ganda repo audit --fix --checks vscode-window-icon` wrote the ignored `.vscode/settings.json`. The following audit passed 40 checks and skipped 1.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bf2a-87bf-7e03-a8cf-b1fb604d1b2a, max-turns 500, Done — 2026-11-09T07:58:18Z
+- Review oracle: tw-implementation-review round 1, effort 3, roster general (claude-opus-5-5, headless print mode, turn cap 200), 2026-11-09. Disposition: accepted-exceptions.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session c48aa5f2-c310-4858-9787-377a360f2f50, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-09T08:07:50Z
 
 ## Results
 
@@ -79,3 +81,17 @@ Warm allocated bytes for the parameterized workload, which copies an argument li
 Smoke: `./bin/dev test`
 
 Expect: exit 0, with the CI runner and the MTP runner each reporting 204 passed. `PdbLookup_Should_ResolveAgainAfterTheCacheIsCleared` passes, and the session-fixture create, timeout, and dispose tests still pass. A second `dev benchmark` on SDK 10.0.403 should keep the in-process parameterized and fixtures means near the after column above.
+
+### Review disposition
+
+- Rounds: 1, effort 3, roster: general.
+- Final counts: bug 0 open / 0 fixed / 0 wontfix; suggestion 0 / 0 / 1; nit 0 / 0 / 1.
+- Disposition: **accepted-exceptions** with 0 open.
+  - M1 (suggestion): the strong-keyed metadata caches stay. Jaribu does no collectible-ALC loading, so a strong key keeps nothing alive that the runtime does not already keep. A rebuilt assembly gets new keys, so nothing goes stale.
+  - M2 (nit): there is no direct test for the outermost-close clear or the MVID key. Both can be confirmed by reading a few lines.
+- The reviewer re-ran `./bin/dev test`: exit 0, MTP 204 passed. The restatement matches the task, so there is no misread.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
+## Review
+
+- Round 1: Done
