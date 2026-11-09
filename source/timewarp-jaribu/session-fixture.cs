@@ -43,10 +43,12 @@ using System.Runtime.ExceptionServices;
 // The in-flight task is observed, and a late instance is disposed.
 // A cancelled end starts dispose for every created fixture, observes each task,
 // and then throws, so a later fixture is not detached and leaked.
-// CreateAsync uses the ambient hook timeout. A timeout or a create fault is
+// CreateAsync uses the ambient hook timeout and is awaited as Task<T>.
+// A non-generic Task or a null result is a fixture-creation error.
+// The result is not read through reflection. A timeout or a create fault is
 // marked so the test node stays Timeout or Error. The timeout is not stored
-// on the entry. A late instance is disposed. A wrong returned instance and an
-// orphan from a session that ended during create are fixture-creation errors.
+// on the entry. A late instance is disposed. An orphan from a session that
+// ended during create is a fixture-creation error.
 //
 // MTP: CreateTestSessionAsync → Begin (keeps the epoch); Close → End(epoch).
 // Standalone: RunAllTests wraps begin/end; lone RunTestsAsync takes a run lease
@@ -147,15 +149,7 @@ public static partial class SessionFixture
 
       try
       {
-        object created = await InvokeCreateAsync(entry.Factory, effectiveToken).ConfigureAwait(false);
-        if (created is not T typed)
-        {
-          throw FailureMark.Mark(
-            new InvalidOperationException(
-              $"Session fixture '{fixtureType.Name}' CreateAsync returned " +
-              $"{created?.GetType().FullName ?? "null"}, expected {fixtureType.FullName}."),
-            FailureMark.FixtureCreation);
-        }
+        T created = await InvokeCreateAsync<T>(entry.Factory, effectiveToken).ConfigureAwait(false);
 
         bool sessionStillCurrent;
         lock (RegistryLock)
@@ -163,7 +157,7 @@ public static partial class SessionFixture
           sessionStillCurrent = SessionIsOpen() && Generation == generation;
           if (sessionStillCurrent)
           {
-            entry.Instance = typed;
+            entry.Instance = created;
             entry.CreateFailure = null;
             CreationOrder.Add(fixtureType);
           }
@@ -173,7 +167,7 @@ public static partial class SessionFixture
         {
           // The session ended (or a new one began) while CreateAsync was in
           // flight; the instance belongs to a dead session — dispose the orphan.
-          await typed.DisposeAsync().ConfigureAwait(false);
+          await created.DisposeAsync().ConfigureAwait(false);
           throw FailureMark.Mark(
             new InvalidOperationException(
               $"Test session ended while session fixture '{fixtureType.Name}' was being created. " +
@@ -181,7 +175,7 @@ public static partial class SessionFixture
             FailureMark.FixtureCreation);
         }
 
-        return typed;
+        return created;
       }
       catch (OperationCanceledException) when (effectiveToken.IsCancellationRequested)
       {
@@ -380,7 +374,8 @@ public static partial class SessionFixture
     return candidate;
   }
 
-  private static async Task<object> InvokeCreateAsync(MethodInfo factory, CancellationToken cancellationToken)
+  private static async Task<T> InvokeCreateAsync<T>(MethodInfo factory, CancellationToken cancellationToken)
+    where T : class, IAsyncDisposable
   {
     cancellationToken.ThrowIfCancellationRequested();
     string site = factory.DeclaringType?.Name ?? "session fixture";
@@ -402,10 +397,18 @@ public static partial class SessionFixture
         FailureMark.FixtureCreation);
     }
 
+    if (task is not Task<T> typed)
+    {
+      throw FailureMark.Mark(
+        new InvalidOperationException(
+          $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return Task<{typeof(T).Name}>."),
+        FailureMark.FixtureCreation);
+    }
+
     try
     {
       TestRunner.WaitKind kind = await TestRunner.WaitForCompletionAsync(
-        task,
+        typed,
         TestRunner.CurrentHookTimeoutMilliseconds,
         cancellationToken,
         disposeAbandonedResult: true).ConfigureAwait(false);
@@ -439,16 +442,7 @@ public static partial class SessionFixture
       throw FailureMark.Mark(ex, FailureMark.FixtureCreation);
     }
 
-    PropertyInfo? resultProperty = task.GetType().GetProperty("Result");
-    if (resultProperty is null)
-    {
-      throw FailureMark.Mark(
-        new InvalidOperationException(
-          $"CreateAsync on '{factory.DeclaringType?.FullName}' did not return Task<T>."),
-        FailureMark.FixtureCreation);
-    }
-
-    object? result = resultProperty.GetValue(task);
+    T? result = await typed.ConfigureAwait(false);
     if (result is null)
     {
       throw FailureMark.Mark(

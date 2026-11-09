@@ -3,12 +3,12 @@
 #endregion
 
 #region Design
-// GetCustomAttribute runs the attribute constructor. ArgumentException covers a
+// The runner caches the first read of each member. ArgumentException covers a
 // null argument and a non-positive Timeout. CustomAttributeFormatException covers
 // a blob the runtime cannot decode. Other exceptions are not an attribute
-// rejection and still propagate. Every read constructs the attribute again.
-// A rejection throws on every read. The run reports one Error node per method
-// and keeps the process up.
+// rejection and still propagate, and that read is not cached. A cached rejection
+// is the same exception the constructor threw. The run reports one Error node
+// per method and keeps the process up.
 #endregion
 
 namespace TimeWarp.Jaribu;
@@ -34,50 +34,7 @@ internal static class JaribuAttributeRead
   internal static bool TryRejectMethod(MethodInfo method, out Rejection rejection)
   {
     ArgumentNullException.ThrowIfNull(method);
-    if (Fails(nameof(SkipAttribute), "the method", ReadSkip, out rejection))
-    {
-      return true;
-    }
-
-    if (Fails(nameof(TestTagAttribute), "the method", ReadTags, out rejection))
-    {
-      return true;
-    }
-
-    if (Fails(nameof(InputAttribute), "the method", ReadInputs, out rejection))
-    {
-      return true;
-    }
-
-    if (Fails(nameof(TimeoutAttribute), "the method", ReadTimeout, out rejection))
-    {
-      return true;
-    }
-
-    rejection = default;
-    return false;
-
-    void ReadSkip()
-    {
-      _ = method.GetCustomAttribute<SkipAttribute>();
-    }
-
-    void ReadTags()
-    {
-      TestTagAttribute[] tags = [.. method.GetCustomAttributes<TestTagAttribute>(inherit: true)];
-      _ = tags.Length;
-    }
-
-    void ReadInputs()
-    {
-      InputAttribute[] inputs = [.. method.GetCustomAttributes<InputAttribute>()];
-      _ = inputs.Length;
-    }
-
-    void ReadTimeout()
-    {
-      _ = method.GetCustomAttribute<TimeoutAttribute>(inherit: false);
-    }
+    return TestRunner.GetMethodMetadata(method).TryReject(out rejection);
   }
 
   /// <summary>
@@ -86,29 +43,7 @@ internal static class JaribuAttributeRead
   internal static bool TryRejectClass(Type testClass, out Rejection rejection)
   {
     ArgumentNullException.ThrowIfNull(testClass);
-    if (Fails(nameof(TimeoutAttribute), "the class", ReadTimeout, out rejection))
-    {
-      return true;
-    }
-
-    if (Fails(nameof(TestTagAttribute), "the class", ReadTags, out rejection))
-    {
-      return true;
-    }
-
-    rejection = default;
-    return false;
-
-    void ReadTimeout()
-    {
-      _ = testClass.GetCustomAttribute<TimeoutAttribute>(inherit: true);
-    }
-
-    void ReadTags()
-    {
-      TestTagAttribute[] tags = [.. testClass.GetCustomAttributes<TestTagAttribute>(inherit: true)];
-      _ = tags.Length;
-    }
+    return TestRunner.GetClassMetadata(testClass).TryReject(out rejection);
   }
 
   /// <summary>
@@ -133,18 +68,4 @@ internal static class JaribuAttributeRead
     }
   }
 
-  private static bool Fails(string attributeName, string target, Action read, out Rejection rejection)
-  {
-    try
-    {
-      read();
-      rejection = default;
-      return false;
-    }
-    catch (Exception exception) when (exception is ArgumentException or CustomAttributeFormatException)
-    {
-      rejection = new Rejection(attributeName, target, exception);
-      return true;
-    }
-  }
 }

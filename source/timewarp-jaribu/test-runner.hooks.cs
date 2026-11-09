@@ -15,7 +15,7 @@ using System.Runtime.ExceptionServices;
 // CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
 // still running. Abandoned hook tasks are observed. Hook waits use the class
 // TimeoutAttribute or DefaultHookTimeout. Setup, CleanUp, SetupOnce, and
-// CleanUpOnce are resolved once per class. A near-miss hook fails the class
+// CleanUpOnce are cached per class. A near-miss hook fails the class
 // before any body runs. A throw from Invoke is an invoke failure, and a fault
 // from the Setup task is a body failure. A CleanUpOnce that throws before it
 // returns a task is rethrown here. The class run traces that throw once the
@@ -278,7 +278,7 @@ public static partial class TestRunner
   /// Result of resolving a lifecycle hook by name.
   /// Method set and ValidationError null means no hook. ValidationError set means fail-fast.
   /// </summary>
-  private readonly record struct HookResolveResult(MethodInfo? Method, Exception? ValidationError);
+  internal readonly record struct HookResolveResult(MethodInfo? Method, Exception? ValidationError);
 
   /// <summary>
   /// Resolves Setup, CleanUp, SetupOnce, or CleanUpOnce.

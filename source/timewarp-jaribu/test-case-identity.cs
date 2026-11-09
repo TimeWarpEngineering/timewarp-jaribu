@@ -159,7 +159,7 @@ public static class TestCaseIdentity
     }
 
     if (TestFilter.TagSkipReason(testClass, method, filterTag) is not null ||
-        method.GetCustomAttribute<SkipAttribute>() is not null)
+        TestRunner.GetMethodMetadata(method).Skip is not null)
     {
       return [MethodCase(testClass, method)];
     }

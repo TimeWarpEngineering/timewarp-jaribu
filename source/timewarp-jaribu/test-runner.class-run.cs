@@ -20,7 +20,7 @@ using System.Reflection;
 // A SetupOnce body failure is Failed. Fixture creation from that hook is
 // Error, and a fixture or hook timeout is Timeout. A CleanUpOnce timeout
 // is a synthetic Timeout node. Setup and CleanUp use the same signature
-// check as the once-hooks and are resolved once for the class. A class
+// check as the once-hooks and are cached per class. A class
 // with no discoverable tests fails unless allowEmpty is set. A bad hook
 // on that empty class is still an Error. A method filter, method predicate,
 // or case predicate skips that empty-class node. A case filter that selects
@@ -291,10 +291,11 @@ public static partial class TestRunner
         testMethods = [.. testMethods.Where(methodPredicate)];
       }
 
-      HookResolveResult setupResolve = ResolveHook(testClass, "Setup");
-      HookResolveResult cleanUpResolve = ResolveHook(testClass, "CleanUp");
-      HookResolveResult setupOnceResolve = ResolveHook(testClass, "SetupOnce");
-      HookResolveResult cleanUpOnceResolve = ResolveHook(testClass, "CleanUpOnce");
+      ClassMetadata metadata = GetClassMetadata(testClass);
+      HookResolveResult setupResolve = metadata.Setup;
+      HookResolveResult cleanUpResolve = metadata.CleanUp;
+      HookResolveResult setupOnceResolve = metadata.SetupOnce;
+      HookResolveResult cleanUpOnceResolve = metadata.CleanUpOnce;
       Exception? resolutionError =
         setupResolve.ValidationError ??
         cleanUpResolve.ValidationError ??

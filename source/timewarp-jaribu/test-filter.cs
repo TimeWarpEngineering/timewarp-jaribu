@@ -228,10 +228,16 @@ internal static class TestFilter
     }
 
     bool any = false;
-    foreach (TestTagAttribute tag in member.GetCustomAttributes<TestTagAttribute>(inherit: true))
+    string[] tags = member switch
+    {
+      Type type => TestRunner.GetClassMetadata(type).Tags(),
+      MethodInfo method => TestRunner.GetMethodMetadata(method).Tags(),
+      _ => throw new ArgumentException("Tag filters apply to classes and methods.", nameof(member))
+    };
+    foreach (string tag in tags)
     {
       any = true;
-      if (tag.Tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase))
+      if (tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase))
       {
         return true;
       }
