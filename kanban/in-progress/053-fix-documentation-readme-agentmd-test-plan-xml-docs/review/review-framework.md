@@ -2,7 +2,7 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 575
+- Lines changed: 267
 - Effort: 2
 - TCB hits: none
 - Roster axes: general
@@ -18,6 +18,7 @@
 **Reviewer roster:** general
 **Session IDs:** review oracle (claude, claude-opus-5-5) 0722b109-5e01-4592-b6a0-09b30a6e9bed
 **Round 2:** scope is the fix delta `7d59c1e..ebf94c2`. Effort 2, roster general, turn cap 120. Reviewer: claude-opus-5-5. The oracle cannot see its session id.
+**Round 3:** scope is the fix delta `ebf94c2..d5eb429` (product commit `4608de4`). Effort 2, roster general, turn cap 120, 267 lines changed. Reviewer: claude-opus-5-5. The oracle cannot see its session id.
 
 ## Ground rules
 
