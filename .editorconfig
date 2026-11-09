@@ -445,6 +445,11 @@ dotnet_diagnostic.IDE1006.severity = none
 # IDE0290: Use primary constructor
 csharp_style_prefer_primary_constructors = false
 
+# ganda repo audit configuration
+# TW0007 file-level usings (TimeWarp.SourceGenerators). This key stays in [*.cs].
+# A later file section hides it from global-usings-analyzer.
+dotnet_diagnostic.TW0007.filename = global-usings.cs
+
 # BenchmarkDotNet requires public instance methods. The names are the workload ids
 # in the report, so they do not take an Async suffix, and they cannot be static.
 # This section is after [*.cs] so it wins over the repo RCS1046 warning.
@@ -453,9 +458,6 @@ dotnet_diagnostic.CA1515.severity = none
 dotnet_diagnostic.CA1822.severity = none
 dotnet_diagnostic.RCS1046.severity = none
 
-# ganda repo audit configuration
-# TW0007 file-level usings (TimeWarp.SourceGenerators)
-dotnet_diagnostic.TW0007.filename = global-usings.cs
 [ganda.audit]
 # IDE0005 requires GenerateDocumentationFile; not enabled for this package
 dotnet_diagnostic.IDE0005.severity = none
