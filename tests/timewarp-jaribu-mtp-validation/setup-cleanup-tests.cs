@@ -46,11 +46,10 @@ public class SetupCleanupTests
   /// </summary>
   public static async Task SetupCalledMultipleTimesTest()
   {
-    // After this test runs, SetupCallCount should be at least 2
-    // (once for SetupWasCalledTest, once for this test)
+    // Setup has run for this test and CleanUp for it has not.
+    // How many earlier tests ran depends on order, so the check is only
+    // that setup ran and that cleanup still trails setup by one.
     SetupCallCount.ShouldBeGreaterThan(0);
-    // Inside any test body, every prior test's CleanUp has run and ours is pending,
-    // so cleanups always trail setups by exactly one — regardless of test order.
     CleanupCallCount.ShouldBe(SetupCallCount - 1);
     await Task.CompletedTask;
   }

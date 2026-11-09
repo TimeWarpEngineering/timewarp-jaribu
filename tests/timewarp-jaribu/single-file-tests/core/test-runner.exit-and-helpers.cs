@@ -35,21 +35,12 @@ namespace TestRunner_
 
     public static async Task StatusLines_Should_NameTheOutcome()
     {
-      TextWriter previous = Terminal.Out;
-      using StringWriter writer = new();
-      Terminal.SetOut(writer);
-      try
-      {
-        TestHelpers.TestPassed();
-        TestHelpers.TestFailed("boom");
-        TestHelpers.TestSkipped("later");
-      }
-      finally
-      {
-        Terminal.SetOut(previous);
-      }
+      using TestTerminal terminal = new();
+      TestHelpers.TestPassed(terminal);
+      TestHelpers.TestFailed(terminal, "boom");
+      TestHelpers.TestSkipped(terminal, "later");
 
-      string text = writer.ToString();
+      string text = terminal.Output;
       text.ShouldContain("PASSED");
       text.ShouldContain("FAILED: boom");
       text.ShouldContain("SKIPPED: later");

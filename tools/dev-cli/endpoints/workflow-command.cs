@@ -6,6 +6,8 @@
 // PR/merge: clean -> build -> test
 // Release: clean -> build -> test -> tag guard -> NuGet index -> check-version -> pack -> push
 // Test runs ci-runner and the CI-safe MTP project on both pipelines.
+// The root is RepoRoot.Find when that directory contains timewarp-jaribu.slnx.
+// Otherwise the binary-relative walk, then the working directory.
 // The release tag must be "v" plus the version `dotnet msbuild -getProperty:Version`
 // evaluates for each packable project. A props string search is not used.
 // A NuGet flat-container index is known only on HTTP 200. Any other status, and a
@@ -13,6 +15,9 @@
 // handler decides whether that evaluated version is already published.
 // artifacts/packages is deleted before pack. The push list is the two nupkgs just
 // packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
+// Pack passes JaribuExposeInternals=false so the testing platform omits its test
+// InternalsVisibleTo grants. The release gate then reads each packed lib assembly
+// and refuses the release when any grant remains.
 // Auto-detects mode from GITHUB_EVENT_NAME. A non-empty API key also selects release.
 // The key is NUGET_API_KEY or --api-key. Push forwards it only as NUGET_API_KEY.
 // NuGet 7.6 and later read that variable, so the key is not a child-process argument.
@@ -61,10 +66,13 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       string? apiKey = ResolveApiKey(command.ApiKey);
       bool isRelease = eventName == "release" || !string.IsNullOrWhiteSpace(apiKey);
 
-      string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-      if (!File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
+      string? repoRoot = RepoRoot.Find();
+      if (repoRoot is null || !File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
       {
-        repoRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+        string fromBinary = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        repoRoot = File.Exists(Path.Combine(fromBinary, "timewarp-jaribu.slnx"))
+          ? fromBinary
+          : Path.GetFullPath(Directory.GetCurrentDirectory());
       }
 
       if (isRelease)
@@ -177,6 +185,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         Terminal.WriteLine($"  Packing {project.PackageId}...");
         exitCode = await DotNet.Pack(project.ProjectPath)
           .WithConfiguration("Release")
+          .WithProperty("JaribuExposeInternals", "false")
           .WithOutput(artifactsDir)
           .WithWorkingDirectory(repoRoot)
           .RunAsync(ct);
@@ -191,6 +200,10 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         artifactsDir,
         [.. packableProjects.Select(project => project.PackageId)],
         version);
+      foreach (string packagePath in freshPackages)
+      {
+        ReleaseGate.RequirePackageGrantsNoInternals(packagePath);
+      }
 
       if (!string.IsNullOrEmpty(apiKey))
       {

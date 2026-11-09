@@ -2,7 +2,7 @@
 // Build all projects in the repository
 #endregion
 #region Design
-// Discovers the repository root dynamically using Git.FindRoot()
+// Discovers the repository root through RepoRoot.TryFind.
 // Handler stores Command and Ct as fields so private methods are zero-parameter
 // ReportResult handles verbose/error output consistently across steps
 #endregion
@@ -23,7 +23,7 @@ internal sealed class BuildCommand : ICommand<Unit>
     private readonly ITerminal Terminal;
     private BuildCommand Command = null!;
     private CancellationToken Ct;
-    private string RepoRoot = null!;
+    private string Root = null!;
 
     public Handler(ITerminal terminal)
     {
@@ -35,27 +35,14 @@ internal sealed class BuildCommand : ICommand<Unit>
       Command = command;
       Ct = ct;
 
-      if (!FindRepoRoot()) return Unit.Value;
+      if (!RepoRoot.TryFind(Terminal, out string root)) return Unit.Value;
+      Root = root;
+      Terminal.WriteLine($"Building repository at {Root}...");
       if (!await CleanAsync()) return Unit.Value;
       if (!await BuildAsync()) return Unit.Value;
 
       Terminal.WriteLine("\nBuild completed successfully!".Green());
       return Unit.Value;
-    }
-
-    private bool FindRepoRoot()
-    {
-      string? root = Git.FindRoot();
-      if (root is null)
-      {
-        Terminal.WriteErrorLine("Error: could not find repository root.");
-        Environment.ExitCode = 1;
-        return false;
-      }
-
-      RepoRoot = root;
-      Terminal.WriteLine($"Building repository at {RepoRoot}...");
-      return true;
     }
 
     private async Task<bool> CleanAsync()
@@ -64,7 +51,7 @@ internal sealed class BuildCommand : ICommand<Unit>
 
       Terminal.WriteLine("\nCleaning before build...");
       CommandOutput result = await DotNet.Clean()
-        .WithWorkingDirectory(RepoRoot)
+        .WithWorkingDirectory(Root)
         .WithNoValidation()
         .CaptureAsync(Ct);
 
@@ -76,7 +63,7 @@ internal sealed class BuildCommand : ICommand<Unit>
       Terminal.WriteLine("\nBuilding...");
       CommandOutput result = await DotNet.Build()
         .WithConfiguration("Release")
-        .WithWorkingDirectory(RepoRoot)
+        .WithWorkingDirectory(Root)
         .WithNoValidation()
         .CaptureAsync(Ct);
 

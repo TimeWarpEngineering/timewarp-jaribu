@@ -19,11 +19,18 @@
     <Using Include="Microsoft.Testing.Platform.TestHost" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!--
+    Local test assemblies. The grants are compiled into the assembly.
+    The default stays on so a test build can reach internal types.
+    The release pack passes JaribuExposeInternals=false, and the release gate
+    rejects a packed lib assembly that still carries InternalsVisibleTo.
+  -->
+  <ItemGroup Condition="'$(JaribuExposeInternals)' != 'false'">
     <InternalsVisibleTo Include="run-ci-tests" />
     <!-- File-based runner tests/timewarp-jaribu/multi-file-runners/run-tests.cs. -->
     <InternalsVisibleTo Include="run-tests" />
     <InternalsVisibleTo Include="mtp-node-identity" />
+    <InternalsVisibleTo Include="mtp-review-cleanups" />
     <!-- Multi-file MTP project; assembly name follows timewarp-jaribu-tests-mtp.csproj. -->
     <InternalsVisibleTo Include="timewarp-jaribu-tests-mtp" />
   </ItemGroup>

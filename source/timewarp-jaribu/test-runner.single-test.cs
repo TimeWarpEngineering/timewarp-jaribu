@@ -88,6 +88,7 @@ public static partial class TestRunner
       inputOrdinal,
       setupHook.Method,
       cleanUpHook.Method,
+      DateTimeOffset.UtcNow,
       cancellationToken);
   }
 
@@ -101,6 +102,7 @@ public static partial class TestRunner
     int? inputOrdinal,
     MethodInfo? setupMethod,
     MethodInfo? cleanUpMethod,
+    DateTimeOffset startedAt,
     CancellationToken cancellationToken)
   {
     using CancellationScope scope = new(cancellationToken);
@@ -118,6 +120,7 @@ public static partial class TestRunner
       Exception? exception,
       string? message)
     {
+      DateTimeOffset? endedAt = duration is TimeSpan span ? startedAt + span : null;
       return new TestNodeInfo(
         testNodeUid,
         displayName,
@@ -126,7 +129,9 @@ public static partial class TestRunner
         exception,
         message,
         parameters.Length > 0 ? parameters.ToList() : null,
-        method);
+        method,
+        StartTime: startedAt,
+        EndTime: endedAt);
     }
 
     if (cancellationToken.IsCancellationRequested)
@@ -357,6 +362,7 @@ public static partial class TestRunner
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
     string displayName = TestCaseIdentity.FormatReportedName(testClass, method, parameters);
     IReadOnlyList<object?>? reportedParameters = parameters.Length > 0 ? parameters.ToList() : null;
+    DateTimeOffset stamp = DateTimeOffset.UtcNow;
     if (cancellationToken.IsCancellationRequested)
     {
       return new TestNodeInfo(
@@ -367,7 +373,9 @@ public static partial class TestRunner
         new OperationCanceledException("Cancelled", cancellationToken),
         "Cancelled",
         reportedParameters,
-        method);
+        method,
+        StartTime: stamp,
+        EndTime: stamp);
     }
 
     return new TestNodeInfo(
@@ -378,7 +386,9 @@ public static partial class TestRunner
       signatureError,
       $"{signatureError.GetType().Name}: {signatureError.Message}",
       reportedParameters,
-      method);
+      method,
+      StartTime: stamp,
+      EndTime: stamp);
   }
 
   private static TestNodeInfo CancelledNode(

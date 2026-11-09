@@ -487,7 +487,7 @@ public static partial class TestRunner
     {
       if (ownsSession)
       {
-        await EndOwnedSessionWithoutMaskingAsync(runEpoch, cancellationToken).ConfigureAwait(false);
+        await EndOwnedSessionWithoutMaskingAsync(runEpoch, sink, cancellationToken).ConfigureAwait(false);
       }
 
       hookTimeout?.Dispose();

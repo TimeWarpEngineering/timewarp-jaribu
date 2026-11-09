@@ -18,7 +18,11 @@ using Microsoft.Testing.Platform.Services;
 // later class. RunAllTestsCore uses the same snapshot.
 // DiscoverTestExecutionRequest and RunTestExecutionRequest are the only
 // requests that select or run cases. Any other request type throws, and the
-// handler publishes an error node for that failure. Tree and uid filters go
+// handler publishes an error node for that failure and then returns. The Error
+// node is the report. Rethrowing would also crash the framework. A throw from
+// the publish is an AggregateException that keeps the original exception and
+// the publish failure.
+// Tree and uid filters go
 // through MtpTreeFilter; a filter this adapter does not recognize throws too.
 //
 // context.CancellationToken is passed into the class run and into session
@@ -48,7 +52,7 @@ using Microsoft.Testing.Platform.Services;
 // DotnetTestPassthroughOutputDevice, and
 // IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
 // An unresolved IPushOnlyProtocol counts as a host that drops the warning.
-// An exception that escapes the request publishes one Error node, then rethrows.
+// An exception that escapes the request publishes one Error node and then returns.
 // That node's uid is Jaribu.Error.{ExceptionType.FullName}. One request publishes
 // at most one such node, so the exception type is enough to keep the uid stable.
 // When the host drops it, and strict mode did not already publish an Error,
@@ -288,11 +292,22 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
     {
       // The in-flight node is already Cancelled. Do not publish a synthetic Error.
     }
+#pragma warning disable CA1031 // Host boundary: the Error node is the report for any other failure.
     catch (Exception ex)
     {
-      await ReportUnhandledExceptionAsync(context, ex).ConfigureAwait(false);
-      throw;
+      try
+      {
+        await ReportUnhandledExceptionAsync(context, ex).ConfigureAwait(false);
+      }
+      catch (Exception publishFailure)
+      {
+        throw new AggregateException(
+          "Jaribu could not publish the unhandled-exception node.",
+          ex,
+          publishFailure);
+      }
     }
+#pragma warning restore CA1031
     finally
     {
       context.Complete();

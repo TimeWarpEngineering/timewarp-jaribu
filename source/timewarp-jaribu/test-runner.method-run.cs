@@ -91,12 +91,14 @@ public static partial class TestRunner
         break;
       }
 
+      DateTimeOffset startedAt = DateTimeOffset.UtcNow;
       TestNodeInfo inProgressNode = new(
         testCase.Uid,
         testCase.DisplayName,
         TestNodeState.InProgress,
         Parameters: testCase.Parameters,
-        Method: method);
+        Method: method,
+        StartTime: startedAt);
 
       await sink.OnTestStartedAsync(inProgressNode);
 
@@ -107,6 +109,7 @@ public static partial class TestRunner
         testCase.InputOrdinal,
         setupMethod,
         cleanUpMethod,
+        startedAt,
         cancellationToken);
 
       await sink.OnTestCompletedAsync(result);

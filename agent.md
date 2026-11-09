@@ -73,7 +73,7 @@ TestRunner.RunTestsAsync(sink)
 
 **TestHelpers** ([source/timewarp-jaribu/test-helpers.cs](source/timewarp-jaribu/test-helpers.cs))
 - FormatTestName: Converts PascalCase to readable format
-- TestPassed/TestFailed/TestSkipped: Formatted status logging
+- TestPassed/TestFailed/TestSkipped: Formatted status lines written to the supplied ITerminal
 - Uses Regex source generator for performance
 
 ### Test Attributes

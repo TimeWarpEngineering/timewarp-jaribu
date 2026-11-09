@@ -1,13 +1,14 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
 #region Purpose
-// Supplies the MTP extension identity shared by the framework and the command-line provider.
+// Supplies the Jaribu framework's MTP extension identity. The command-line provider has its own uid.
 #endregion
 
 #region Design
-// The host treats the framework and the command-line provider as one extension
-// when they share this uid. The version string is the assembly version.
-// A missing assembly version falls back to 1.0.0.
+// The command-line provider is a second IExtension and keeps its own uid.
+// MTP treats a repeated uid as a duplicate extension. Version is the
+// informational version, which carries the package prerelease label.
+// The assembly version drops that label.
 #endregion
 
 /// <summary>
@@ -15,12 +16,11 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 /// </summary>
 internal sealed class JaribuExtension : IExtension
 {
-  /// <summary>Stable extension identifier shared with the command-line provider.</summary>
+  /// <summary>Stable extension identifier. The command-line provider has its own uid.</summary>
   public string Uid => "TimeWarp.Jaribu";
 
-  /// <summary>Assembly version, or <c>1.0.0</c> when the assembly has none.</summary>
-  public string Version => typeof(JaribuExtension).Assembly
-    .GetName().Version?.ToString() ?? "1.0.0";
+  /// <summary>Informational version, which keeps the package prerelease label.</summary>
+  public string Version => ExtensionVersion.Current;
 
   /// <summary>Name shown by the platform.</summary>
   public string DisplayName => "TimeWarp.Jaribu Test Framework";

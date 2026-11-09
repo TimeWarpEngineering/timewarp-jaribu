@@ -94,7 +94,16 @@ public class BasicTests
   [Timeout(50)]
   public static async Task TimeoutExceededTest()
   {
-    await Task.Delay(5000); // Will timeout after 50ms
+    // The runner does not pass its token into the method. Bound the abandoned
+    // wait so it ends shortly after the 50ms timeout instead of running on.
+    using CancellationTokenSource bound = new(TimeSpan.FromMilliseconds(200));
+    try
+    {
+      await Task.Delay(Timeout.InfiniteTimeSpan, bound.Token);
+    }
+    catch (OperationCanceledException) when (bound.IsCancellationRequested)
+    {
+    }
   }
 
   /// <summary>

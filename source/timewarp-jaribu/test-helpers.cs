@@ -36,22 +36,31 @@ public static partial class TestHelpers
   }
 
   /// <summary>
-  /// Logs a test pass status.
+  /// Logs a test pass status to <paramref name="terminal"/>.
   /// </summary>
-  public static void TestPassed() =>
-    Terminal.WriteLine("  ✓ PASSED");
+  public static void TestPassed(ITerminal terminal)
+  {
+    ArgumentNullException.ThrowIfNull(terminal);
+    terminal.WriteLine("  ✓ PASSED");
+  }
 
   /// <summary>
-  /// Logs a test failure status with reason.
+  /// Logs a test failure status with reason to <paramref name="terminal"/>.
   /// </summary>
-  public static void TestFailed(string reason) =>
-    Terminal.WriteLine($"  ✗ FAILED: {reason}");
+  public static void TestFailed(ITerminal terminal, string reason)
+  {
+    ArgumentNullException.ThrowIfNull(terminal);
+    terminal.WriteLine($"  ✗ FAILED: {reason}");
+  }
 
   /// <summary>
-  /// Logs a test skipped status with reason.
+  /// Logs a test skipped status with reason to <paramref name="terminal"/>.
   /// </summary>
-  public static void TestSkipped(string reason) =>
-    Terminal.WriteLine($"  ⚠ SKIPPED: {reason}");
+  public static void TestSkipped(ITerminal terminal, string reason)
+  {
+    ArgumentNullException.ThrowIfNull(terminal);
+    terminal.WriteLine($"  ⚠ SKIPPED: {reason}");
+  }
 
   private static string SpacePascalCase(string name) =>
     PascalCaseRegex().Replace(name, " $1").Trim();

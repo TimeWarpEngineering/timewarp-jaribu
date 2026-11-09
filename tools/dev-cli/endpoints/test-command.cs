@@ -5,7 +5,8 @@
 // CiTestSuite runs the CI-safe runfile and the CI-safe MTP project.
 // The validation project is not invoked here. Its intentional failures are
 // checked by the out-of-process harness inside that suite.
-// Handler stores Ct and RepoRoot as fields so private methods are zero-parameter.
+// The root comes from RepoRoot.TryFind, the shared lookup.
+// Handler stores Ct and Root as fields so private methods are zero-parameter.
 #endregion
 
 namespace DevCli.Commands;
@@ -17,7 +18,7 @@ internal sealed class TestCommand : ICommand<Unit>
   {
     private readonly ITerminal Terminal;
     private CancellationToken Ct;
-    private string RepoRoot = null!;
+    private string Root = null!;
 
     public Handler(ITerminal terminal)
     {
@@ -28,25 +29,12 @@ internal sealed class TestCommand : ICommand<Unit>
     {
       Ct = ct;
 
-      if (!FindRepoRoot()) return Unit.Value;
+      if (!RepoRoot.TryFind(Terminal, out string root)) return Unit.Value;
+      Root = root;
       if (!await TestAsync()) return Unit.Value;
 
       Terminal.WriteLine("\nTests completed successfully!".Green());
       return Unit.Value;
-    }
-
-    private bool FindRepoRoot()
-    {
-      string? root = Git.FindRoot();
-      if (root is null)
-      {
-        Terminal.WriteErrorLine("Error: could not find repository root.");
-        Environment.ExitCode = 1;
-        return false;
-      }
-
-      RepoRoot = root;
-      return true;
     }
 
     private async Task<bool> TestAsync()
@@ -54,7 +42,7 @@ internal sealed class TestCommand : ICommand<Unit>
       Terminal.WriteLine("Running test suite...");
       try
       {
-        await CiTestSuite.RunAsync(RepoRoot, Ct).ConfigureAwait(false);
+        await CiTestSuite.RunAsync(Root, Ct).ConfigureAwait(false);
       }
       catch (InvalidOperationException ex)
       {

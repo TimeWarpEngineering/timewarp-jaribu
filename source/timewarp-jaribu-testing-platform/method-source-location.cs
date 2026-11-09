@@ -1,9 +1,11 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using Microsoft.Testing.Platform.Extensions.Messages;
 
 #region Purpose
@@ -12,8 +14,11 @@ using Microsoft.Testing.Platform.Extensions.Messages;
 
 #region Design
 // Sequence points are optional. A missing assembly path, a missing PDB, or an unreadable
-// image yields no property and does not fail the run. PDB lines and columns are 1-based;
-// LinePosition is 0-based, matching Roslyn.
+// image yields no property and does not fail the run. ArgumentException from a bad
+// metadata token is the same miss. A side-by-side portable PDB wins. When that file
+// is absent, an embedded portable PDB in the PE debug directory is used.
+// Each miss is written to trace under the Jaribu.Pdb category.
+// PDB lines and columns are 1-based; LinePosition is 0-based, matching Roslyn.
 // Async and iterator methods store sequence points on the generated MoveNext. A method
 // row with none uses the portable PDB state-machine kickoff map to read that MoveNext.
 // The resolved span, including a miss, is cached per MethodInfo so discovery, in-progress,
@@ -37,6 +42,8 @@ internal static class MethodSourceLocation
     return locationCacheEntry.Location;
   }
 
+  private readonly record struct PdbSource(MetadataReaderProvider Provider, string CacheKey);
+
   private static TestFileLocationProperty? Read(MethodInfo method)
   {
     try
@@ -44,17 +51,16 @@ internal static class MethodSourceLocation
       string? assemblyPath = method.Module.Assembly.Location;
       if (string.IsNullOrEmpty(assemblyPath))
       {
-        return null;
+        return Miss(method, "assembly location is empty");
       }
 
-      string pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
-      if (!File.Exists(pdbPath))
+      PdbSource? source = OpenPdb(assemblyPath);
+      if (source is null)
       {
-        return null;
+        return Miss(method, "no side-by-side or embedded portable PDB");
       }
 
-      using FileStream pdbStream = File.OpenRead(pdbPath);
-      using MetadataReaderProvider provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
+      using MetadataReaderProvider provider = source.Value.Provider;
       MetadataReader reader = provider.GetMetadataReader();
       MethodDefinitionHandle handle = MetadataTokens.MethodDefinitionHandle(method.MetadataToken);
       TestFileLocationProperty? location = TryReadSpan(reader, handle);
@@ -65,32 +71,82 @@ internal static class MethodSourceLocation
 
       // Async and iterator sequence points live on the generated MoveNext.
       IReadOnlyDictionary<int, int> moveNextTokenByKickoffToken = MoveNextTokenByKickoffToken.GetOrAdd(
-        pdbPath,
+        source.Value.CacheKey,
         static (_, metadataReader) => BuildMoveNextMap(metadataReader),
         reader);
       if (!moveNextTokenByKickoffToken.TryGetValue(method.MetadataToken, out int moveNextToken))
       {
-        return null;
+        return Miss(method, "no sequence points for the method");
       }
 
-      return TryReadSpan(reader, MetadataTokens.MethodDefinitionHandle(moveNextToken));
+      TestFileLocationProperty? moveNext = TryReadSpan(
+        reader,
+        MetadataTokens.MethodDefinitionHandle(moveNextToken));
+      return moveNext ?? Miss(method, "state-machine MoveNext has no sequence points");
     }
-    catch (BadImageFormatException)
+    catch (Exception ex) when (ex is BadImageFormatException
+      or IOException
+      or InvalidOperationException
+      or UnauthorizedAccessException
+      or ArgumentException
+      or NotSupportedException)
+    {
+      return Miss(method, ex.GetType().Name);
+    }
+  }
+
+  private static PdbSource? OpenPdb(string assemblyPath)
+  {
+    string pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
+    if (File.Exists(pdbPath))
+    {
+      // FromPortablePdbStream owns the stream after it returns. A throw before that
+      // still owns the stream here, so the finally disposes only that failure path.
+      FileStream? pdbStream = File.OpenRead(pdbPath);
+      try
+      {
+        MetadataReaderProvider provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
+        pdbStream = null;
+        return new PdbSource(provider, pdbPath);
+      }
+      finally
+      {
+        pdbStream?.Dispose();
+      }
+    }
+
+    MetadataReaderProvider? embedded = TryOpenEmbedded(assemblyPath);
+    if (embedded is null)
     {
       return null;
     }
-    catch (IOException)
+
+    return new PdbSource(embedded, assemblyPath + "#embedded");
+  }
+
+  private static MetadataReaderProvider? TryOpenEmbedded(string assemblyPath)
+  {
+    using FileStream peStream = File.OpenRead(assemblyPath);
+    using PEReader peReader = new(peStream, PEStreamOptions.LeaveOpen);
+    foreach (DebugDirectoryEntry entry in peReader.ReadDebugDirectory())
     {
-      return null;
+      if (entry.Type != DebugDirectoryEntryType.EmbeddedPortablePdb)
+      {
+        continue;
+      }
+
+      return peReader.ReadEmbeddedPortablePdbDebugDirectoryData(entry);
     }
-    catch (InvalidOperationException)
-    {
-      return null;
-    }
-    catch (UnauthorizedAccessException)
-    {
-      return null;
-    }
+
+    return null;
+  }
+
+  private static TestFileLocationProperty? Miss(MethodInfo method, string reason)
+  {
+    Trace.WriteLine(
+      $"Jaribu PDB lookup miss for {method.DeclaringType?.FullName}.{method.Name}: {reason}",
+      "Jaribu.Pdb");
+    return null;
   }
 
   private static Dictionary<int, int> BuildMoveNextMap(MetadataReader reader)

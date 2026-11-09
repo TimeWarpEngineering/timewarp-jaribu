@@ -1,8 +1,8 @@
 namespace TimeWarp.Jaribu;
 
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using TimeWarp.Terminal;
 
 #region Purpose
 // Resolves and invokes per-test Setup/CleanUp and class-scoped SetupOnce/CleanUpOnce.
@@ -198,6 +198,7 @@ public static partial class TestRunner
   /// </summary>
   private static async Task EndOwnedSessionWithoutMaskingAsync(
     long clearEpoch,
+    ITestResultSink sink,
     CancellationToken cancellationToken)
   {
     try
@@ -211,9 +212,15 @@ public static partial class TestRunner
     catch (Exception ex)
 #pragma warning restore CA1031
     {
-#pragma warning disable CA1849 // Same host-boundary log as RunAllTests
-      Terminal.WriteLine($"✗ Session fixture dispose failed: {ex.Message}");
-#pragma warning restore CA1849
+      string message = $"✗ Session fixture dispose failed: {ex.Message}";
+      if (sink is TerminalSink terminalSink)
+      {
+        terminalSink.WriteDiagnostic(message);
+      }
+      else
+      {
+        Trace.TraceError(message);
+      }
     }
   }
 
@@ -238,6 +245,7 @@ public static partial class TestRunner
     MethodInfo? hook = lookupMethod
       ? testClass.GetMethod(hookName, BindingFlags.Public | BindingFlags.Static)
       : method;
+    DateTimeOffset stamp = DateTimeOffset.UtcNow;
     TestNodeInfo failedNode = new(
       nodeUid,
       hookName,
@@ -246,7 +254,9 @@ public static partial class TestRunner
       Exception: exception,
       Message: nodeMessage,
       Parameters: null,
-      Method: hook
+      Method: hook,
+      StartTime: stamp,
+      EndTime: stamp
     );
     await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
     await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
@@ -420,6 +430,7 @@ public static partial class TestRunner
     List<TestNodeInfo> results)
   {
     string message = $"{hookException.GetType().Name}: {hookException.Message}";
+    DateTimeOffset stamp = DateTimeOffset.UtcNow;
     foreach (ReportedTestCase testCase in cases)
     {
       TestNodeInfo failedNode = new(
@@ -430,7 +441,9 @@ public static partial class TestRunner
         Exception: hookException,
         Message: message,
         Parameters: testCase.Parameters,
-        Method: testCase.Method);
+        Method: testCase.Method,
+        StartTime: stamp,
+        EndTime: stamp);
       await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
       await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
       results.Add(failedNode);

@@ -31,5 +31,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.exit-and-helpers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-validation-harness.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/test-runner.reporting-cleanup.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/output/test-runner.diagnostic-terminal.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-review-cleanups.cs" />
   </ItemGroup>
 </Project>

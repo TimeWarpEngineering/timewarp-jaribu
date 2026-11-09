@@ -9,8 +9,9 @@ using Microsoft.Testing.Platform.Extensions.CommandLine;
 #endregion
 
 #region Design
-// Implements ICommandLineOptionsProvider (extends IExtension) wrapping the
-// shared JaribuExtension identity. Filter options use ArgumentArity.ExactlyOne.
+// Implements ICommandLineOptionsProvider (extends IExtension) with its own uid.
+// The framework extension keeps TimeWarp.Jaribu. Sharing that uid trips MTP's
+// duplicate-extension check. Filter options use ArgumentArity.ExactlyOne.
 // The two policy flags use ArgumentArity.Zero. None are hidden.
 // ValidateOptionArgumentsAsync rejects an empty filter argument and rejects
 // an argument on a flag. Read at execute time via
@@ -37,20 +38,12 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
   /// <summary>Option name: allow a class with no discoverable tests.</summary>
   public const string AllowEmptyOption = "allow-empty";
 
-  private readonly IExtension Extension;
+  public string Uid => "TimeWarp.Jaribu.CommandLine";
+  public string Version => ExtensionVersion.Current;
+  public string DisplayName => "TimeWarp.Jaribu Command Line";
+  public string Description => "Jaribu selection filters and run policy";
 
-  public JaribuCommandLineOptionsProvider(IExtension extension)
-  {
-    ArgumentNullException.ThrowIfNull(extension);
-    Extension = extension;
-  }
-
-  public string Uid => Extension.Uid;
-  public string Version => Extension.Version;
-  public string DisplayName => Extension.DisplayName;
-  public string Description => Extension.Description;
-
-  public Task<bool> IsEnabledAsync() => Extension.IsEnabledAsync();
+  public Task<bool> IsEnabledAsync() => Task.FromResult(true);
 
   public IReadOnlyCollection<CommandLineOption> GetCommandLineOptions()
   {

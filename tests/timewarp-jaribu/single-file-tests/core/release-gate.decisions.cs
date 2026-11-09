@@ -17,6 +17,7 @@ return await RunAllTests();
 
 namespace ReleaseGate_
 {
+  using System.IO.Compression;
   using DevCli.Commands;
 
   [TestTag("Jaribu")]
@@ -96,6 +97,50 @@ namespace ReleaseGate_
         File.Delete(fresh[0]);
         Should.Throw<InvalidOperationException>(() =>
           ReleaseGate.RequireFreshPackagePaths(root, ReleaseGate.ReleasePackageIds, version));
+      }
+      finally
+      {
+        Directory.Delete(root, recursive: true);
+      }
+
+      return Task.CompletedTask;
+    }
+
+    public static Task PackedAssembly_Should_AcceptALibDllThatGrantsNoInternals()
+    {
+      // IL3000: a single-file host reports an empty Location. This reads the library the process loaded.
+#pragma warning disable IL3000
+      string clean = typeof(TestRunner).Assembly.Location;
+#pragma warning restore IL3000
+      File.Exists(clean).ShouldBeTrue();
+      ReleaseGate.ReadInternalsVisibleTo(clean).ShouldBeEmpty();
+      ReleaseGate.RequireNoInternalsVisibleTo(clean);
+
+      string root = Directory.CreateTempSubdirectory("jaribu-ivt-clean-").FullName;
+      try
+      {
+        string packagePath = Path.Combine(root, "TimeWarp.Jaribu.0.0.0.nupkg");
+        using (FileStream stream = File.Create(packagePath))
+        using (ZipArchive zip = new(stream, ZipArchiveMode.Create))
+        {
+          ZipArchiveEntry entry = zip.CreateEntry("lib/net10.0/TimeWarp.Jaribu.dll");
+          using Stream entryStream = entry.Open();
+          using FileStream assembly = File.OpenRead(clean);
+          assembly.CopyTo(entryStream);
+        }
+
+        ReleaseGate.RequirePackageGrantsNoInternals(packagePath);
+
+        string empty = Path.Combine(root, "Empty.0.0.0.nupkg");
+        using (FileStream stream = File.Create(empty))
+        using (ZipArchive zip = new(stream, ZipArchiveMode.Create))
+        {
+          zip.CreateEntry("README.md");
+        }
+
+        InvalidOperationException missing = Should.Throw<InvalidOperationException>(
+          () => ReleaseGate.RequirePackageGrantsNoInternals(empty));
+        missing.Message.ShouldContain("no lib assembly");
       }
       finally
       {
