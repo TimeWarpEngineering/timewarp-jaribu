@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 830
-- Effort: 3
+- Lines changed: 167
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Scope
 
@@ -19,6 +19,8 @@
 **Session IDs:** review oracle under `ganda task work` (headless print mode, no session id exposed to the oracle)
 
 **Round 2 scope:** the fix delta `d210af4..521e37d` (round-1 base through the Release baseline). Same roster and effort.
+
+**Round 3 scope:** the fix delta `521e37d..cfd5456`, which is the M7/M8 fix pass. Effort 1 (167 lines changed). Roster: general.
 
 ## Ground rules
 
