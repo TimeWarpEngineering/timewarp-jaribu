@@ -20,6 +20,12 @@ Before optimizing Jaribu's performance we need a baseline. Build a repeatable be
 - CI: do not run on every PR. Add a manual `workflow_dispatch` job or a nightly.
 - No optimization work in this task. Record the baseline and open follow-up tasks from the hot spots.
 
+## Goal (implementer restatement)
+
+Record a repeatable baseline before any runner optimization. One generator emits the same six workloads for every host: one trivial test, 1,000 and 10,000 trivial tests, 100 methods by 50 inputs, 1,000 `await Task.Yield()` tests, and 100 classes that share a session fixture and a once-per-class hook. The hosts are Jaribu as a runfile, Jaribu through `dotnet test` and the MTP adapter, TimeWarp.Fixie, TUnit, and xUnit v3. `dev benchmark` builds them, times a cold launch and repeated warm launches, and writes wall-clock, time-to-first-test, per-test mean, sampled peak working set, and GC allocations to `benchmarks/results/<utc-date>-<sha>.md` and `benchmarks/results/latest.md`. Versions stay pinned in `Directory.Packages.props` and are copied into the report. A manual and nightly workflow runs the suite, and pull-request CI does not. This task does not change the runner. Task 054 remains the optimization follow-up.
+
+Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics; the generator is the only source of test bodies; both Jaribu modes run; `dev benchmark` writes both result files; versions are pinned and listed; the extra workflow is `workflow_dispatch` plus a nightly schedule; the first baseline is committed; hot spots are listed under Results.
+
 ## Checklist
 
 - [ ] Decide workload list and metric definitions; write them in `benchmarks/readme.md`
