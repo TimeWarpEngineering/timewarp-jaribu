@@ -32,6 +32,8 @@ using Microsoft.Testing.Platform.Services;
 // CloseTestSessionAsync ends that epoch. A clear since the begin makes the
 // close return without a session failure. A close with no stored epoch uses
 // the parameterless end, which throws when no host session is active.
+// The outermost close clears MethodSourceLocation caches after that attempt,
+// including when dispose fails, so a long-lived host drops PDB maps.
 // The adapter passes the raw --filter-tag argument, or null when that option
 // is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
 // and read JARIBU_FILTER_TAG only when the argument is null. A class or
@@ -115,6 +117,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
   public async Task<CloseTestSessionResult> CloseTestSessionAsync(CloseTestSessionContext context)
   {
+    bool clearLocations = false;
     try
     {
       long? clearEpoch;
@@ -123,6 +126,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
         clearEpoch = SessionClearEpochs.Count == 0
           ? null
           : SessionClearEpochs.Pop();
+        clearLocations = SessionClearEpochs.Count == 0;
       }
 
       if (clearEpoch is long epoch)
@@ -162,6 +166,13 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
         IsSuccess = false,
         ErrorMessage = $"Session fixture dispose failed: {ex.Message}"
       };
+    }
+    finally
+    {
+      if (clearLocations)
+      {
+        MethodSourceLocation.Clear();
+      }
     }
   }
 

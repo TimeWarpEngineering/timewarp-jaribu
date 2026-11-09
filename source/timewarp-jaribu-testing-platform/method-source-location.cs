@@ -23,6 +23,9 @@ using Microsoft.Testing.Platform.Extensions.Messages;
 // row with none uses the portable PDB state-machine kickoff map to read that MoveNext.
 // The resolved span, including a miss, is cached per MethodInfo so discovery, in-progress,
 // and completion do not reopen the portable PDB for every [Input] row.
+// The move-next map key includes the module MVID, so a rebuilt assembly does not
+// reuse a map read from an older PDB at the same path. Clear drops both caches.
+// The MTP adapter calls it when the outermost test session closes.
 #endregion
 
 /// <summary>
@@ -40,6 +43,15 @@ internal static class MethodSourceLocation
       method,
       static methodInfo => new LocationCacheEntry(Read(methodInfo)));
     return locationCacheEntry.Location;
+  }
+
+  /// <summary>
+  /// Drops cached spans and move-next maps. The next lookup reads the PDB again.
+  /// </summary>
+  public static void Clear()
+  {
+    LocationCache.Clear();
+    MoveNextTokenByKickoffToken.Clear();
   }
 
   private readonly record struct PdbSource(MetadataReaderProvider Provider, string CacheKey);
@@ -71,7 +83,7 @@ internal static class MethodSourceLocation
 
       // Async and iterator sequence points live on the generated MoveNext.
       IReadOnlyDictionary<int, int> moveNextTokenByKickoffToken = MoveNextTokenByKickoffToken.GetOrAdd(
-        source.Value.CacheKey,
+        MoveNextCacheKey(source.Value.CacheKey, method),
         static (_, metadataReader) => BuildMoveNextMap(metadataReader),
         reader);
       if (!moveNextTokenByKickoffToken.TryGetValue(method.MetadataToken, out int moveNextToken))
@@ -93,6 +105,11 @@ internal static class MethodSourceLocation
     {
       return Miss(method, ex.GetType().Name);
     }
+  }
+
+  private static string MoveNextCacheKey(string pdbKey, MethodInfo method)
+  {
+    return $"{pdbKey}\n{method.Module.ModuleVersionId:N}";
   }
 
   private static PdbSource? OpenPdb(string assemblyPath)

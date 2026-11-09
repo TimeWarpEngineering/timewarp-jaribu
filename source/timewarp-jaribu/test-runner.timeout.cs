@@ -1,7 +1,5 @@
 namespace TimeWarp.Jaribu;
 
-using System.Reflection;
-
 #region Purpose
 // Hook and fixture timeout policy, and the clock that schedules every timeout.
 #endregion
@@ -103,7 +101,7 @@ public static partial class TestRunner
   internal static int? ResolveHookTimeoutMilliseconds(Type testClass)
   {
     ArgumentNullException.ThrowIfNull(testClass);
-    TimeoutAttribute? attribute = testClass.GetCustomAttribute<TimeoutAttribute>(inherit: true);
+    TimeoutAttribute? attribute = GetClassMetadata(testClass).Timeout;
     if (attribute is not null)
     {
       return attribute.Milliseconds;

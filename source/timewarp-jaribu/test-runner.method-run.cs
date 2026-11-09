@@ -50,7 +50,7 @@ public static partial class TestRunner
       return await ReportSkippedAsync(skipCase, tagReason, casePredicate, sink);
     }
 
-    SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
+    SkipAttribute? skipAttr = GetMethodMetadata(method).Skip;
     if (skipAttr is not null)
     {
       ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];

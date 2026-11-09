@@ -106,6 +106,35 @@ namespace Mtp_
 
       DynamicMethod method = new("DynamicProbe", typeof(void), Type.EmptyTypes);
       MethodSourceLocation.TryCreate(method).ShouldBeNull();
+      MethodSourceLocation.Clear();
+      MethodSourceLocation.TryCreate(method).ShouldBeNull();
+      await Task.CompletedTask;
+    }
+
+    public static async Task PdbLookup_Should_ResolveAgainAfterTheCacheIsCleared()
+    {
+      MethodSourceLocation.Clear();
+      MethodInfo method = typeof(ReviewCleanups_Given_).GetMethod(
+        nameof(PdbLookup_Should_ResolveAgainAfterTheCacheIsCleared))!;
+      TestFileLocationProperty? first = MethodSourceLocation.TryCreate(method);
+      TestFileLocationProperty? second = MethodSourceLocation.TryCreate(method);
+      MethodSourceLocation.Clear();
+      TestFileLocationProperty? third = MethodSourceLocation.TryCreate(method);
+      if (first is null)
+      {
+        second.ShouldBeNull();
+        third.ShouldBeNull();
+      }
+      else
+      {
+        TestFileLocationProperty cached = second.ShouldNotBeNull();
+        TestFileLocationProperty reread = third.ShouldNotBeNull();
+        cached.FilePath.ShouldBe(first.FilePath);
+        reread.FilePath.ShouldBe(first.FilePath);
+        cached.LineSpan.ShouldBe(first.LineSpan);
+        reread.LineSpan.ShouldBe(first.LineSpan);
+      }
+
       await Task.CompletedTask;
     }
 

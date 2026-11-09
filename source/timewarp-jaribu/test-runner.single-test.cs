@@ -18,6 +18,7 @@ using System.Reflection;
 // A rejected Jaribu attribute is Error before Setup. The message names it.
 // Fixture creation marks are Error, and a fixture create timeout
 // is Timeout.
+// The completed node keeps the parameter array passed to Invoke.
 // CleanUp still runs after a body outcome. A CleanUp interrupted by the same
 // token does not rewrite a failing body, and a passing body becomes Cancelled.
 // CleanUp may overlap a body that is still running after the wait was cancelled.
@@ -55,6 +56,10 @@ public static partial class TestRunner
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
+    if (parameters is { Length: > 0 })
+    {
+      parameters = [.. parameters];
+    }
 
     if (JaribuAttributeRead.TryRejectClass(testClass, out JaribuAttributeRead.Rejection classRejection))
     {
@@ -66,8 +71,9 @@ public static partial class TestRunner
       return Task.FromResult(AttributeRejectionNode(testClass, method, methodRejection));
     }
 
-    HookResolveResult setupHook = ResolveHook(testClass, "Setup");
-    HookResolveResult cleanUpHook = ResolveHook(testClass, "CleanUp");
+    ClassMetadata metadata = GetClassMetadata(testClass);
+    HookResolveResult setupHook = metadata.Setup;
+    HookResolveResult cleanUpHook = metadata.CleanUp;
     Exception? signatureError = setupHook.ValidationError ?? cleanUpHook.ValidationError;
     if (signatureError is not null)
     {
@@ -128,7 +134,7 @@ public static partial class TestRunner
         duration,
         exception,
         message,
-        parameters.Length > 0 ? parameters.ToList() : null,
+        parameters.Length > 0 ? parameters : null,
         method,
         StartTime: startedAt,
         EndTime: endedAt);
@@ -140,8 +146,7 @@ public static partial class TestRunner
       return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
     }
 
-    // Check for [Skip] attribute
-    SkipAttribute? skipAttr = method.GetCustomAttribute<SkipAttribute>();
+    SkipAttribute? skipAttr = GetMethodMetadata(method).Skip;
     if (skipAttr is not null)
     {
       stopwatch.Stop();
@@ -225,7 +230,7 @@ public static partial class TestRunner
       {
         if (testTask is not null)
         {
-          TimeoutAttribute? timeoutAttr = method.GetCustomAttribute<TimeoutAttribute>(inherit: false);
+          TimeoutAttribute? timeoutAttr = GetMethodMetadata(method).Timeout;
           WaitKind kind = await WaitForCompletionAsync(
             testTask,
             timeoutAttr?.Milliseconds,
@@ -361,7 +366,7 @@ public static partial class TestRunner
     parameters ??= [];
     string testNodeUid = TestCaseIdentity.CaseUid(testClass, method, inputOrdinal, parameters);
     string displayName = TestCaseIdentity.FormatReportedName(testClass, method, parameters);
-    IReadOnlyList<object?>? reportedParameters = parameters.Length > 0 ? parameters.ToList() : null;
+    IReadOnlyList<object?>? reportedParameters = parameters.Length > 0 ? parameters : null;
     DateTimeOffset stamp = DateTimeOffset.UtcNow;
     if (cancellationToken.IsCancellationRequested)
     {
