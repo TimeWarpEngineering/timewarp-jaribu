@@ -32,6 +32,8 @@ return await RunAllTests();
 namespace TestingPlatformProps_
 {
   using System.IO.Compression;
+  using System.Reflection;
+  using System.Runtime.Versioning;
   using System.Text.Json;
   using TimeWarp.Amuru;
 
@@ -168,25 +170,54 @@ namespace TestingPlatformProps_
         consumerProperties["IsTestProject"].ShouldBe("true");
         consumerProperties["IsTestingPlatformApplication"].ShouldBe("true");
 
-        string libraryOutput = Path.Combine(libraryDirectory, "bin", "Debug", "net10.0");
+        string targetFramework = TargetFrameworkMoniker();
+        string libraryOutput = Path.Combine(libraryDirectory, "bin", "Debug", targetFramework);
         File.Exists(Path.Combine(libraryOutput, "transitive-library.dll")).ShouldBeTrue();
         File.Exists(Path.Combine(libraryOutput, ApphostName("transitive-library"))).ShouldBeFalse();
         File.Exists(EntryPointSource(libraryDirectory)).ShouldBeFalse();
 
-        string optInOutput = Path.Combine(optInDirectory, "bin", "Debug", "net10.0");
+        string optInOutput = Path.Combine(optInDirectory, "bin", "Debug", targetFramework);
         File.Exists(Path.Combine(optInOutput, "opt-in-library.dll")).ShouldBeTrue();
         File.Exists(EntryPointSource(optInDirectory)).ShouldBeTrue();
 
-        string consumerOutput = Path.Combine(consumerDirectory, "bin", "Debug", "net10.0");
+        string consumerOutput = Path.Combine(consumerDirectory, "bin", "Debug", targetFramework);
         File.Exists(Path.Combine(consumerOutput, "adapter-consumer.dll")).ShouldBeTrue();
         File.Exists(Path.Combine(consumerOutput, ApphostName("adapter-consumer"))).ShouldBeTrue();
         File.Exists(EntryPointSource(consumerDirectory)).ShouldBeTrue();
       }
       finally
       {
-        if (Directory.Exists(sandbox))
+        await DeleteSandboxAsync(root, sandbox);
+      }
+    }
+
+    // Windows: build servers can hold package dlls and the NuGet cache marks files read-only,
+    // so a plain recursive delete throws UnauthorizedAccessException.
+    private static async Task DeleteSandboxAsync(string root, string sandbox)
+    {
+      if (!Directory.Exists(sandbox))
+      {
+        return;
+      }
+
+      await RunDotNetAsync(root, "build-server", "shutdown");
+
+      for (int attempt = 1; ; attempt++)
+      {
+        try
         {
+          foreach (string file in Directory.EnumerateFiles(sandbox, "*", SearchOption.AllDirectories))
+          {
+            File.SetAttributes(file, FileAttributes.Normal);
+          }
+
           Directory.Delete(sandbox, recursive: true);
+          return;
+        }
+        catch (Exception exception) when
+          (attempt < 5 && exception is UnauthorizedAccessException or IOException)
+        {
+          await Task.Delay(TimeSpan.FromSeconds(attempt));
         }
       }
     }
@@ -237,10 +268,11 @@ namespace TestingPlatformProps_
 
     private static string ConsumerProject(string version)
     {
+      string targetFramework = TargetFrameworkMoniker();
       return $"""
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <TargetFramework>net10.0</TargetFramework>
+            <TargetFramework>{targetFramework}</TargetFramework>
             <ImplicitUsings>enable</ImplicitUsings>
             <Nullable>enable</Nullable>
           </PropertyGroup>
@@ -253,10 +285,11 @@ namespace TestingPlatformProps_
 
     private static string LibraryProject()
     {
-      return """
+      string targetFramework = TargetFrameworkMoniker();
+      return $"""
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <TargetFramework>net10.0</TargetFramework>
+            <TargetFramework>{targetFramework}</TargetFramework>
             <ImplicitUsings>enable</ImplicitUsings>
             <Nullable>enable</Nullable>
           </PropertyGroup>
@@ -269,10 +302,11 @@ namespace TestingPlatformProps_
 
     private static string OptInLibraryProject()
     {
-      return """
+      string targetFramework = TargetFrameworkMoniker();
+      return $"""
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <TargetFramework>net10.0</TargetFramework>
+            <TargetFramework>{targetFramework}</TargetFramework>
             <ImplicitUsings>enable</ImplicitUsings>
             <Nullable>enable</Nullable>
             <EnableJaribuRunner>true</EnableJaribuRunner>
@@ -318,7 +352,29 @@ namespace TestingPlatformProps_
       OperatingSystem.IsWindows() ? name + ".exe" : name;
 
     private static string EntryPointSource(string projectDirectory) =>
-      Path.Combine(projectDirectory, "obj", "Debug", "net10.0", "MicrosoftTestingPlatformEntryPoint.cs");
+      Path.Combine(
+        projectDirectory,
+        "obj",
+        "Debug",
+        TargetFrameworkMoniker(),
+        "MicrosoftTestingPlatformEntryPoint.cs");
+
+    private static string TargetFrameworkMoniker()
+    {
+      TargetFrameworkAttribute attribute =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<TargetFrameworkAttribute>()
+        ?? throw new InvalidOperationException("The test assembly declares no target framework.");
+
+      const string VersionMarker = ",Version=v";
+      int marker = attribute.FrameworkName.IndexOf(VersionMarker, StringComparison.Ordinal);
+      if (marker < 0 || marker + VersionMarker.Length >= attribute.FrameworkName.Length)
+      {
+        throw new InvalidOperationException(
+          $"Cannot read a TFM from '{attribute.FrameworkName}'.");
+      }
+
+      return "net" + attribute.FrameworkName[(marker + VersionMarker.Length)..];
+    }
 
     private static string FindRepoRoot()
     {

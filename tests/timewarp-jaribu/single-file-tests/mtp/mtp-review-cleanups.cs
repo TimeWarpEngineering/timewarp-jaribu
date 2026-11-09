@@ -23,6 +23,7 @@ namespace Mtp_
 {
   using System.IO.Compression;
   using System.Reflection;
+  using System.Runtime.Versioning;
   using System.Reflection.Emit;
   using System.Runtime.CompilerServices;
   using DevCli.Commands;
@@ -210,7 +211,10 @@ namespace Mtp_
       try
       {
         string packagePath = Path.Combine(root, "TimeWarp.Jaribu.TestingPlatform.0.0.0.nupkg");
-        WriteLibPackage(packagePath, "lib/net10.0/TimeWarp.Jaribu.TestingPlatform.dll", granted);
+        WriteLibPackage(
+          packagePath,
+          $"lib/{TargetFrameworkMoniker()}/TimeWarp.Jaribu.TestingPlatform.dll",
+          granted);
         InvalidOperationException packed = Should.Throw<InvalidOperationException>(
           () => ReleaseGate.RequirePackageGrantsNoInternals(packagePath));
         packed.Message.ShouldContain("mtp-review-cleanups");
@@ -328,6 +332,23 @@ namespace Mtp_
       public Type[] DataTypesProduced => [typeof(TestNodeUpdateMessage)];
 
       public Task<bool> IsEnabledAsync() => Task.FromResult(true);
+    }
+
+    private static string TargetFrameworkMoniker()
+    {
+      TargetFrameworkAttribute attribute =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<TargetFrameworkAttribute>()
+        ?? throw new InvalidOperationException("The test assembly declares no target framework.");
+
+      const string VersionMarker = ",Version=v";
+      int marker = attribute.FrameworkName.IndexOf(VersionMarker, StringComparison.Ordinal);
+      if (marker < 0 || marker + VersionMarker.Length >= attribute.FrameworkName.Length)
+      {
+        throw new InvalidOperationException(
+          $"Cannot read a TFM from '{attribute.FrameworkName}'.");
+      }
+
+      return "net" + attribute.FrameworkName[(marker + VersionMarker.Length)..];
     }
   }
 }

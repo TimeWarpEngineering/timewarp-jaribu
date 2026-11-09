@@ -62,6 +62,6 @@ Tree paths use `/Assembly/Namespace/Type/Method`.
 
 ## Package version
 
-`<Version>` lives in `source/Directory.Build.props`. The root `Directory.Build.props` sets `TargetFramework` to `net10.0` and turns analyzers on. It does not set the package version.
+`<Version>` lives in `source/Directory.Build.props`. The root `Directory.Build.props` sets `TargetFramework` to `net11.0` and turns analyzers on. It does not set the package version.
 
 The library package references Shouldly, TimeWarp.Terminal, and TimeWarp.Amuru. `TerminalSink` and `TestHelpers` write through TimeWarp.Terminal. Test authors call Shouldly. TimeWarp.Amuru is on the package graph for runfiles that shell out.

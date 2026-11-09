@@ -27,7 +27,7 @@ internal sealed class BenchmarkCommand : ICommand<Unit>
   [Option("skip-in-process", Description = "Skip the BenchmarkDotNet Jaribu run.")]
   public bool SkipInProcess { get; set; }
 
-  internal sealed class Handler : ICommandHandler<BenchmarkCommand, Unit>
+  internal sealed class Handler : IRequestHandler<BenchmarkCommand, Unit>
   {
     private readonly ITerminal Terminal;
 
@@ -36,7 +36,7 @@ internal sealed class BenchmarkCommand : ICommand<Unit>
       Terminal = terminal;
     }
 
-    public async Task<Unit> Handle(BenchmarkCommand command, CancellationToken ct)
+    public async ValueTask<Unit> Handle(BenchmarkCommand command, CancellationToken ct)
     {
       string? repo = Git.FindRoot();
       if (repo is null)

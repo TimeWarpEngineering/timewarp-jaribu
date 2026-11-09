@@ -1,11 +1,11 @@
 ---
 name: tw-jaribu
-description: Write tests using the Jaribu framework for .NET 10 file-based apps (runfiles)
+description: Write tests using the Jaribu framework for .NET 11 file-based apps (runfiles)
 ---
 
 # Jaribu Testing Skill
 
-Jaribu is an attribute-based testing framework for .NET 10 runfiles. Tests are standalone executables.
+Jaribu is an attribute-based testing framework for .NET 11 runfiles. Tests are standalone executables.
 
 ## Architecture
 
