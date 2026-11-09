@@ -24,6 +24,10 @@ using Microsoft.Testing.Platform.Services;
 // context.CancellationToken is passed into the class run and into session
 // close. A fired token stops the class loop. Cooperative cancellation is not
 // republished as an Error node.
+// CreateTestSessionAsync keeps the clear epoch BeginTestSession returns.
+// CloseTestSessionAsync ends that epoch. A clear since the begin makes the
+// close return without a session failure. A close with no stored epoch uses
+// the parameterless end, which throws when no host session is active.
 // The adapter passes the raw --filter-tag argument, or null when that option
 // is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
 // and read JARIBU_FILTER_TAG only when the argument is null. A class or
@@ -57,6 +61,8 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 {
   private readonly IExtension Extension;
   private readonly IServiceProvider ServiceProvider;
+  private readonly Lock SessionEpochGate = new();
+  private readonly Stack<long> SessionClearEpochs = new();
 
   public JaribuTestFramework
   (
@@ -91,7 +97,12 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       });
     }
 
-    TestRunner.BeginTestSession();
+    long clearEpoch = TestRunner.BeginTestSession();
+    lock (SessionEpochGate)
+    {
+      SessionClearEpochs.Push(clearEpoch);
+    }
+
     return Task.FromResult(new CreateTestSessionResult { IsSuccess = true });
   }
 
@@ -99,7 +110,23 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
   {
     try
     {
-      await TestRunner.EndTestSessionAsync(context.CancellationToken).ConfigureAwait(false);
+      long? clearEpoch;
+      lock (SessionEpochGate)
+      {
+        clearEpoch = SessionClearEpochs.Count == 0
+          ? null
+          : SessionClearEpochs.Pop();
+      }
+
+      if (clearEpoch is long epoch)
+      {
+        await TestRunner.EndTestSessionAsync(epoch, context.CancellationToken).ConfigureAwait(false);
+      }
+      else
+      {
+        await TestRunner.EndTestSessionAsync(context.CancellationToken).ConfigureAwait(false);
+      }
+
       if (context.CancellationToken.IsCancellationRequested)
       {
         return new CloseTestSessionResult

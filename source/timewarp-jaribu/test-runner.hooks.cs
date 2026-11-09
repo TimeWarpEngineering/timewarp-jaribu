@@ -170,11 +170,13 @@ public static partial class TestRunner
   /// <summary>
   /// Ends an owned session. Returns the dispose exception instead of throwing.
   /// </summary>
-  private static async Task<Exception?> TryEndOwnedSessionAsync(CancellationToken cancellationToken)
+  private static async Task<Exception?> TryEndOwnedSessionAsync(
+    long clearEpoch,
+    CancellationToken cancellationToken)
   {
     try
     {
-      await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+      await SessionFixture.EndRunLeaseAsync(clearEpoch, cancellationToken).ConfigureAwait(false);
       return null;
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -194,11 +196,13 @@ public static partial class TestRunner
   /// The dispose exception is logged and swallowed so it cannot replace the body exception.
   /// Cancellation is not a dispose failure.
   /// </summary>
-  private static async Task EndOwnedSessionWithoutMaskingAsync(CancellationToken cancellationToken)
+  private static async Task EndOwnedSessionWithoutMaskingAsync(
+    long clearEpoch,
+    CancellationToken cancellationToken)
   {
     try
     {
-      await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+      await SessionFixture.EndRunLeaseAsync(clearEpoch, cancellationToken).ConfigureAwait(false);
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
     {
