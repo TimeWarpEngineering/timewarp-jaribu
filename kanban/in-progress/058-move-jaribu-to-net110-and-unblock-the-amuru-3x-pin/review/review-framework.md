@@ -2,21 +2,21 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 279
+- Lines changed: 466
 - Effort: 2
 - TCB hits: none
 - Roster axes: general
 - Turn cap: 120 (--max-turns; cursor uncapped)
 
-# Review framework — task 058
+## Round 2 scope
 
-**Date:** 2026-11-09
-**Host task:** kanban/in-progress/058-move-jaribu-to-net110-and-unblock-the-amuru-3x-pin/
-**Diff scope:** branch `task/058-move-jaribu-to-net110-and-unblock-the-amuru-3x-pin` vs `master` (merge base), product commit eaebc52
-**Plan / brief:** move the build to net11.0 and pin TimeWarp.Amuru / Amuru.Tools to the newest 3.x (see `## Goal (implementer restatement)` in task.md)
-**Effort:** 2 (budget by diff); roster axis general only
-**Reviewer roster:** general (review oracle, Claude Opus 5.5, inline)
-**Session IDs:** review oracle session not exposed to the agent
+- **Date:** 2026-11-09
+- **Host task:** kanban/in-progress/058-move-jaribu-to-net110-and-unblock-the-amuru-3x-pin/
+- **Diff scope:** `eaebc52..HEAD` excluding `kanban/` (adcd28c Windows sandbox cleanup, d09f4ed Nuru 4.0.0-beta.12 pin and Mediator 15 handlers). Round-1 acceptance items were re-checked at HEAD.
+- **Plan / brief:** `## Goal (implementer restatement)` in task.md
+- **Effort:** 2 (budget by diff, 466 lines); roster axis general only
+- **Reviewer roster:** general (review oracle, Claude Opus 5.5, inline)
+- **Session IDs:** the review oracle session id is not exposed to the agent
 
 ## Ground rules
 
