@@ -160,7 +160,7 @@ internal static class BenchmarkReport
     foreach (InProcessRow row in inProcess)
     {
       builder.Append("| ").Append(row.Name.Replace("|", "\\|", StringComparison.Ordinal));
-      builder.Append(" | ").Append(Ms(row.MeanMs));
+      builder.Append(" | ").Append(InProcessMs(row.MeanMs));
       builder.Append(" | ").Append(BytesOrBlank(row.AllocatedBytes));
       builder.AppendLine(" |");
     }
@@ -292,6 +292,10 @@ internal static class BenchmarkReport
   }
 
   private static string Ms(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+
+  // Sub-millisecond runner times round to 0.0 at one decimal place.
+  private static string InProcessMs(double value) =>
+    value.ToString(value < 1d ? "F3" : "F1", CultureInfo.InvariantCulture);
 
   private static string Us(double value) => value.ToString("F2", CultureInfo.InvariantCulture);
 
