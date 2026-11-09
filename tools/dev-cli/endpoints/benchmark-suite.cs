@@ -312,7 +312,7 @@ internal static class BenchmarkSuite
     }
 
     start += token.Length;
-    int end = text.IndexOf('"', start);
+    int end = text.IndexOf('"', start, StringComparison.Ordinal);
     return text[start..end];
   }
 

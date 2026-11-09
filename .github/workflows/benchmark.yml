@@ -19,20 +19,30 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup .NET
+        id: setup-dotnet
         uses: actions/setup-dotnet@v6
         with:
-          # Installs 10.0.403 beside the SDKs already on the runner image.
-          # The next step is what makes the muxer select it.
-          dotnet-version: '10.0.403'
+          # Same 11.0.x preview channel as workflow.yml, until 11 GA.
+          # The next step pins global.json so the muxer selects that SDK.
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
 
       - name: Pin the benchmark SDK
+        env:
+          INSTALLED_SDK: ${{ steps.setup-dotnet.outputs.dotnet-version }}
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
+          version = os.environ["INSTALLED_SDK"].strip()
+          if not version.startswith("11.0."):
+              raise SystemExit(
+                  f"setup-dotnet must install an 11.0 SDK, found {version!r}"
+              )
           path = Path("global.json")
           document = json.loads(path.read_text())
-          document["sdk"] = {"version": "10.0.403", "rollForward": "disable"}
+          document["sdk"] = {"version": version, "rollForward": "disable"}
           runner = document.get("test", {}).get("runner")
           if runner != "Microsoft.Testing.Platform":
               raise SystemExit(
@@ -42,7 +52,7 @@ jobs:
           PY
           version="$(dotnet --version)"
           echo "Selected SDK: ${version}"
-          test "${version}" = "10.0.403"
+          test "${version}" = "${INSTALLED_SDK}"
 
       - name: Cache NuGet packages
         uses: actions/cache@v6

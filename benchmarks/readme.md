@@ -58,14 +58,14 @@ Projects are not in `timewarp-jaribu.slnx`. Pull-request `dev build` / `dev test
 
 Runs are serial. Framework versions are the pins in `Directory.Packages.props`, plus the Jaribu `Version` in `source/Directory.Build.props`. The report header copies them, plus the SDK (`dotnet --version`) and the test runtime (`BENCH runtime`).
 
-Compare a result only with another result from the same SDK band. The committed baseline and the nightly workflow use SDK `10.0.403`. The tracked root `global.json` sets `test.runner` to `Microsoft.Testing.Platform` and does not pin an SDK, so a machine with a newer SDK selects that newer SDK. Keep `test.runner`. Replacing the file with an SDK-only `global.json` drops MTP mode, and on SDK 10 the `jaribu-mtp`, `tunit`, and `xunit` hosts then fail or measure a different path.
+Compare a result only with another result from the same SDK band. The committed baseline in `benchmarks/results/` was measured on SDK `10.0.403`. The nightly workflow installs the `11.0.x` preview channel and pins `global.json` to the SDK that step installed (`rollForward` disable). A run on that pin is a different band from the committed baseline. The tracked root `global.json` sets `test.runner` to `Microsoft.Testing.Platform` and does not pin an SDK, so a machine with more than one SDK selects the newest. Keep `test.runner`. Replacing the file with an SDK-only `global.json` drops MTP mode, and the `jaribu-mtp`, `tunit`, and `xunit` hosts then fail or measure a different path.
 
-A local run that should match the committed baseline adds an `sdk` block to that existing file for the duration of the run:
+A local run on the nightly band adds an `sdk` block to that existing file for the duration of the run. Use the SDK `dotnet --version` prints when the newest installed SDK is the 11.0 RC (this repo was moved on `11.0.100-rc.3.26522.148`):
 
 ```json
 {
   "sdk": {
-    "version": "10.0.403",
+    "version": "11.0.100-rc.3.26522.148",
     "rollForward": "disable"
   },
   "test": {
@@ -74,7 +74,7 @@ A local run that should match the committed baseline adds an `sdk` block to that
 }
 ```
 
-`dotnet --version` must print `10.0.403` before `dev benchmark`. Revert `global.json` after the run. The workflow makes the same edit on its checked-out copy and fails when the selected SDK is not `10.0.403`.
+`dotnet --version` must print that SDK before `dev benchmark`. Revert `global.json` after the run. The workflow writes the same kind of pin for the SDK `setup-dotnet` just installed and fails when `dotnet --version` is not that version.
 
 ## Run
 
@@ -91,4 +91,4 @@ Output:
 
 ## CI
 
-`.github/workflows/benchmark.yml` runs on `workflow_dispatch` and a nightly schedule. It installs SDK `10.0.403`, merges an `sdk` block (`version` `10.0.403`, `rollForward` `disable`) into the checked-out `global.json`, and keeps `test.runner`. The job fails when `dotnet --version` is not `10.0.403`. It does not run on pull requests. The job uploads the results directory and does not commit. The checkout edit is not pushed.
+`.github/workflows/benchmark.yml` runs on `workflow_dispatch` and a nightly schedule. It installs SDK `11.0.x` at preview quality, merges an `sdk` block (`version` set to that install, `rollForward` `disable`) into the checked-out `global.json`, and keeps `test.runner`. The job fails when `dotnet --version` is not the installed SDK. It does not run on pull requests. The job uploads the results directory and does not commit. The checkout edit is not pushed.

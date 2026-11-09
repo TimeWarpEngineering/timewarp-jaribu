@@ -18,6 +18,8 @@ return await RunAllTests();
 namespace ReleaseGate_
 {
   using System.IO.Compression;
+  using System.Reflection;
+  using System.Runtime.Versioning;
   using DevCli.Commands;
 
   [TestTag("Jaribu")]
@@ -123,7 +125,7 @@ namespace ReleaseGate_
         using (FileStream stream = File.Create(packagePath))
         using (ZipArchive zip = new(stream, ZipArchiveMode.Create))
         {
-          ZipArchiveEntry entry = zip.CreateEntry("lib/net10.0/TimeWarp.Jaribu.dll");
+          ZipArchiveEntry entry = zip.CreateEntry($"lib/{TargetFrameworkMoniker()}/TimeWarp.Jaribu.dll");
           using Stream entryStream = entry.Open();
           using FileStream assembly = File.OpenRead(clean);
           assembly.CopyTo(entryStream);
@@ -148,6 +150,23 @@ namespace ReleaseGate_
       }
 
       return Task.CompletedTask;
+    }
+
+    private static string TargetFrameworkMoniker()
+    {
+      TargetFrameworkAttribute attribute =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<TargetFrameworkAttribute>()
+        ?? throw new InvalidOperationException("The test assembly declares no target framework.");
+
+      const string VersionMarker = ",Version=v";
+      int marker = attribute.FrameworkName.IndexOf(VersionMarker, StringComparison.Ordinal);
+      if (marker < 0 || marker + VersionMarker.Length >= attribute.FrameworkName.Length)
+      {
+        throw new InvalidOperationException(
+          $"Cannot read a TFM from '{attribute.FrameworkName}'.");
+      }
+
+      return "net" + attribute.FrameworkName[(marker + VersionMarker.Length)..];
     }
   }
 }

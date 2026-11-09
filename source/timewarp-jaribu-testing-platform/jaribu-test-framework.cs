@@ -357,14 +357,14 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       return warning;
     }
 
-    int end = warning.IndexOf('\'', Prefix.Length);
+    int end = warning.IndexOf('\'', Prefix.Length, StringComparison.Ordinal);
     if (end <= Prefix.Length)
     {
       return warning;
     }
 
     string qualified = warning[Prefix.Length..end];
-    int dot = qualified.LastIndexOf('.');
+    int dot = qualified.LastIndexOf('.', StringComparison.Ordinal);
     return dot >= 0 && dot < qualified.Length - 1
       ? qualified[(dot + 1)..]
       : qualified;

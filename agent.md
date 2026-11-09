@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TimeWarp.Jaribu is a lightweight testing framework for single-file C# programs and scripts. It enables convention-based test discovery and execution for executable .cs files without heavy test frameworks.
 
-Target framework: net10.0
+Target framework: net11.0
 
 ## Build Commands
 
@@ -86,7 +86,7 @@ TestRunner.RunTestsAsync(sink)
 
 ### Single-File C# Scripts
 
-This project uses .NET 10 single-file C# app features. Scripts use the shebang `#!/usr/bin/dotnet --` and .NET 10 directives:
+This project uses .NET 11 single-file C# app features. Scripts use the shebang `#!/usr/bin/dotnet --` and file-based app directives:
 - `#:package PackageName@Version` for NuGet packages
 - `#:property PropertyName=Value` for MSBuild properties
 
