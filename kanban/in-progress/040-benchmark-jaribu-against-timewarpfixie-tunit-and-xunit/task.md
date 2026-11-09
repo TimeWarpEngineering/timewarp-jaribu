@@ -22,9 +22,9 @@ Before optimizing Jaribu's performance we need a baseline. Build a repeatable be
 
 ## Goal (implementer restatement)
 
-Record a repeatable baseline before any runner optimization. One generator emits the same six workloads for every host: one trivial test, 1,000 and 10,000 trivial tests, 100 methods by 50 inputs, 1,000 `await Task.Yield()` tests, and 100 classes that share a session fixture and a once-per-class hook. The hosts are Jaribu as a runfile, Jaribu through `dotnet test` and the MTP adapter, TimeWarp.Fixie, TUnit, and xUnit v3. `dev benchmark` builds them, times a cold launch and repeated warm launches, and writes wall-clock, time-to-first-test, per-test mean, sampled peak working set, and GC allocations to `benchmarks/results/<utc-date>-<sha>.md` and `benchmarks/results/latest.md`. Versions stay pinned in `Directory.Packages.props` and are copied into the report. A manual and nightly workflow runs the suite, and pull-request CI does not. This task does not change the runner. Task 054 remains the optimization follow-up.
+Record a repeatable, like-for-like baseline before any runner optimization. One generator emits the same six workloads for every host: one trivial test, 1,000 and 10,000 trivial tests, 100 methods by 50 inputs, 1,000 `await Task.Yield()` tests, and 100 classes that share a session fixture and a once-per-class hook. Each fixture test fails when its own class hook did not run. The hosts are Jaribu as a runfile, Jaribu through `dotnet test` and the MTP adapter, TimeWarp.Fixie, TUnit, and xUnit v3. Every host, including the runfile, builds and launches in Release. `dev benchmark` times a cold launch and repeated warm launches, and writes wall-clock, time-to-first-test, per-test mean, sampled peak working set, and GC allocations to `benchmarks/results/<utc-date>-<sha>.md` and `benchmarks/results/latest.md`. Time-to-first-test is the earlier of the captured `BENCH first` line and the signal file's write time. The report copies the pinned package versions, the SDK, and the test runtime the probe observed. Numbers compare only inside one SDK band. The workflow that runs the suite is manual plus nightly, pinned to SDK 10.0.403, and pull-request CI does not run it. This task does not change the runner. Task 054 remains the optimization follow-up, including the class-size scaling the hot-spot list names.
 
-Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics; the generator is the only source of test bodies; both Jaribu modes run; `dev benchmark` writes both result files; versions are pinned and listed; the extra workflow is `workflow_dispatch` plus a nightly schedule; the first baseline is committed; hot spots are listed under Results.
+Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics, and those definitions match the report; the generator is the only source of test bodies; both Jaribu modes run in Release; `dev benchmark` writes both result files; versions, SDK, and test runtime are listed; the extra workflow is `workflow_dispatch` plus a nightly schedule on the 10.0.403 band; the baseline committed after the Release re-measure is the one `latest.md` copies; hot spots, including superlinear cost as methods per class grow, are listed under Results.
 
 ## Checklist
 
@@ -37,6 +37,15 @@ Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics; t
 - [x] `dev benchmark` command and results writer
 - [x] First baseline committed to `benchmarks/results/`
 - [x] Hot-spot list added to `## Results` for follow-up optimization tasks
+- [x] Runfile host measures Release, same as the other hosts
+- [x] Time-to-first-test uses the earlier of the line and the signal file
+- [x] Report records the test runtime, and the workflow pins SDK 10.0.403
+- [x] Hand-written benchmark sources stay under the repo analyzers
+- [x] TUnit fixture check is per class
+
+## Review
+
+- Round 1: fix pass implemented M1–M6. Round 2 has not reviewed them.
 
 ## Notes
 
@@ -47,18 +56,19 @@ Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics; t
 
 ## Results
 
-The baseline is `benchmarks/results/2026-11-09-5f2862e7e2d1.md`, copied to `benchmarks/results/latest.md`. Measured commit `5f2862e7e2d1`, spec `040-1`, SDK `11.0.100-rc.3.26522.148`, three warm launches. Pinned hosts: Jaribu `1.0.0-beta.16`, BenchmarkDotNet 0.15.8, Fixie 4.1.0, TimeWarp.Fixie 3.1.0, TUnit 1.81.10, xUnit v3 `xunit.v3.mtp-v2` 4.0.3, Microsoft.Testing.Platform 2.3.3. The runner is unchanged.
+The baseline is `benchmarks/results/2026-11-09-4b7883568d71.md`, copied to `benchmarks/results/latest.md`. Measured commit `4b7883568d71`, spec `040-1`, SDK `10.0.403`, test runtime `.NET 10.0.14`, three warm launches. Every host, including the Jaribu runfile, was built and launched with `-c Release`. Pinned hosts: Jaribu `1.0.0-beta.16`, BenchmarkDotNet 0.15.8, Fixie 4.1.0, TimeWarp.Fixie 3.1.0, TUnit 1.81.10, xUnit v3 `xunit.v3.mtp-v2` 4.0.3, Microsoft.Testing.Platform 2.3.3. The runner is unchanged. The workflow installs the same SDK. Compare a later run only inside this SDK band. The earlier table at `5f2862e7e2d1` was the runfile in Debug on SDK `11.0.100-rc.3.26522.148`. That file is removed from the tree. The Debug numbers stay in git history.
 
-Warm median wall-clock for 10,000 trivial tests: Jaribu runfile 14875.7 ms, Jaribu MTP 16464.4 ms, xUnit 5292.4 ms, TUnit 4543.8 ms, TimeWarp.Fixie 1202.6 ms. Marginal per-test cost, `(volume-10k − volume-1k) / 9000`: Jaribu MTP 1711.64 µs, Jaribu runfile 1464.29 µs, xUnit 454.12 µs, TUnit 351.30 µs, Fixie 67.48 µs.
+Warm median wall-clock for 10,000 trivial tests: Jaribu runfile 17868.6 ms, Jaribu MTP 16602.4 ms, xUnit 5377.0 ms, TUnit 3801.3 ms, TimeWarp.Fixie 1276.9 ms. Marginal per-test cost, `(volume-10k − volume-1k) / 9000`: Jaribu runfile 1763.56 µs, Jaribu MTP 1714.85 µs, xUnit 468.99 µs, TUnit 295.53 µs, Fixie 68.31 µs. For Jaribu that marginal value depends on class size.
 
-In-process BenchmarkDotNet (`NullSink`, no `dotnet test` host): startup mean 0.005 ms and 4,576 allocated bytes; volume-10k mean 5075.3 ms and 6,432,878,040 allocated bytes; fixtures mean 5.0 ms and 3,873,104 allocated bytes. Process probe allocations for volume-10k (warm median): Jaribu runfile 6,506,039,712, Jaribu MTP 6,525,266,728, xUnit 1,309,554,760, TUnit 185,326,600, Fixie 11,783,608.
+In-process BenchmarkDotNet (`NullSink`, no `dotnet test` host): startup mean 0.004 ms and 4,576 allocated bytes; volume-1k mean 108.3 ms and 67,491,192 allocated bytes; volume-10k mean 5105.4 ms and 6,432,879,576 allocated bytes; fixtures mean 4.7 ms and 3,853,304 allocated bytes. Ten times the methods in one class costs about 47× the time and about 95× the allocations. One thousand fixture tests, in classes of 10, cost 4.7 ms. Process probe allocations for volume-10k (warm median): Jaribu runfile 6,497,898,936, Jaribu MTP 6,525,222,520, xUnit 1,309,531,648, TUnit 179,619,288, Fixie 11,793,560.
 
 Hot spots for task 054 (no runner edits here):
 
-- The volume path allocates about 6.5 GB for 10,000 trivial tests inside `RunTestsAsync`. MTP and the runfile are in the same band, and the in-process NullSink run matches them, so the cost is the runner's per-test work on a large method list. Task 054's per-class attribute and hook cache, and `parameters.ToList()` on every `Complete`, are the changes that should move this number. Re-run `dev benchmark` and record the delta on task 054.
+- Cost scales with methods per class. The in-process volume rows above are the evidence, and the fixture row shows the same test count is cheap when each class is small. On the `RunTestsAsync` path this suite uses, each case goes through `TestCaseIdentity.MethodCase`. `MethodUid` and `FormatReportedName` each call `HasDiscoveredOverload`, which calls `DiscoverTests` → `GetMethods` on the whole class. That is two method-table scans per test. `RunSingleTestAsync` also calls `ResolveHook` twice per test (`Setup` and `CleanUp` in `test-runner.single-test.cs`), and each `ResolveHook` scans `GetMethods`. The volume rows do not use that entry. Either scan is quadratic in class size, so the marginal per-test number is a class-size-dependent value for Jaribu. Task 054 should cache the method table and the hook resolution. The per-class attribute cache and `parameters.ToList()` on every `Complete` remain on that list. Re-run `dev benchmark` on SDK 10.0.403 and record the delta.
+- The volume path allocates about 6.5 GB for 10,000 trivial tests inside `RunTestsAsync`. MTP and the runfile are in the same band, and the in-process NullSink run matches them.
 - The fixtures workload does not show that spike: 1,000 fixture tests allocate about 3.9 MB in-process. `SessionFixture.GetAsync<T>` still reflects `Task<T>.Result`. Task 054 owns that fix. This baseline does not show it dominating the 10,000-test allocation.
 - Source-location caches stay unbounded. This suite launches a new process per sample, so it does not measure a stale cache in a long-lived host. Task 054 still owns the MVID key and the clear at session close.
-- One-test startup is host time. Warm median: runfile 1170.2 ms, MTP 592.2 ms, Fixie 553.7 ms. In-process startup is 0.005 ms.
+- One-test startup is host time. Warm median: runfile 1326.8 ms, MTP 598.7 ms, Fixie 591.6 ms. In-process startup is 0.004 ms.
 
 `ganda repo audit --fix` wrote a gitignored `.vscode/settings.json` so the window-icon check passes on this machine. That file stays untracked.
 
@@ -66,11 +76,11 @@ Hot spots for task 054 (no runner edits here):
 
 Smoke: `dotnet run tools/dev-cli/dev.cs -- benchmark --runs 1 --workloads startup --hosts fixie --skip-in-process`
 
-Expect: exit 0. The command rewrites `benchmarks/results/<utc-date>-<12-char-sha>.md` and `benchmarks/results/latest.md`. The Fixie startup row has cases 1, a warm wall-clock, and a non-blank allocation. The committed baseline `benchmarks/results/2026-11-09-5f2862e7e2d1.md` matches `latest.md` before that smoke, names commit `5f2862e7e2d1`, and contains six workloads for jaribu-runfile, jaribu-mtp, fixie, tunit, and xunit, plus six in-process rows. `ganda repo audit` exits 0.
+Expect: exit 0. The command rewrites `benchmarks/results/<utc-date>-<12-char-sha>.md` and `benchmarks/results/latest.md`. The Fixie startup row has cases 1, a warm wall-clock, and a non-blank allocation. Before that smoke, `benchmarks/results/2026-11-09-4b7883568d71.md` matches `latest.md`, names commit `4b7883568d71`, SDK `10.0.403`, runtime `.NET 10.0.14`, and contains six workloads for jaribu-runfile, jaribu-mtp, fixie, tunit, and xunit, plus six in-process rows. `ganda repo audit` exits 0.
 
 ### Review
 
-Round 1 (effort 3, roster: general) is open. Counts: bug 2 open, suggestion 3 open, nit 1 open. There is no disposition yet. Ledger: `review/round-1/merged.md`. Framework: `review/review-framework.md`. M1 is the main item: the runfile host runs in Debug while every other host runs in Release. Fixing it requires re-measuring the baseline and updating the numbers above. M2 is a time-to-first-test definition mismatch. M3 asks that the hot-spot list name the quadratic scaling with methods per class (`ResolveHook` → `GetMethods` per test).
+Round 1 (effort 3, roster: general) found M1–M6. The fix pass implemented them. Round 2 has not reviewed the result. Ledger: `review/round-1/merged.md`. Framework: `review/review-framework.md`. M1 was the runfile Debug configuration. The replacement baseline is Release on SDK 10.0.403. M2 takes the earlier time-to-first-test signal. M3 names the class-size scaling and the `GetMethods` scans, including `ResolveHook` on `RunSingleTestAsync`.
 
 ## Session
 
@@ -79,3 +89,6 @@ Round 1 (effort 3, roster: general) is open. Counts: bug 2 open, suggestion 3 op
 - Took the landed task 055 kitchen from origin-home (`kanban/done/...`) so `kanban-landed` matches. `ganda repo audit --fix` wrote the gitignored window-icon settings.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1be93-15e5-72f0-86ba-d19e1799093a, max-turns 500, Done — 2026-11-09T06:11:52Z
 - Review oracle round 1 (2026-11-09): reviewer general (Claude Opus 5.5, `claude-opus-5-5`), effort 3, turn cap 200. Result: 6 open findings (M1–M6) and a fix pass requested. No disposition yet. `ganda repo audit` exited 0. The smoke command was not run because it rewrites `benchmarks/results/latest.md`.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session b6cb6a37-56b9-4a66-9575-c7258cd38217, max-turns 200, artifacts general.md, merged.md — 2026-11-09T06:16:44Z
+- Fix pass (2026-11-09): Release for the runfile, earlier time-to-first-test, test runtime in the report, SDK 10.0.403 on the workflow, analyzers back on hand-written benchmark sources, per-class TUnit fixture flag. Full `dotnet run tools/dev-cli/dev.cs -- benchmark --runs 3` exited 0 on SDK 10.0.403 with the repo `global.json` test runner left in place and an uncommitted SDK pin that was removed after the run. Baseline `4b7883568d71`.
+- Audit (2026-11-09): `dotnet_diagnostic.TW0007.filename` had been left under the in-process bench section, so `global-usings-analyzer` did not see it. Moved it back under `[*.cs]`. `kanban-landed` is cleared by landing this kitchen.
