@@ -46,6 +46,7 @@ Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via
 - Fix pass resume: implement-fix-2 (grok, model grok-4.7) — 2026-11-09. The M1–M6 product changes were already on the branch. The Design region still said a published Error node rethrows; that sentence now says the handler returns. `ganda repo audit` passed, including `memsearch-scaffold`. `./bin/dev build` and `./bin/dev test` passed: the CI runner printed Passed 203, and the MTP run reported succeeded 203 and failed 0.
 - Review oracle round 2 (2026-11-09): reviewer general (claude, model claude-opus-5-5), effort 3, turn cap 200. The harness did not expose a session id. Scope: the delta since round 1 (c557467 → eed56b3). M1–M6 are verified fixed. Three new findings are open (M7 bug, M8 suggestion, M9 nit), so a fix pass is requested. Artifacts are under `review/round-2/`.
 - Fix pass (review round 2): implement-fix-3 (grok, model grok-4.7) — 2026-11-09. `dev test` calls `RepoRoot.TryFind` again and stores the path in `Root`. The two release-gate tests read `typeof(TestRunner).Assembly.Location` and `typeof(JaribuExtension).Assembly.Location`, with the same IL3000 suppression the single-file runner already uses. The framework Purpose line and `Uid` comment say the command-line provider has its own uid. Solution build 0 warnings. Release CI runner Passed 203. Release MTP succeeded 203, failed 0. `dotnet build tools/dev-cli/dev.cs` succeeded. `ganda repo audit` exit 0.
+- Review oracle round 3 (2026-11-09): reviewer general (claude, model claude-opus-5-5), effort 2 (by-diff, 207 lines), turn cap 120. The harness did not expose a session id. Scope: the delta since round 2 (eed56b3 → c908d14). M7–M9 are verified fixed, and there are no new findings. Disposition: clean. Artifacts are under `review/round-3/` and `review/disposition.md`.
 
 ## Results
 
@@ -69,7 +70,10 @@ Round 1 ran with one general reviewer at effort 3. The fix pass marked M1–M6 f
 
 Round 2 ran with one general reviewer at effort 3 on the delta since round 1. It verified M1–M6 as fixed and raised M7, M8, and M9. The fix pass marked those three fixed on `review/round-2/merged.md`. Counts after that edit: bug 0 open / 2 fixed, suggestion 0 open / 4 fixed, nit 0 open / 3 fixed, none wontfix. Round 3 has not run, so there is no disposition yet. M7 restores `RepoRoot.TryFind` on `dev test` and renames the handler field to `Root`. M8 reads the loaded `TestRunner` and `JaribuExtension` assemblies. M9 rewords the framework Purpose line and `Uid` comment. Gates after the fix: solution build 0 warnings, Release CI runner Passed 203, Release MTP succeeded 203 and failed 0, `dotnet build tools/dev-cli/dev.cs` succeeded, and `ganda repo audit` exit 0. Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
 
+Round 3 ran with one general reviewer at effort 2 on the delta since round 2 (eed56b3 → c908d14). It verified M7, M8, and M9 as fixed and raised no new findings. Final counts: bug 0 open / 2 fixed, suggestion 0 open / 4 fixed, nit 0 open / 3 fixed, none wontfix. **Review disposition: clean** (3 rounds, 0 open). Gates in round 3: solution build 0 warnings and 0 errors, `dotnet build tools/dev-cli/dev.cs` succeeded, Release CI runner Passed 203 with exit 0, and Release MTP succeeded 203 and failed 0. `ganda repo audit` exited 1 only on `kanban-landed` for task 040's kitchen, which this branch does not touch. Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
+
 ## Review
 
 - Round 1: six findings, addressed in the fix pass (M1–M6 marked fixed).
-- Round 2: M7, M8, and M9 addressed in the fix pass and marked fixed. Round 3 has not run.
+- Round 2: M7, M8, and M9 addressed in the fix pass and marked fixed.
+- Round 3: Done
