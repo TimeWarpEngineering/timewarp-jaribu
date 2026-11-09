@@ -52,7 +52,7 @@ using Microsoft.Testing.Platform.Services;
 // DotnetTestPassthroughOutputDevice, and
 // IPushOnlyProtocol.IsDisplayMessageForwardingSupported.
 // An unresolved IPushOnlyProtocol counts as a host that drops the warning.
-// An exception that escapes the request publishes one Error node, then rethrows.
+// An exception that escapes the request publishes one Error node and then returns.
 // That node's uid is Jaribu.Error.{ExceptionType.FullName}. One request publishes
 // at most one such node, so the exception type is enough to keep the uid stable.
 // When the host drops it, and strict mode did not already publish an Error,
