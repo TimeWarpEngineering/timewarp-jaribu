@@ -46,6 +46,7 @@ A rejected method is an Error node when the class tag misses and when the method
 - Fix pass: implement-fix-2, session 01a1bdb5-9f29-7640-a8cb-7903a1fd2de0 (2026-11-09). M1, M2, and M3 fixed.
 - Review oracle round 2: claude (claude-opus-5-5), effort 2, roster general, turn cap 120, 2026-11-09. The oracle cannot see its session id. Scope: fix delta `7d59c1e..ebf94c2`. Result: M1–M3 verified fixed. Fix pass needed for M4 (nit) and M5 (suggestion).
 - Fix pass: implement-fix-3, session 01a1bdd1-8984-7bc0-8183-4917ac081379 (2026-11-09). M4 and M5 fixed.
+- Review oracle round 3: claude (claude-opus-5-5), effort 2, roster general, turn cap 120, 2026-11-09. The oracle cannot see its session id. Scope: fix delta `ebf94c2..d5eb429`. Result: M4 and M5 verified fixed, no new findings. Disposition: clean.
 
 ## Results
 
@@ -65,6 +66,10 @@ Round 2 (effort 2, roster general) reviewed the fix delta `7d59c1e..ebf94c2`. M1
 - M5 (suggestion): a class tag miss reports a rejected method as Error, the same as a method tag miss. The message names the attribute, and the exit code is 1. A healthy sibling on a class tag miss stays Skipped and does not run.
 
 Counts after the fix: bug 0 open / 2 fixed. Suggestion 0 open / 2 fixed. Nit 0 open / 1 fixed. Artifacts: `review/round-2/general.md`, `review/round-2/merged.md`.
+
+Round 3 (effort 2, roster general) reviewed the fix delta `ebf94c2..d5eb429`. M4 and M5 are fixed, and the round found no new issues. `test-runner.runner-guards.cs` passed 6 of 6, the CI runner 161 of 161, and the MTP runner 161 of 161.
+
+**Review disposition: clean.** 3 rounds. Final counts: bug 0 open / 2 fixed / 0 wontfix. Suggestion 0 open / 2 fixed / 0 wontfix. Nit 0 open / 1 fixed / 0 wontfix. No wontfix and no escalations. Artifacts: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`.
 
 ### Implementation
 
@@ -99,3 +104,4 @@ Expect: both builds exit 0 with 0 warnings. The runner-guards file prints `Rejec
 
 - Round 1: fixed M1, M2, and M3. Round 2 follows.
 - Round 2: fixed M4 and M5. Round 3 follows.
+- Round 3: Done
