@@ -187,9 +187,37 @@ namespace TestingPlatformProps_
       }
       finally
       {
-        if (Directory.Exists(sandbox))
+        await DeleteSandboxAsync(root, sandbox);
+      }
+    }
+
+    // Windows: build servers can hold package dlls and the NuGet cache marks files read-only,
+    // so a plain recursive delete throws UnauthorizedAccessException.
+    private static async Task DeleteSandboxAsync(string root, string sandbox)
+    {
+      if (!Directory.Exists(sandbox))
+      {
+        return;
+      }
+
+      await RunDotNetAsync(root, "build-server", "shutdown");
+
+      for (int attempt = 1; ; attempt++)
+      {
+        try
         {
+          foreach (string file in Directory.EnumerateFiles(sandbox, "*", SearchOption.AllDirectories))
+          {
+            File.SetAttributes(file, FileAttributes.Normal);
+          }
+
           Directory.Delete(sandbox, recursive: true);
+          return;
+        }
+        catch (Exception exception) when
+          (attempt < 5 && exception is UnauthorizedAccessException or IOException)
+        {
+          await Task.Delay(TimeSpan.FromSeconds(attempt));
         }
       }
     }
