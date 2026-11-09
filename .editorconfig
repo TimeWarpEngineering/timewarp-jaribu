@@ -11,6 +11,9 @@ root = true
 [_Imports.cs]
 generated_code = true
 
+[*.g.cs]
+generated_code = true
+
 [*.csproj]
 generated_code = true
 

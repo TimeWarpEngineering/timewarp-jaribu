@@ -1,0 +1,42 @@
+name: Benchmark
+
+# Off the pull-request path. The comparison is a manual run or a nightly run.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-bench-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '**/*.props') }}
+          restore-keys: ${{ runner.os }}-nuget-bench-
+
+      - name: Run benchmark
+        run: dotnet run tools/dev-cli/dev.cs -- benchmark --runs 3
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: benchmarks/results/*.md
+          if-no-files-found: warn

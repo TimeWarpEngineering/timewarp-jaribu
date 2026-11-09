@@ -27,5 +27,13 @@
     <!-- 2.0.0 matches Amuru and targets net10.0. 3.x is net11.0 only. -->
     <PackageVersion Include="TimeWarp.Amuru.Tools" Version="2.0.0" />
     <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.11" />
+
+    <!-- Benchmark hosts (task 040). Results headers copy these versions. -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="Fixie" Version="4.1.0" />
+    <PackageVersion Include="Fixie.TestAdapter" Version="4.1.0" />
+    <PackageVersion Include="TimeWarp.Fixie" Version="3.1.0" />
+    <PackageVersion Include="TUnit" Version="1.81.10" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.3" />
   </ItemGroup>
 </Project>

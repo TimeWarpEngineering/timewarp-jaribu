@@ -466,3 +466,6 @@ bin/dev
 bin/dev.dbg
 # AOT dev CLI on Windows (self-install output; local; not product)
 bin/dev.exe
+
+# Benchmark sources emitted by benchmarks/generator. The generator is the source of truth.
+benchmarks/generated/

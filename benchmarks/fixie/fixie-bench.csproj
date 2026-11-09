@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>fixie-bench</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fixie" />
+    <PackageReference Include="Fixie.TestAdapter" />
+    <PackageReference Include="TimeWarp.Fixie" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../generated/fixie/$(BenchWorkload)/*.g.cs" />
+  </ItemGroup>
+</Project>

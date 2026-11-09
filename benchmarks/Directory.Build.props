@@ -1,0 +1,27 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Generated workloads are large. NET analyzers stay off. Source generators stay on
+         so TUnit and xUnit can discover tests. -->
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <AnalysisLevel>none</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591;CS1998;CS8981</NoWarn>
+    <BenchWorkload Condition="'$(BenchWorkload)' == ''">startup</BenchWorkload>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Remove="Roslynator.Analyzers" />
+    <PackageReference Remove="Roslynator.CodeAnalysis.Analyzers" />
+    <PackageReference Remove="Roslynator.Formatting.Analyzers" />
+    <PackageReference Remove="Microsoft.CodeAnalysis.NetAnalyzers" />
+    <PackageReference Remove="Microsoft.CodeAnalysis.CSharp.CodeStyle" />
+    <PackageReference Remove="Microsoft.CodeAnalysis.BannedApiAnalyzers" />
+    <PackageReference Remove="TimeWarp.Build.Tasks" />
+    <PackageReference Remove="TimeWarp.SourceGenerators" />
+  </ItemGroup>
+</Project>

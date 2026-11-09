@@ -1,0 +1,11 @@
+<Project>
+  <!-- Nearest Directory.Build.props wins. Keep the generator free of the repo analyzer set. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RunAnalyzers>false</RunAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
