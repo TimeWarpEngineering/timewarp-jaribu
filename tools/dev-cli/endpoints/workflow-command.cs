@@ -37,7 +37,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
   [Option("api-key", Description = "NuGet API key for publishing. NUGET_API_KEY is preferred so the key is not a process argument.")]
   public string? ApiKey { get; set; }
 
-  internal sealed class Handler : ICommandHandler<WorkflowCommand, Unit>
+  internal sealed class Handler : IRequestHandler<WorkflowCommand, Unit>
   {
     private readonly ITerminal Terminal;
     private readonly IRepoCleanService RepoCleanService;
@@ -59,7 +59,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       PackableProjectService = packableProjectService;
     }
 
-    public async Task<Unit> Handle(WorkflowCommand command, CancellationToken ct)
+    public async ValueTask<Unit> Handle(WorkflowCommand command, CancellationToken ct)
     {
       // Auto-detect from GitHub Actions environment
       string? eventName = Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME");

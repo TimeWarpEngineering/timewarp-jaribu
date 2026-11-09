@@ -18,7 +18,7 @@ internal sealed class BuildCommand : ICommand<Unit>
   [Option("verbose", "v", Description = "Verbose output")]
   public bool Verbose { get; set; }
 
-  internal sealed class Handler : ICommandHandler<BuildCommand, Unit>
+  internal sealed class Handler : IRequestHandler<BuildCommand, Unit>
   {
     private readonly ITerminal Terminal;
     private BuildCommand Command = null!;
@@ -30,7 +30,7 @@ internal sealed class BuildCommand : ICommand<Unit>
       Terminal = terminal;
     }
 
-    public async Task<Unit> Handle(BuildCommand command, CancellationToken ct)
+    public async ValueTask<Unit> Handle(BuildCommand command, CancellationToken ct)
     {
       Command = command;
       Ct = ct;
