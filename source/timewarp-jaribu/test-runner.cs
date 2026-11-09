@@ -27,8 +27,9 @@ namespace TimeWarp.Jaribu;
 //
 // [Input] identity:
 //   Each row is its own node. TestCaseIdentity assigns {FullName}.{Method}[ordinal]
-//   from metadata order. Discovery (DiscoverTestCases) and the run path share that
-//   list. [Skip] and a tag miss (class or method) stay one method-level node.
+//   from metadata-table order. Overloaded discovered methods append the parameter
+//   type list to that stem. Discovery (DiscoverTestCases) and the run path share
+//   that list. [Skip] and a tag miss (class or method) stay one method-level node.
 //   A bad Setup, CleanUp, SetupOnce, or CleanUpOnce signature fails that same
 //   reported list, so it does not expand a skipped or tag-mismatched method.
 //   The message names the type that declares the method. Direct RunSingleTestAsync
