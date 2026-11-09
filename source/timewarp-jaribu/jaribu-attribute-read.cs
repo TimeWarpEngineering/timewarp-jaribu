@@ -6,10 +6,9 @@
 // GetCustomAttribute runs the attribute constructor. ArgumentException covers a
 // null argument and a non-positive Timeout. CustomAttributeFormatException covers
 // a blob the runtime cannot decode. Other exceptions are not an attribute
-// rejection and still propagate. A successful read is cached by the runtime, so
-// a later GetCustomAttribute on that member does not construct again. A failed
-// read is not cached, so each probe catches the same throw. The run reports
-// one Error node per method and keeps the process up.
+// rejection and still propagate. Every read constructs the attribute again.
+// A rejection throws on every read. The run reports one Error node per method
+// and keeps the process up.
 #endregion
 
 namespace TimeWarp.Jaribu;

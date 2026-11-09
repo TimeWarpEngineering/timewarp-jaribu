@@ -24,8 +24,11 @@ using System.Reflection;
 // with no discoverable tests fails unless allowEmpty is set. A bad hook
 // on that empty class is still an Error. A method filter, method predicate,
 // or case predicate skips that empty-class node. A case filter that selects
-// nothing does not invent a node. A class or method tag miss emits one
-// Skipped node per method and does not run hooks or signature diagnostics.
+// nothing does not invent a node. A class tag miss emits one Skipped node
+// per method and does not run hooks or signature diagnostics. A method
+// whose Jaribu attribute constructor throws is an Error node on that path
+// too, and the run fails. A method tag miss is Skipped unless that
+// constructor throws.
 // Near-miss tests warn unless strictSignatures is set. A method predicate
 // or case predicate that selects no nodes omits those strict Error nodes.
 // A method-name filter still reports them.
@@ -43,7 +46,7 @@ public static partial class TestRunner
   /// <param name="filterTag">
   /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
   /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method.
+  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
@@ -101,7 +104,7 @@ public static partial class TestRunner
   /// <param name="filterTag">
   /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
   /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method.
+  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
   /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
@@ -216,7 +219,8 @@ public static partial class TestRunner
 
       string className = ReportedClassName(testClass);
 
-      // Class tag miss: same Skipped nodes discovery lists. No hooks, no signature diagnostics.
+      // Class tag miss: same nodes discovery lists. No hooks, no signature diagnostics.
+      // A rejected method stays an Error node, the same as a method tag miss.
       if (!classAttributeRejected &&
           filterTag is not null &&
           !TestFilter.ClassTagMatches(testClass, filterTag))
@@ -233,6 +237,20 @@ public static partial class TestRunner
           if (cancellationToken.IsCancellationRequested)
           {
             break;
+          }
+
+          if (JaribuAttributeRead.TryRejectMethod(
+            testCase.Method,
+            out JaribuAttributeRead.Rejection methodRejection))
+          {
+            results.AddRange(
+              await ReportAttributeRejectionAsync(
+                testClass,
+                testCase.Method,
+                methodRejection,
+                casePredicate: null,
+                sink));
+            continue;
           }
 
           results.AddRange(await ReportSkippedAsync(testCase, reason, casePredicate: null, sink));

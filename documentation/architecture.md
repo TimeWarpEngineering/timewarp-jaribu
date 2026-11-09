@@ -38,7 +38,7 @@ TestRunner.RunTestsAsync(sink)
 | `[Input(...)]` | One invocation per attribute. A null array is rejected. `[Input(null)]` is a null array, not one null argument. |
 | `[Timeout(ms)]` | Positive milliseconds. On a method it limits that body. On a class it limits hooks and session-fixture creation. Zero and negative are rejected. |
 
-A constructor rejection (`ArgumentException` or `CustomAttributeFormatException`) on a discovered method, or on the class, is one Error node for that method. The message names the attribute. The run fails. The process stays up, and a sibling method still runs.
+A constructor rejection (`ArgumentException` or `CustomAttributeFormatException`) on a discovered method, or on the class, is one Error node for that method. The message names the attribute. The run fails. The process stays up, and a sibling method still runs. A class tag miss and a method tag miss do not replace that Error. The healthy sibling of a class tag miss stays Skipped and does not run. The healthy sibling of a method tag miss still runs.
 
 `TestRunner.DefaultHookTimeout` is the hook budget when the class has no `[Timeout]`. Zero, negative, and sub-millisecond values throw.
 
@@ -52,7 +52,7 @@ Options:
 
 | Option | Effect |
 |--------|--------|
-| `--filter-tag` | Exact tag. A miss is one Skipped node per method. A blank `JARIBU_FILTER_TAG` is ignored. |
+| `--filter-tag` | Exact tag. A miss is one Skipped node per method, unless that method's attribute constructor throws. That rejection is an Error node and the run fails. A blank `JARIBU_FILTER_TAG` is ignored. |
 | `--filter-class` | Substring of the class full name. Non-matches are omitted. |
 | `--filter-method` | Substring of the method name. Non-matches are omitted. |
 | `--strict-signatures` | Near-miss signatures fail the run. |

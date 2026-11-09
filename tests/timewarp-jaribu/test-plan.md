@@ -36,9 +36,9 @@ Runfiles use `#!/usr/bin/env -S dotnet --`.
 
 - Qualifying tests are `public static Task`. `ValueTask`, `Task<T>`, `async void`, and an open generic `Task` are near-misses. They are not executed. Strict mode fails the run. The default records a warning.
 - `[Skip("reason")]` reports Skipped and does not fail the run.
-- A tag miss, at class or method level, is one Skipped node per method. A blank `JARIBU_FILTER_TAG` is not a filter.
+- A tag miss, at class or method level, is one Skipped node per method, unless that method's attribute constructor throws. A blank `JARIBU_FILTER_TAG` is not a filter.
 - `[Input]` adds one node per attribute. Discovery and execution share that node's uid.
-- `[Timeout]` rejects zero and negative milliseconds. A method budget limits that body. A class budget, or `TestRunner.DefaultHookTimeout`, limits hooks and session-fixture creation. A rejected attribute on a discovered method is an Error node. The message names the attribute, the run fails, and the process stays up.
+- `[Timeout]` rejects zero and negative milliseconds. A method budget limits that body. A class budget, or `TestRunner.DefaultHookTimeout`, limits hooks and session-fixture creation. A rejected attribute on a discovered method is an Error node, including when a class tag or a method tag misses. The message names the attribute, the run fails, and the process stays up. A healthy sibling on a class tag miss stays Skipped. A healthy sibling on a method tag miss still runs.
 - `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` must be `public static Task` with no parameters. A near-miss hook fails the class.
 - A cleanup failure does not replace the body outcome. The run still fails.
 - Cancelled counts as a failing state.

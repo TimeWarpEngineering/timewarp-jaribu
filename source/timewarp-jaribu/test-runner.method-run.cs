@@ -12,7 +12,8 @@ using System.Reflection;
 // that actually executes. Tag misses and [Skip] both go through
 // TestFilter.SkippedNode, one method-level node, before that hook.
 // A Jaribu attribute constructor that throws is an Error node for the method.
-// The message names the attribute. Sibling methods still run.
+// The message names the attribute. That Error wins over a method tag miss.
+// Sibling methods still run.
 #endregion
 
 public static partial class TestRunner

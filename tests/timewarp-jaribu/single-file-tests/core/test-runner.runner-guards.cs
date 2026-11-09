@@ -4,7 +4,7 @@
 #region Purpose
 // Covers discovery of open generics, the RunAllTests registration snapshot,
 // Cancelled counting as a failing state, null guards on sinks and attributes,
-// and a rejected attribute reported as an Error node.
+// and a rejected attribute reported as an Error node, including a class tag miss.
 #endregion
 
 #region Design
@@ -198,6 +198,58 @@ namespace TestRunner_
       classError.Message.ShouldContain("the class");
     }
 
+    public static async Task RejectedAttribute_OnTagMiss_Should_FailTheRun()
+    {
+      ClassTagMissRejectionFixture.Runs = 0;
+      MethodTagMissRejectionFixture.Runs = 0;
+      RunnerGuardsCollectingSink classSink = new();
+      TestRunStats classStats = await TestRunner.RunTestsAsync<ClassTagMissRejectionFixture>(
+        classSink,
+        filterTag: "B");
+      classStats.Success.ShouldBeFalse();
+      classStats.PassedCount.ShouldBe(0);
+      classStats.FailedCount.ShouldBe(1);
+      classStats.SkippedCount.ShouldBe(1);
+      ClassTagMissRejectionFixture.Runs.ShouldBe(0);
+
+      TestNodeInfo classError = classSink.Results.Single(
+        node => node.DisplayName == nameof(ClassTagMissRejectionFixture.ZeroTimeout_Should_NotRun));
+      classError.State.ShouldBe(TestNodeState.Error);
+      classError.Message.ShouldNotBeNull();
+      classError.Message.ShouldContain(nameof(TimeoutAttribute));
+
+      TestNodeInfo classSkip = classSink.Results.Single(node => node.State == TestNodeState.Skipped);
+      classSkip.DisplayName.ShouldBe(nameof(ClassTagMissRejectionFixture.Sibling_Should_Skip));
+      classSkip.Message.ShouldBe("No matching tag 'B'");
+
+      int classExit = await TestRunner.RunTests<ClassTagMissRejectionFixture>(filterTag: "B");
+      classExit.ShouldBe(1);
+      ClassTagMissRejectionFixture.Runs.ShouldBe(0);
+
+      RunnerGuardsCollectingSink methodSink = new();
+      TestRunStats methodStats = await TestRunner.RunTestsAsync<MethodTagMissRejectionFixture>(
+        methodSink,
+        filterTag: "B");
+      methodStats.Success.ShouldBeFalse();
+      methodStats.PassedCount.ShouldBe(1);
+      methodStats.FailedCount.ShouldBe(1);
+      methodStats.SkippedCount.ShouldBe(0);
+      MethodTagMissRejectionFixture.Runs.ShouldBe(1);
+
+      TestNodeInfo methodError = methodSink.Results.Single(
+        node => node.DisplayName == nameof(MethodTagMissRejectionFixture.ZeroTimeout_Should_NotRun));
+      methodError.State.ShouldBe(TestNodeState.Error);
+      methodError.Message.ShouldNotBeNull();
+      methodError.Message.ShouldContain(nameof(TimeoutAttribute));
+
+      TestNodeInfo methodPass = methodSink.Results.Single(node => node.State == TestNodeState.Passed);
+      methodPass.DisplayName.ShouldBe(nameof(MethodTagMissRejectionFixture.Sibling_Should_Pass));
+
+      int methodExit = await TestRunner.RunTests<MethodTagMissRejectionFixture>(filterTag: "B");
+      methodExit.ShouldBe(1);
+      MethodTagMissRejectionFixture.Runs.ShouldBe(2);
+    }
+
 #if JARIBU_MULTI
     public static async Task RegisteredSuites_Should_IncludeCiSafeMetaTests()
     {
@@ -285,6 +337,50 @@ namespace TestRunner_
     public static int Runs;
 
     public static async Task Good_Should_NotRun()
+    {
+      Runs++;
+      await Task.CompletedTask;
+    }
+  }
+
+  [TestTag("A")]
+  public class ClassTagMissRejectionFixture
+  {
+    public static int Runs;
+
+    public static async Task SetupOnce()
+    {
+      Runs++;
+      await Task.CompletedTask;
+    }
+
+    public static async Task Sibling_Should_Skip()
+    {
+      Runs++;
+      await Task.CompletedTask;
+    }
+
+    [Timeout(0)]
+    public static async Task ZeroTimeout_Should_NotRun()
+    {
+      Runs++;
+      await Task.CompletedTask;
+    }
+  }
+
+  public class MethodTagMissRejectionFixture
+  {
+    public static int Runs;
+
+    public static async Task Sibling_Should_Pass()
+    {
+      Runs++;
+      await Task.CompletedTask;
+    }
+
+    [TestTag("A")]
+    [Timeout(0)]
+    public static async Task ZeroTimeout_Should_NotRun()
     {
       Runs++;
       await Task.CompletedTask;

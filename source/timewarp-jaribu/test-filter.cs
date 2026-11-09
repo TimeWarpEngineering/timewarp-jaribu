@@ -22,6 +22,8 @@ using System.Reflection;
 // SkippedNode is the factory for those short-circuit nodes.
 // A class or method whose Jaribu attribute constructor throws is one
 // method-level case. This filter does not decide the Error state.
+// The runner reports that case as Error. A class tag miss does not
+// turn it into Skipped.
 // RunSingleTestAsync keeps its own node because that call measures duration
 // and keeps the caller's parameters.
 #endregion

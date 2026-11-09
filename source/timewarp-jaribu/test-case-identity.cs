@@ -19,7 +19,7 @@ using System.Reflection;
 // ExpandInputs is only the rows that actually execute, after those short-circuits.
 // DiscoverTestCases reads JARIBU_FILTER_TAG when filterTag is null, matching RunTestsAsync.
 // A method whose Jaribu attribute constructor throws is one method-level case.
-// The run reports that case as Error.
+// The run reports that case as Error, including when the class tag misses.
 #endregion
 
 /// <summary>
