@@ -103,8 +103,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Step 3: Test (ci-runner and the CI-safe MTP project)
       Terminal.WriteLine("\nStep 3/3: Test");
-      await RunCiRunnerAsync(repoRoot, cancellationToken);
-      await RunMtpRunnerAsync(repoRoot, cancellationToken);
+      await CiTestSuite.RunAsync(repoRoot, cancellationToken).ConfigureAwait(false);
 
       Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
     }
@@ -132,8 +131,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       // Step 3: Test (same ci-runner and CI-safe MTP project as PR)
       Terminal.WriteLine("\nStep 3/5: Test");
-      await RunCiRunnerAsync(repoRoot, ct);
-      await RunMtpRunnerAsync(repoRoot, ct);
+      await CiTestSuite.RunAsync(repoRoot, ct).ConfigureAwait(false);
 
       // Step 4: Tag, NuGet index, and the shared check-version gate
       Terminal.WriteLine("\nStep 4/5: Check Version");
@@ -342,32 +340,5 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       }
     }
 
-    private static async Task RunCiRunnerAsync(string repoRoot, CancellationToken cancellationToken)
-    {
-      string ciTestRunner = Path.Combine(repoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
-      int exitCode = await DotNet.Run()
-        .WithFile(ciTestRunner)
-        .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(cancellationToken);
-      if (exitCode != 0) throw new InvalidOperationException("Tests failed!");
-    }
-
-    private static async Task RunMtpRunnerAsync(string repoRoot, CancellationToken cancellationToken)
-    {
-      string mtpProject = Path.Combine(
-        repoRoot,
-        "tests",
-        "timewarp-jaribu",
-        "multi-file-runners",
-        "mtp-runner",
-        "timewarp-jaribu-tests-mtp.csproj");
-      int exitCode = await DotNet.Test()
-        .WithProject(mtpProject)
-        .WithConfiguration("Release")
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(cancellationToken);
-      if (exitCode != 0) throw new InvalidOperationException("MTP tests failed!");
-    }
   }
 }

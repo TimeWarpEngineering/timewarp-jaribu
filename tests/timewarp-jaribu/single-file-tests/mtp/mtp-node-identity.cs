@@ -12,7 +12,8 @@
 // run-tests, mtp-node-identity, and the multi-file project timewarp-jaribu-tests-mtp.
 // Filter and list/run parity go through dotnet test on the validation assembly,
 // because those decisions live behind the MTP host. The validation project is
-// allowed to fail; assertions read its report.
+// allowed to fail; assertions read its captured report. The child output is
+// not written to the parent log.
 #endregion
 
 #if !JARIBU_MULTI
@@ -431,7 +432,7 @@ namespace Mtp_
         builder = builder.WithEnvironmentVariable(name, value);
       }
 
-      return builder.RunAndCaptureAsync();
+      return builder.CaptureAsync();
     }
 
     private static string FindRepoRoot()

@@ -1,10 +1,11 @@
 #region Purpose
-// Run the test suite
+// Run the same test set the CI workflow runs.
 #endregion
 #region Design
-// Executes the CI-safe runfile test runner because the MTP validation projects
-// intentionally contain failing tests for adapter behavior verification.
-// Handler stores Ct and RepoRoot as fields so private methods are zero-parameter
+// CiTestSuite runs the CI-safe runfile and the CI-safe MTP project.
+// The validation project is not invoked here. Its intentional failures are
+// checked by the out-of-process harness inside that suite.
+// Handler stores Ct and RepoRoot as fields so private methods are zero-parameter.
 #endregion
 
 namespace DevCli.Commands;
@@ -51,25 +52,13 @@ internal sealed class TestCommand : ICommand<Unit>
     private async Task<bool> TestAsync()
     {
       Terminal.WriteLine("Running test suite...");
-      string ciTestRunner = Path.Combine(RepoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
-
-      // DotNetRunBuilder lacks RunAndCaptureAsync; Shell.Builder is needed to stream
-      // live output and capture failure details in one call.
-      CommandOutput result = await Shell.Builder("dotnet")
-        .WithArguments
-        (
-          "run",
-          ciTestRunner,
-          "/p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true"
-        )
-        .WithWorkingDirectory(RepoRoot)
-        .WithNoValidation()
-        .RunAndCaptureAsync(Ct);
-
-      if (!result.Success)
+      try
       {
-        Terminal.WriteErrorLine(result.Combined);
-        Terminal.WriteErrorLine("Tests failed!".Red());
+        await CiTestSuite.RunAsync(RepoRoot, Ct).ConfigureAwait(false);
+      }
+      catch (InvalidOperationException ex)
+      {
+        Terminal.WriteErrorLine(ex.Message.Red());
         Environment.ExitCode = 1;
         return false;
       }
