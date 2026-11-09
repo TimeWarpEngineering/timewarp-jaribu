@@ -108,13 +108,10 @@ namespace ReleaseGate_
 
     public static Task PackedAssembly_Should_AcceptALibDllThatGrantsNoInternals()
     {
-      string clean = RepoFile(
-        "source",
-        "timewarp-jaribu",
-        "bin",
-        "Debug",
-        "net10.0",
-        "timewarp-jaribu.dll");
+      // IL3000: a single-file host reports an empty Location. This reads the library the process loaded.
+#pragma warning disable IL3000
+      string clean = typeof(TestRunner).Assembly.Location;
+#pragma warning restore IL3000
       File.Exists(clean).ShouldBeTrue();
       ReleaseGate.ReadInternalsVisibleTo(clean).ShouldBeEmpty();
       ReleaseGate.RequireNoInternalsVisibleTo(clean);
@@ -151,22 +148,6 @@ namespace ReleaseGate_
       }
 
       return Task.CompletedTask;
-    }
-
-    private static string RepoFile(params string[] parts)
-    {
-      DirectoryInfo? dir = new(Directory.GetCurrentDirectory());
-      while (dir is not null)
-      {
-        if (File.Exists(Path.Combine(dir.FullName, "timewarp-jaribu.slnx")))
-        {
-          return Path.Combine([dir.FullName, .. parts]);
-        }
-
-        dir = dir.Parent;
-      }
-
-      throw new InvalidOperationException("timewarp-jaribu.slnx was not found from the working directory.");
     }
   }
 }

@@ -16,6 +16,8 @@ Close the nine leftover review items as one grab bag. Each item is done when the
 
 Round-1 review acceptance: the five hook runfiles match the ganda scaffold again, and `memsearch-scaffold` passes. TOOL-13 moves to a ganda task that owns fail-closed hooks and records that a non-zero post-checkout exit becomes the exit status of `git checkout`, `git switch`, and `git worktree add`. The release pack builds the testing platform with `JaribuExposeInternals=false` and refuses a packed assembly that still grants internals. MTP-2 has one test where a successful Error publish returns, and one where a failed publish throws an `AggregateException` that keeps both exceptions. The version check follows the informational version and does not require a `beta` label. The Design comment says the original exception stays inside that aggregate. On a host that cannot emit a `DynamicMethod`, the PDB case is named as a smoke check.
 
+Round-2 fix acceptance: `dev test` finds the repository through `RepoRoot.TryFind` and keeps no private `FindRepoRoot`. The handler field that stores that path does not hide the `RepoRoot` class. The two release-gate tests read the assembly the process loaded (`TestRunner` and `JaribuExtension`), so a Release run does not depend on a leftover Debug dll. The framework extension's Purpose line and `Uid` comment say the command-line provider has its own uid.
+
 ## Description
 Grab bag of small items that do not justify separate tasks.
 Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via static Terminal), MTP-2 (unhandled-exception handler publishes Error node then rethrows; guard the publish), MTP-4 (start timestamps synthesized as UtcNow minus duration; carry real timestamps on `TestNodeInfo`), MTP-10 (PDB lookup can throw `ArgumentException` out of node publication; support embedded PDBs; log misses), MTP-15 (framework and CLI provider share one extension uid; version read from assembly version; hard-coded `InternalsVisibleTo` for test assemblies), MTP-17 (fully-qualified `MethodInfo`, misleading test comment, `Task.Delay(5000)` without token, invented fallback exceptions), TOOL-13 (git hooks return 0 when repo root not found; attest failures swallowed), TOOL-14 (redundant `ManagePackageVersionsCentrally`, `WarningLevel`, unused Nuru reference in tests), TOOL-16 (repeated `FindRepoRoot` in dev-cli commands).
@@ -29,6 +31,9 @@ Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via
 - [x] TOOL-13 — deferred to ganda task 575. This repo keeps the scaffold hook bytes.
 - [x] TOOL-14
 - [x] TOOL-16
+- [x] M7 — `dev test` uses `RepoRoot.TryFind`. The handler field is `Root`.
+- [x] M8 — release-gate tests read the loaded assembly, not `bin/Debug`.
+- [x] M9 — framework Purpose and `Uid` comment say the command-line provider has its own uid.
 
 ## Session
 
@@ -39,6 +44,8 @@ Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 7fb20890-6682-4e0a-a022-640b4d0abbd8, max-turns 200, artifacts general.md, merged.md — 2026-11-09T02:56:56Z
 - Fix pass (review round 1): implement-fix-2 (grok, model grok-4.7) — 2026-11-09. Restored the hook scaffold so `memsearch-scaffold` passes. TOOL-13 is ganda task 575, published to that repo's to-do. The release pack sets `JaribuExposeInternals=false` and rejects a packed lib assembly that still grants internals.
 - Fix pass resume: implement-fix-2 (grok, model grok-4.7) — 2026-11-09. The M1–M6 product changes were already on the branch. The Design region still said a published Error node rethrows; that sentence now says the handler returns. `ganda repo audit` passed, including `memsearch-scaffold`. `./bin/dev build` and `./bin/dev test` passed: the CI runner printed Passed 203, and the MTP run reported succeeded 203 and failed 0.
+- Review oracle round 2 (2026-11-09): reviewer general (claude, model claude-opus-5-5), effort 3, turn cap 200. The harness did not expose a session id. Scope: the delta since round 1 (c557467 → eed56b3). M1–M6 are verified fixed. Three new findings are open (M7 bug, M8 suggestion, M9 nit), so a fix pass is requested. Artifacts are under `review/round-2/`.
+- Fix pass (review round 2): implement-fix-3 (grok, model grok-4.7) — 2026-11-09. `dev test` calls `RepoRoot.TryFind` again and stores the path in `Root`. The two release-gate tests read `typeof(TestRunner).Assembly.Location` and `typeof(JaribuExtension).Assembly.Location`, with the same IL3000 suppression the single-file runner already uses. The framework Purpose line and `Uid` comment say the command-line provider has its own uid. Solution build 0 warnings. Release CI runner Passed 203. Release MTP succeeded 203, failed 0. `dotnet build tools/dev-cli/dev.cs` succeeded. `ganda repo audit` exit 0.
 
 ## Results
 
@@ -48,16 +55,21 @@ The five `.githooks` runfiles match the ganda scaffold again. `ganda repo audit 
 
 The fully-qualified `MethodInfo` and the unused Nuru test reference were already gone. There is no fixture that builds an embedded PDB, so that path is covered by the reader and not by a round-trip test. On a host that cannot emit a `DynamicMethod`, `PdbLookup_Should_MissADynamicMethod_SmokeCheckWhenDynamicCodeIsUnsupported` is a smoke check that `TryCreate` does not throw. The MTP host still builds a `DynamicMethod` and expects a miss. An unsupported MTP request publishes one Error node and returns. A bus that throws produces an `AggregateException` whose inner exceptions are the original `NotSupportedException` and the publish failure.
 
+`dev test` finds the repository with `RepoRoot.TryFind` and stores the path in `Root`, so the field does not hide the shared `RepoRoot` class. `PackedAssembly_Should_AcceptALibDllThatGrantsNoInternals` reads `typeof(TestRunner).Assembly.Location`. `PackedTestingPlatform_Should_StillGrantTestInternalsUntilTheReleasePack` reads `typeof(JaribuExtension).Assembly.Location`. Both calls suppress IL3000 because the CI runfile is a single-file host; the path is still the library that process loaded. The framework Purpose line and the `Uid` comment say the command-line provider has its own uid.
+
 ### How to validate
 
-Smoke: `dotnet build timewarp-jaribu.slnx --nologo` then `dotnet run tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs /p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true --nologo` and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj --nologo`. Also `dotnet build tools/dev-cli/dev.cs` and `dotnet build` of each `.githooks/*.cs` runfile.
+Smoke: `dotnet build timewarp-jaribu.slnx --nologo`, `dotnet build tools/dev-cli/dev.cs --nologo`, `dotnet run -c Release tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs /p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true --nologo`, and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj -c Release --nologo`. Then `ganda repo audit`.
 
-Expect: the solution build reports 0 warnings and 0 errors. The CI runner prints `Passed: 203` and exits 0. The MTP project reports `succeeded: 203` and `failed: 0`. `dotnet build tools/dev-cli/dev.cs` succeeds. `ganda repo audit` exits 0, including `memsearch-scaffold`. A Release build with `-p:JaribuExposeInternals=false` writes a testing platform dll whose bytes do not contain `InternalsVisibleTo` or the local test assembly names.
+Expect: the solution build reports 0 warnings and 0 errors. `dotnet build tools/dev-cli/dev.cs` succeeds. The Release CI runner prints `Passed: 203` and exits 0. The Release MTP project reports `succeeded: 203` and `failed: 0`. `ganda repo audit` exits 0, including `memsearch-scaffold`. A Release build with `-p:JaribuExposeInternals=false` writes a testing platform dll whose bytes do not contain `InternalsVisibleTo` or the local test assembly names.
 
 ### Review
 
-Round 1 ran with one general reviewer at effort 3. The fix pass marked M1–M6 fixed on `review/round-1/merged.md`. Counts after that edit: bug 0 open / 1 fixed, suggestion 0 open / 3 fixed, nit 0 open / 2 fixed, none wontfix. Round 2 has not run, so there is no disposition yet. M1 restored the hook scaffold and filed ganda task 575. M2 passes `JaribuExposeInternals=false` on the release pack and checks the packed assemblies. M3 covers both MTP-2 paths. M4 drops the `beta` assertion. M5 rewords the aggregate comment, and the later Design sentence now says a successful publish returns. M6 names the no-dynamic-code path as a smoke check. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+Round 1 ran with one general reviewer at effort 3. The fix pass marked M1–M6 fixed on `review/round-1/merged.md`. Counts after that edit: bug 0 open / 1 fixed, suggestion 0 open / 3 fixed, nit 0 open / 2 fixed, none wontfix. Round 2 has not run, so there is no disposition yet. M1 restored the hook scaffold and filed ganda task 575. M2 passes `JaribuExposeInternals=false` on the release pack and checks the packed assemblies. M3 covers both MTP-2 paths. M4 drops the `beta` assertion. M5 rewords the aggregate comment, and the later Design sentence now says a successful publish returns. M6 names the no-dynamic-code path as a smoke check. At that point round 2 had not run. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+
+Round 2 ran with one general reviewer at effort 3 on the delta since round 1. It verified M1–M6 as fixed and raised M7, M8, and M9. The fix pass marked those three fixed on `review/round-2/merged.md`. Counts after that edit: bug 0 open / 2 fixed, suggestion 0 open / 4 fixed, nit 0 open / 3 fixed, none wontfix. Round 3 has not run, so there is no disposition yet. M7 restores `RepoRoot.TryFind` on `dev test` and renames the handler field to `Root`. M8 reads the loaded `TestRunner` and `JaribuExtension` assemblies. M9 rewords the framework Purpose line and `Uid` comment. Gates after the fix: solution build 0 warnings, Release CI runner Passed 203, Release MTP succeeded 203 and failed 0, `dotnet build tools/dev-cli/dev.cs` succeeded, and `ganda repo audit` exit 0. Paths: `review/round-2/general.md`, `review/round-2/merged.md`.
 
 ## Review
 
-- Round 1: six findings, addressed in the fix pass (M1–M6 marked fixed). Round 2 has not run.
+- Round 1: six findings, addressed in the fix pass (M1–M6 marked fixed).
+- Round 2: M7, M8, and M9 addressed in the fix pass and marked fixed. Round 3 has not run.

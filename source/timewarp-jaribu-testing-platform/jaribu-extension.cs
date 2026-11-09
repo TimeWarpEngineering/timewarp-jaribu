@@ -1,7 +1,7 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
 #region Purpose
-// Supplies the MTP extension identity shared by the framework and the command-line provider.
+// Supplies the Jaribu framework's MTP extension identity. The command-line provider has its own uid.
 #endregion
 
 #region Design
@@ -16,7 +16,7 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 /// </summary>
 internal sealed class JaribuExtension : IExtension
 {
-  /// <summary>Stable extension identifier shared with the command-line provider.</summary>
+  /// <summary>Stable extension identifier. The command-line provider has its own uid.</summary>
   public string Uid => "TimeWarp.Jaribu";
 
   /// <summary>Informational version, which keeps the package prerelease label.</summary>

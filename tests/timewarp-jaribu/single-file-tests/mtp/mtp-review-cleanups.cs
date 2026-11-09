@@ -164,13 +164,10 @@ namespace Mtp_
 
     public static Task PackedTestingPlatform_Should_StillGrantTestInternalsUntilTheReleasePack()
     {
-      string granted = RepoFile(
-        "source",
-        "timewarp-jaribu-testing-platform",
-        "bin",
-        "Debug",
-        "net10.0",
-        "timewarp-jaribu-testing-platform.dll");
+      // IL3000: a single-file host reports an empty Location. This reads the library the process loaded.
+#pragma warning disable IL3000
+      string granted = typeof(JaribuExtension).Assembly.Location;
+#pragma warning restore IL3000
       File.Exists(granted).ShouldBeTrue();
       IReadOnlyList<string> friends = ReleaseGate.ReadInternalsVisibleTo(granted);
       friends.ShouldContain("mtp-review-cleanups");
@@ -227,22 +224,6 @@ namespace Mtp_
     }
 
 #pragma warning disable TPEXP // ExecuteRequestContext is the MTP host boundary this test drives
-    private static string RepoFile(params string[] parts)
-    {
-      DirectoryInfo? dir = new(Directory.GetCurrentDirectory());
-      while (dir is not null)
-      {
-        if (File.Exists(Path.Combine(dir.FullName, "timewarp-jaribu.slnx")))
-        {
-          return Path.Combine([dir.FullName, .. parts]);
-        }
-
-        dir = dir.Parent;
-      }
-
-      throw new InvalidOperationException("timewarp-jaribu.slnx was not found from the working directory.");
-    }
-
     private static ExecuteRequestContext UnsupportedContext(IMessageBus bus, CompletionNotifier notifier)
     {
       ConstructorInfo ctor = typeof(TestSessionContext).GetConstructor(
