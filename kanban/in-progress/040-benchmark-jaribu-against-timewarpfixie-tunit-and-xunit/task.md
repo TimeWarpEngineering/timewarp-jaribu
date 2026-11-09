@@ -48,8 +48,8 @@ Acceptance criteria: `benchmarks/readme.md` defines the workloads and metrics, a
 ## Review
 
 - Round 1: fix pass implemented M1–M6.
-- Round 2: fix pass implemented M7 and M8. Round 3 has not reviewed them.
-
+- Round 2: fix pass implemented M7 and M8.
+- Round 3: Done
 ## Notes
 
 - `msbuild/repository.props` already defines a `BenchmarksDirectory` property that points at a folder which does not exist; this task makes it real.
@@ -87,7 +87,11 @@ Expect: The pinned copy prints `Selected SDK: 10.0.403`, exits 0, and the writte
 
 Round 1 (effort 3, roster: general) found M1–M6. The fix pass implemented them. Round 2 has not reviewed the result. Ledger: `review/round-1/merged.md`. Framework: `review/review-framework.md`. M1 was the runfile Debug configuration. The replacement baseline is Release on SDK 10.0.403. M2 takes the earlier time-to-first-test signal. M3 names the class-size scaling and the `GetMethods` scans, including `ResolveHook` on `RunSingleTestAsync`.
 
-Round 2 (effort 3, roster: general) reviewed the fix delta `d210af4..521e37d`. M1–M6 are fixed. M7 and M8 were open: the readme replaced `global.json` and dropped `test.runner`, and the workflow installed 10.0.403 without making the muxer select it. This fix pass closes both. The readme adds an `sdk` block to the existing file and tells the operator to revert it. The workflow merges that block and fails on any other SDK. Round 3 has not reviewed the result. Ledger: `review/round-2/merged.md`.
+Round 2 (effort 3, roster: general) reviewed the fix delta `d210af4..521e37d`. M1–M6 are fixed. M7 and M8 were open: the readme replaced `global.json` and dropped `test.runner`, and the workflow installed 10.0.403 without making the muxer select it. This fix pass closes both. The readme adds an `sdk` block to the existing file and tells the operator to revert it. The workflow merges that block and fails on any other SDK. Ledger: `review/round-2/merged.md`.
+
+Round 3 (effort 1, roster: general) reviewed the fix delta `521e37d..cfd5456`. It verified M7 and M8 as fixed and raised no new findings. The workflow's pin script ran on a temp copy of `global.json`, kept `test.runner`, and selected `10.0.403`.
+
+**Review disposition: clean.** Three rounds, one reviewer (general). Final counts: bug 3, suggestion 4, nit 1. All are fixed, 0 are open, and 0 are wontfix. There were no escalations. Paths: `review/review-framework.md`, `review/round-3/merged.md`, `review/disposition.md`.
 
 ## Session
 
@@ -101,4 +105,5 @@ Round 2 (effort 3, roster: general) reviewed the fix delta `d210af4..521e37d`. M
 - Review oracle round 2 (2026-11-09): reviewer general (Claude Opus 5.5, `claude-opus-5-5`), effort 3, turn cap 200, scope `d210af4..521e37d`. `dotnet build -c Release --no-incremental` passed on the fixie, in-process, tunit, xunit, and jaribu-mtp projects at HEAD. The smoke command was not run because it rewrites `latest.md`. Result: M1–M6 fixed, M7 and M8 open, and a fix pass requested. No misread of the goal restatement.
 - Fix pass (2026-11-09): M7 and M8. The readme and the workflow add `sdk` `10.0.403` / `rollForward` `disable` to the existing `global.json` and keep `test.runner`. The workflow step, extracted from the YAML, selected `10.0.403` in a temp copy. An unpinned copy selected `11.0.100-rc.3.26522.148`. A copy with no `test.runner` exited 1. The repo `global.json` and the baseline files were not changed.
 - Audit (2026-11-09, M7/M8 fix): `ganda repo audit` passed 40, skipped 1, failed 0.
+- Review oracle round 3 (2026-11-09): reviewer general (Claude Opus 5.5, `claude-opus-5-5`), effort 1, turn cap 80, scope `521e37d..cfd5456`. The workflow pin script ran on a temp copy of `global.json`, kept `test.runner`, and selected `10.0.403`. M7 and M8 are fixed, and there are no new findings. Disposition: clean (`review/disposition.md`). The goal restatement was not misread.
 - Audit (2026-11-09): `dotnet_diagnostic.TW0007.filename` had been left under the in-process bench section, so `global-usings-analyzer` did not see it. Moved it back under `[*.cs]`. `kanban-landed` is cleared by landing this kitchen.
