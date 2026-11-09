@@ -47,6 +47,7 @@ Local SDK 11.0.100-rc.3 is installed; CI currently uses 10.0.403.
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-09)
 - Implementation (2026-11-09): moved the repo to net11.0 and pinned Amuru 3.0.0-beta.2. `ganda repo audit --fix` wrote the gitignored `.vscode/settings.json` window title. The follow-up audit passed 40, failed 0, skipped 1. Amuru pins stayed on 3.0.0-beta.2.
+- Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-09T08:50:55Z
 
 ## Results
 
