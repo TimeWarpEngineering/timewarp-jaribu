@@ -164,6 +164,7 @@ internal static class TestFilter
   /// </summary>
   public static TestNodeInfo SkippedNode(ReportedTestCase testCase, string? message)
   {
+    DateTimeOffset stamp = DateTimeOffset.UtcNow;
     return new TestNodeInfo(
       testCase.Uid,
       testCase.DisplayName,
@@ -172,7 +173,9 @@ internal static class TestFilter
       Exception: null,
       message,
       Parameters: null,
-      Method: testCase.Method);
+      Method: testCase.Method,
+      StartTime: stamp,
+      EndTime: stamp);
   }
 
   private static bool TagMatches(MemberInfo member, string? filterTag)

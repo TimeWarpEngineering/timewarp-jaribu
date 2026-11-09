@@ -16,6 +16,7 @@
   <ItemGroup>
     <!-- Include command files in compilation -->
     <Compile Include="global-usings.cs" />
+    <Compile Include="repo-root.cs" />
     <Compile Include="endpoints/**/*.cs" />
   </ItemGroup>
 

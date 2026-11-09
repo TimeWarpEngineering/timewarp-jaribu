@@ -20,6 +20,10 @@ using Microsoft.Testing.Platform.Extensions.Messages;
 // a throw would add a second Error node.
 // Parameter keys use MtpTreeFilter.ParameterKeyPrefix. Parameter text and the
 // metadata type name come from MtpNodeMetadata, the same helpers the filter uses.
+// TimingProperty uses TestNodeInfo.StartTime and EndTime. A duration alone is
+// not enough: the sink does not subtract it from the publish clock.
+// Failed, Timeout, and Error with a null exception use one message that says
+// the core supplied no exception. That message is the exception text.
 #endregion
 
 /// <summary>
@@ -57,16 +61,13 @@ internal sealed class MtpSink : ITestResultSink
     ArgumentNullException.ThrowIfNull(node);
     // Always publish InProgress on start so skip/fail short-circuits are not
     // double-counted as terminal states (start + complete both Skipped → #22).
-    TestNodeInfo inProgress = new(
-      Uid: node.Uid,
-      DisplayName: node.DisplayName,
-      State: TestNodeState.InProgress,
-      Duration: null,
-      Exception: null,
-      Message: null,
-      Parameters: node.Parameters,
-      Method: node.Method
-    );
+    TestNodeInfo inProgress = node with
+    {
+      State = TestNodeState.InProgress,
+      Duration = null,
+      Exception = null,
+      Message = null
+    };
     return PublishNodeAsync(inProgress);
   }
 
@@ -87,11 +88,11 @@ internal sealed class MtpSink : ITestResultSink
     TestNodeStateProperty stateProperty = MapStateToProperty(node);
     PropertyBag properties = new(stateProperty);
 
-    if (node.Duration.HasValue)
+    if (node.StartTime is DateTimeOffset startTime &&
+        node.EndTime is DateTimeOffset endTime &&
+        node.Duration is TimeSpan duration)
     {
-      DateTimeOffset endTime = DateTimeOffset.UtcNow;
-      DateTimeOffset startTime = endTime - node.Duration.Value;
-      properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, node.Duration.Value)));
+      properties.Add(new TimingProperty(new TimingInfo(startTime, endTime, duration)));
     }
 
     if (node.Method is MethodInfo method)
@@ -140,17 +141,17 @@ internal sealed class MtpSink : ITestResultSink
       TestNodeState.Skipped => new SkippedTestNodeStateProperty(node.Message),
       TestNodeState.Failed => new FailedTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test failed without exception details"),
+        node.Exception ?? MissingFailureException(node),
         node.Message
       ),
       TestNodeState.Timeout => new TimeoutTestNodeStateProperty
       (
-        node.Exception ?? new TimeoutException("Test timed out"),
+        node.Exception ?? MissingFailureException(node),
         node.Message
       ),
       TestNodeState.Error => new ErrorTestNodeStateProperty
       (
-        node.Exception ?? new InvalidOperationException("Test error without exception details"),
+        node.Exception ?? MissingFailureException(node),
         node.Message
       ),
       TestNodeState.Cancelled => CancelledProperty(node),
@@ -163,10 +164,19 @@ internal sealed class MtpSink : ITestResultSink
   // MTP0001 marks this property obsolete and prefers a thrown OperationCanceledException.
   // The 2.3.3 host still reads the property for the summary and the exit code.
 #pragma warning disable MTP0001 // Publishing Cancelled is the report. A throw would add a second Error node.
+  private static InvalidOperationException MissingFailureException(TestNodeInfo node)
+  {
+    string detail = string.IsNullOrWhiteSpace(node.Message)
+      ? $"Jaribu reported {node.State} for '{node.Uid}' and supplied no exception."
+      : $"Jaribu reported {node.State} for '{node.Uid}' and supplied no exception. {node.Message}";
+    return new InvalidOperationException(detail);
+  }
+
   private static CancelledTestNodeStateProperty CancelledProperty(TestNodeInfo node)
   {
     return new CancelledTestNodeStateProperty(
-      node.Exception ?? new OperationCanceledException(node.Message ?? "Test cancelled"),
+      node.Exception ?? new OperationCanceledException(
+        node.Message ?? $"Jaribu reported Cancelled for '{node.Uid}' and supplied no exception."),
       node.Message);
   }
 #pragma warning restore MTP0001

@@ -6,6 +6,8 @@
 // PR/merge: clean -> build -> test
 // Release: clean -> build -> test -> tag guard -> NuGet index -> check-version -> pack -> push
 // Test runs ci-runner and the CI-safe MTP project on both pipelines.
+// The root is RepoRoot.Find when that directory contains timewarp-jaribu.slnx.
+// Otherwise the binary-relative walk, then the working directory.
 // The release tag must be "v" plus the version `dotnet msbuild -getProperty:Version`
 // evaluates for each packable project. A props string search is not used.
 // A NuGet flat-container index is known only on HTTP 200. Any other status, and a
@@ -61,10 +63,13 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       string? apiKey = ResolveApiKey(command.ApiKey);
       bool isRelease = eventName == "release" || !string.IsNullOrWhiteSpace(apiKey);
 
-      string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-      if (!File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
+      string? repoRoot = RepoRoot.Find();
+      if (repoRoot is null || !File.Exists(Path.Combine(repoRoot, "timewarp-jaribu.slnx")))
       {
-        repoRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+        string fromBinary = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        repoRoot = File.Exists(Path.Combine(fromBinary, "timewarp-jaribu.slnx"))
+          ? fromBinary
+          : Path.GetFullPath(Directory.GetCurrentDirectory());
       }
 
       if (isRelease)

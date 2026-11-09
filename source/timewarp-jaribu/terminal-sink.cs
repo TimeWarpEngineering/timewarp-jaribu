@@ -46,6 +46,17 @@ public sealed class TerminalSink : ITestResultSink, IDisposable
   }
 
   /// <summary>
+  /// Writes a runner diagnostic on this sink's terminal.
+  /// </summary>
+  internal void WriteDiagnostic(string message)
+  {
+    ArgumentNullException.ThrowIfNull(message);
+#pragma warning disable CA1849
+    Terminal.WriteLine(message);
+#pragma warning restore CA1849
+  }
+
+  /// <summary>
   /// Disposes the sink. The terminal is disposed only when this sink created it.
   /// </summary>
   public void Dispose()

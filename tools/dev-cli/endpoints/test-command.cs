@@ -4,7 +4,8 @@
 #region Design
 // Executes the CI-safe runfile test runner because the MTP validation projects
 // intentionally contain failing tests for adapter behavior verification.
-// Handler stores Ct and RepoRoot as fields so private methods are zero-parameter
+// Handler stores Ct and Root as fields so private methods are zero-parameter
+// The root comes from RepoRoot.TryFind.
 #endregion
 
 namespace DevCli.Commands;
@@ -16,7 +17,7 @@ internal sealed class TestCommand : ICommand<Unit>
   {
     private readonly ITerminal Terminal;
     private CancellationToken Ct;
-    private string RepoRoot = null!;
+    private string Root = null!;
 
     public Handler(ITerminal terminal)
     {
@@ -27,31 +28,18 @@ internal sealed class TestCommand : ICommand<Unit>
     {
       Ct = ct;
 
-      if (!FindRepoRoot()) return Unit.Value;
+      if (!RepoRoot.TryFind(Terminal, out string root)) return Unit.Value;
+      Root = root;
       if (!await TestAsync()) return Unit.Value;
 
       Terminal.WriteLine("\nTests completed successfully!".Green());
       return Unit.Value;
     }
 
-    private bool FindRepoRoot()
-    {
-      string? root = Git.FindRoot();
-      if (root is null)
-      {
-        Terminal.WriteErrorLine("Error: could not find repository root.");
-        Environment.ExitCode = 1;
-        return false;
-      }
-
-      RepoRoot = root;
-      return true;
-    }
-
     private async Task<bool> TestAsync()
     {
       Terminal.WriteLine("Running test suite...");
-      string ciTestRunner = Path.Combine(RepoRoot, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
+      string ciTestRunner = Path.Combine(Root, "tests", "timewarp-jaribu", "multi-file-runners", "ci-runner", "run-ci-tests.cs");
 
       // DotNetRunBuilder lacks RunAndCaptureAsync; Shell.Builder is needed to stream
       // live output and capture failure details in one call.
@@ -62,7 +50,7 @@ internal sealed class TestCommand : ICommand<Unit>
           ciTestRunner,
           "/p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true"
         )
-        .WithWorkingDirectory(RepoRoot)
+        .WithWorkingDirectory(Root)
         .WithNoValidation()
         .RunAndCaptureAsync(Ct);
 

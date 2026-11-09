@@ -27,11 +27,8 @@ internal sealed class VerifySamplesCommand : ICommand<Unit>
       _ = command;
       ct.ThrowIfCancellationRequested();
 
-      string? repoRoot = Git.FindRoot();
-      if (repoRoot is null)
+      if (!RepoRoot.TryFind(Terminal, out string repoRoot))
       {
-        Terminal.WriteErrorLine("Error: could not find repository root.");
-        Environment.ExitCode = 1;
         return Unit.Value;
       }
 

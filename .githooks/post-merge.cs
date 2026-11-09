@@ -1,26 +1,41 @@
 #!/usr/bin/env -S dotnet --
 #:package TimeWarp.Amuru
 #:package TimeWarp.Amuru.Tools
-#:property NoWarn=CA2007
+#:property NoWarn=CA2007;CA1849;RS0030
 #:property RunAnalyzers=false
 
 // Dispatcher: ganda repo attest.
-// Exit 0 always — cannot undo an already-completed merge.
+// A failed attest is reported. The merge already completed, and the non-zero
+// exit is the signal that the attestation is missing.
 using TimeWarp.Amuru;
 
 string? root = Git.FindRoot();
 if (root is null)
 {
-  return 0;
+#pragma warning disable RS0030, CA1849
+  Console.Error.WriteLine("post-merge: repository root was not found.");
+#pragma warning restore RS0030, CA1849
+  return 1;
 }
 
 if (!string.Equals(Environment.GetEnvironmentVariable("GANDA_ATTEST_HOOK"), "0", StringComparison.Ordinal))
 {
-  await Shell.Builder("ganda")
+  CommandOutput result = await Shell.Builder("ganda")
     .WithArguments("repo", "attest")
     .WithWorkingDirectory(root)
     .WithNoValidation()
-    .RunAsync();
+    .CaptureAsync();
+  if (!result.Success)
+  {
+#pragma warning disable RS0030, CA1849
+    Console.Error.WriteLine("ganda repo attest failed.");
+    if (!string.IsNullOrWhiteSpace(result.Combined))
+    {
+      Console.Error.WriteLine(result.Combined);
+    }
+#pragma warning restore RS0030, CA1849
+    return 1;
+  }
 }
 
 return 0;

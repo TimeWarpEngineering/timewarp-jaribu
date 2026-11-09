@@ -6,8 +6,7 @@
 
   <!-- MSBuild and NuGet behavior configuration -->
   <PropertyGroup Label="MSBuild/NuGet Configuration">
-    <!-- Enable Central Package Management -->
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Central versions live in Directory.Packages.props, which sets ManagePackageVersionsCentrally. -->
     <!-- Output packages to our local feed directory -->
     <PackageOutputPath>$(PackagesDirectory)</PackageOutputPath>
     <!-- Suppress .NET preview SDK message -->
@@ -26,7 +25,6 @@
   <PropertyGroup Label="Code Quality and Analysis">
     <!-- Treat all warnings as errors -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningLevel>5</WarningLevel>
     <!-- Enable code style enforcement during build -->
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- Enable all analyzers with latest rules -->

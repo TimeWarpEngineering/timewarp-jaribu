@@ -16,6 +16,11 @@ using System.Reflection;
 /// <param name="Message">Additional context such as skip reason or failure message.</param>
 /// <param name="Parameters">The parameters passed to the test, if parameterized.</param>
 /// <param name="Method">Declaring method when the runner knows it. Hosts use it for method identity and source location.</param>
+/// <param name="StartTime">When the runner started this node. Null when the node was not executed.</param>
+/// <param name="EndTime">
+/// When the runner finished this node. Equals <paramref name="StartTime"/> plus <paramref name="Duration"/>
+/// so a host does not recompute the start from the publish clock.
+/// </param>
 public record TestNodeInfo
 (
   string Uid,
@@ -25,5 +30,7 @@ public record TestNodeInfo
   Exception? Exception = null,
   string? Message = null,
   IReadOnlyList<object?>? Parameters = null,
-  MethodInfo? Method = null
+  MethodInfo? Method = null,
+  DateTimeOffset? StartTime = null,
+  DateTimeOffset? EndTime = null
 );

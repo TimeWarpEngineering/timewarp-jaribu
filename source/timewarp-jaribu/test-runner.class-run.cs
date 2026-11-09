@@ -427,7 +427,7 @@ public static partial class TestRunner
     {
       if (ownsSession)
       {
-        await EndOwnedSessionWithoutMaskingAsync(cancellationToken).ConfigureAwait(false);
+        await EndOwnedSessionWithoutMaskingAsync(sink, cancellationToken).ConfigureAwait(false);
       }
     }
   }

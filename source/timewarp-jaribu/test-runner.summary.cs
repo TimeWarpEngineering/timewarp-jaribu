@@ -7,6 +7,12 @@ using TimeWarp.Terminal;
 // Terminal-sink entry points and the multi-class grand-total summary.
 #endregion
 
+#region Design
+// RunAllTests owns one terminal for the call unless the caller passes one.
+// Class sinks, the empty-registration line, session-dispose failures, and the
+// grand total all write there. A caller-owned terminal is not disposed.
+#endregion
+
 public static partial class TestRunner
 {
   /// <summary>
@@ -22,8 +28,12 @@ public static partial class TestRunner
   /// <param name="allowEmpty">
   /// When true, a class with no discoverable tests succeeds. The default fails that run.
   /// </param>
+  /// <param name="terminal">
+  /// Terminal that receives this class's output. A null value creates one for the call.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// Named use keeps a new optional parameter from shifting this token.
   /// </param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
@@ -32,9 +42,10 @@ public static partial class TestRunner
     string? filterTag = null,
     bool strictSignatures = false,
     bool allowEmpty = false,
+    ITerminal? terminal = null,
     CancellationToken cancellationToken = default) where T : class
   {
-    using TerminalSink sink = new();
+    using TerminalSink sink = terminal is null ? new TerminalSink() : new TerminalSink(terminal);
     TestRunStats stats = await RunTestsAsync<T>(
       sink,
       filterTag,
@@ -57,8 +68,13 @@ public static partial class TestRunner
   /// When true, a run with no registered classes or no discoverable tests succeeds.
   /// The default fails that run.
   /// </param>
+  /// <param name="terminal">
+  /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
+  /// A null value creates one terminal for the call and disposes it.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
+  /// Named use keeps a new optional parameter from shifting this token.
   /// </param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
@@ -67,45 +83,63 @@ public static partial class TestRunner
     string? filterTag = null,
     bool strictSignatures = false,
     bool allowEmpty = false,
+    ITerminal? terminal = null,
     CancellationToken cancellationToken = default)
   {
-    // Synthetic session so multi-class suites share session fixtures once.
-    SessionFixture.BeginSession();
-    bool disposeFailed = false;
-    int exitCode = 1;
+    bool ownsTerminal = terminal is null;
+    ITerminal output = terminal ?? new TimeWarpTerminal();
     try
     {
-      exitCode = await RunAllTestsCore(filterTag, strictSignatures, allowEmpty, cancellationToken);
+      // Synthetic session so multi-class suites share session fixtures once.
+      SessionFixture.BeginSession();
+      bool disposeFailed = false;
+      int exitCode = 1;
+      try
+      {
+        exitCode = await RunAllTestsCore(
+          filterTag,
+          strictSignatures,
+          allowEmpty,
+          output,
+          cancellationToken);
+      }
+      finally
+      {
+        try
+        {
+          await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+          // Cancellation already fails the run. Dispose may finish in the background.
+        }
+#pragma warning disable CA1031 // Host boundary: dispose failure must fail the run, not crash it
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+          // On a body exception this logs instead of masking it; on the normal
+          // path it folds into a failing exit code.
+          disposeFailed = true;
+#pragma warning disable CA1849
+          output.WriteLine($"✗ Session fixture dispose failed: {ex.Message}");
+#pragma warning restore CA1849
+        }
+      }
+
+      if (disposeFailed || cancellationToken.IsCancellationRequested)
+      {
+        return 1;
+      }
+
+      return exitCode;
     }
     finally
     {
-      try
+      if (ownsTerminal && output is IDisposable disposable)
       {
-        await SessionFixture.EndSessionAsync(cancellationToken).ConfigureAwait(false);
-      }
-      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-      {
-        // Cancellation already fails the run. Dispose may finish in the background.
-      }
-#pragma warning disable CA1031 // Host boundary: dispose failure must fail the run, not crash it
-      catch (Exception ex)
-#pragma warning restore CA1031
-      {
-        // On a body exception this logs instead of masking it; on the normal
-        // path it folds into a failing exit code.
-        disposeFailed = true;
-#pragma warning disable CA1849
-        Terminal.WriteLine($"✗ Session fixture dispose failed: {ex.Message}");
-#pragma warning restore CA1849
+        disposable.Dispose();
       }
     }
-
-    if (disposeFailed || cancellationToken.IsCancellationRequested)
-    {
-      return 1;
-    }
-
-    return exitCode;
   }
 
   /// <summary>
@@ -115,6 +149,7 @@ public static partial class TestRunner
     string? filterTag,
     bool strictSignatures,
     bool allowEmpty,
+    ITerminal terminal,
     CancellationToken cancellationToken)
   {
     // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
@@ -122,7 +157,7 @@ public static partial class TestRunner
     if (registeredClasses.Length == 0)
     {
 #pragma warning disable CA1849 // Terminal.WriteLine is acceptable in this warning context
-      Terminal.WriteLine(
+      terminal.WriteLine(
         "⚠ No test classes registered. Use RegisterTests<T>() to register test classes. " +
         "An empty run fails unless allowEmpty is true.");
 #pragma warning restore CA1849
@@ -148,6 +183,7 @@ public static partial class TestRunner
         filterTag,
         strictSignatures,
         allowEmpty,
+        terminal,
         cancellationToken).ConfigureAwait(false);
       allStats.Add(stats);
     }
@@ -161,8 +197,6 @@ public static partial class TestRunner
       int totalTests = totalPassed + totalFailed + totalSkipped;
 
 #pragma warning disable CA1849
-      TimeWarpTerminal terminal = TimeWarpTerminal.Default;
-
       terminal
         .WriteRule(rule => rule.Title("Grand Total").Style(LineStyle.Doubled))
         .WriteTable(table =>
@@ -219,9 +253,10 @@ public static partial class TestRunner
     string? filterTag,
     bool strictSignatures,
     bool allowEmpty,
+    ITerminal terminal,
     CancellationToken cancellationToken)
   {
-    using TerminalSink sink = new();
+    using TerminalSink sink = new(terminal);
     return await RunTestsAsync(
       testClass,
       sink,

@@ -1,5 +1,6 @@
 namespace TimeWarp.Jaribu.TestingPlatform;
 
+using System.Collections;
 using System.Globalization;
 
 #region Purpose
@@ -12,6 +13,9 @@ using System.Globalization;
 // the row the IDE lists. TestTag stays on the filter bag; this helper does not
 // publish it. The key prefix itself stays on MtpTreeFilter so the sink reads
 // the filter's constant.
+// Strings stay unquoted so an existing filter value such as fail still matches.
+// Arrays and other sequences print their elements. The CLR type name is not
+// a value a filter can select.
 #endregion
 
 /// <summary>
@@ -51,8 +55,20 @@ internal static class MtpNodeMetadata
       null => "null",
       string text => text,
       bool flag => flag ? "true" : "false",
+      IEnumerable sequence => FormatSequence(sequence),
       IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
       _ => value.ToString() ?? string.Empty
     };
+  }
+
+  private static string FormatSequence(IEnumerable values)
+  {
+    List<string> parts = [];
+    foreach (object? item in values)
+    {
+      parts.Add(FormatParameter(item));
+    }
+
+    return "[" + string.Join(",", parts) + "]";
   }
 }

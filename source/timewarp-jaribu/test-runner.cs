@@ -64,8 +64,11 @@ namespace TimeWarp.Jaribu;
 // ownsSession teardown catches EndSessionAsync. The dispose failure is a synthetic
 // failed node from the same helper as class-hook failures, with the message
 // "Session fixture dispose failed: …". RunTests<T> maps Success to exit code 1.
-// When the class run already threw, the dispose exception is logged and swallowed
+// When the class run already threw, the dispose exception is written to the
+// TerminalSink terminal, or traced when the sink is not a terminal, and swallowed
 // so it cannot replace the in-flight exception.
+// RunTests and RunAllTests take an optional ITerminal. One terminal covers every
+// class, the empty-registration line, the session-dispose line, and the grand total.
 //
 // DiscoverTests skips open generic method definitions. Those methods, and
 // public static methods that return Task<T>, ValueTask, ValueTask<T>, or
@@ -92,8 +95,8 @@ namespace TimeWarp.Jaribu;
 //   unless the token has also fired. A cancelled run exits non-zero.
 //
 // Backward compatibility:
-//   RunTests<T>() creates a TerminalSink internally and delegates to RunTestsAsync<T>(sink).
-//   This ensures existing test files continue to work unchanged.
+//   RunTests<T>() creates a TerminalSink on the caller's ITerminal, or a new one,
+//   and delegates to RunTestsAsync<T>(sink).
 //
 // Partial files hold registration, discovery, single-test execution, hooks,
 // class run, and summary. The split is file organization; the public API is one type.
