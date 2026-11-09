@@ -53,6 +53,8 @@ Local SDK 11.0.100-rc.3 is installed; CI currently uses 10.0.403.
 - Review oracle (2026-11-09): reviewed by Claude Opus 5.5 (claude-opus-5-5) with the tw-implementation-review body, effort 2, roster general, turn cap 120. Session id is not exposed to the agent. 1 round, disposition clean.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 61f80d6b-b919-4bbb-9f8a-7ad43e0040d8, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-09T09:00:42Z
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-09T10:03:15Z
+- Review oracle round 2 (2026-11-09): reviewed by Claude Opus 5.5 (claude-opus-5-5) with the tw-implementation-review body, effort 2 (466 lines), roster general, turn cap 120. Session id is not exposed to the agent. Scope was adcd28c and d09f4ed. No findings; disposition clean after 2 rounds.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session b0b97eb6-3902-4448-9160-484ee54968c8, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-09T10:12:50Z
 
 ## Results
 
@@ -85,7 +87,7 @@ Expect: `dotnet --version` prints an 11.0 SDK (`11.0.100-rc.3.26522.148` here). 
 
 ### Review disposition
 
-**Outcome:** clean. One round with the general reviewer at effort 2 (budget by diff, 279 lines).
+**Outcome:** clean. Two rounds, each with the general reviewer at effort 2. Round 1 was budgeted by a 279-line diff and round 2 by a 466-line diff. Neither round raised a finding.
 
 | Severity | open | fixed | wontfix |
 |----------|------|-------|---------|
@@ -99,22 +101,32 @@ The reviewer checked each acceptance item against the repo:
 - Nuru 4.0.0-beta.11 calls `Shell.Builder`, `WithArguments`, `WithNoValidation`, `WithStandardInput`, `CaptureAsync`, `RunAsync`, and `CommandOutput.Success` / `Stdout`. Those signatures are the same in Amuru 2.0.0 and 3.0.0-beta.2, so running Nuru on Amuru 3 does not change those calls.
 - On SDK 11.0.100-rc.3 the Release solution build had 0 warnings and 0 errors. `./bin/dev test` passed, and the MTP runner reported 204/204 on net11.0.
 
+Round 2 reviewed the fixes made after round 1, adcd28c and d09f4ed:
+
+- nuget.org lists Nuru and Nuru.DevCli 4.0.0-beta.12 as the newest. That nuspec has a net11.0 group with an Amuru 2.0.0 minimum and TimeWarp.Mediator 15.0.0-beta.4.
+- Mediator 15 has `IRequestHandler` and no `ICommandHandler`, and the Nuru beta.12 generator looks for `IRequestHandler`. No old handler interface remains in the repo.
+- The Windows cleanup's exception filter and retry are correct. The Session records that this commit passed CI on ubuntu, windows, and macos.
+- The Release solution build had 0 warnings. `dev test` passed with 204/204 on the CI runner and on the MTP runner.
+
 These were noted but are not findings:
 
 - `TargetFrameworkMoniker()` is copied into three standalone runfiles.
 - The published Jaribu packages now target only net11.0, which leaves net10.0 consumers behind while .NET 11 is RC. The release flow decides the version bump.
+- The sandbox cleanup runs `dotnet build-server shutdown` on every OS. That stops the build servers for every build on the machine, not only the sandbox ones. The shutdown is graceful, so other builds lose their warm servers and do not fail. Passing `--disable-build-servers` to the sandbox builds would be narrower but would need another Windows CI run.
 
 Paths:
 
 - `review/review-framework.md`
 - `review/round-1/general.md`
 - `review/round-1/merged.md`
+- `review/round-2/general.md`
+- `review/round-2/merged.md`
 - `review/disposition.md`
 
 ## Review
 
 - Round 1: Done
-
+- Round 2: Done
 ## Notes
 
 Origin: follow-up from tasks 052 and 055, where the reviewer flagged that every `audit --fix` run re-bumps Amuru to 3.x and breaks restore on net10.0. Mentioned in `kanban/done/052-*/task.md` Results.
@@ -122,3 +134,4 @@ Origin: follow-up from tasks 052 and 055, where the reviewer flagged that every 
 ## Learnings
 
 - Review round 1: the implementer restatement matches the original task. No misread.
+- Review round 2: the restatement still matches the original task. The Nuru beta.12 pin follows the task's rule: use the newest Nuru that works with the Amuru 3.x pin. No misread.
