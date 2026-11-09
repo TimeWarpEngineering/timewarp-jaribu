@@ -28,6 +28,7 @@ The runner re-reads hook methods and Jaribu attributes for every test, copies pa
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1bf2a-87bf-7e03-a8cf-b1fb604d1b2a, max-turns 500, Done — 2026-11-09T07:58:18Z
 - Review oracle: tw-implementation-review round 1, effort 3, roster general (claude-opus-5-5, headless print mode, turn cap 200), 2026-11-09. Disposition: accepted-exceptions.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session c48aa5f2-c310-4858-9787-377a360f2f50, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-09T08:07:50Z
+- Installed ganda changed during this walk: was 50433520 bytes e7009d6cfb249b59c8f029c913a405aad910dd19db1f09032ba36c9df0eed8b6; now 50441856 bytes c96613f2405eba18846937d6cfa764ae39a6ea9f2a0cfd4154d1b721a58912f6
 
 ## Results
 
