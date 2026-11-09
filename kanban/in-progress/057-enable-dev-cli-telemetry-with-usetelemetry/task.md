@@ -1,5 +1,17 @@
 # Enable dev CLI telemetry with UseTelemetry
 
+## Goal (implementer restatement)
+
+Every `dev` command in timewarp-jaribu should export one OpenTelemetry command span and a duration metric, including the shared DevCli routes (`clean`, `check-version`, `release`, `self-install`). The dev CLI opts in at compile time by calling `UseTelemetry` with the literal service name `timewarp-jaribu-dev`. Export stays off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set. A caller's `TRACEPARENT` is restored before `RunAsync` so those spans nest under ganda or CI. This repo has no ActivitySource of its own, so none is registered. `dev --capabilities`, `dev build`, and an AOT publish of the dev CLI still succeed. `tools/dev-cli/telemetry.md` names the environment variables.
+
+Acceptance criteria:
+
+- `tools/dev-cli/dev.cs` calls `.UseTelemetry(options => options.ServiceName = "timewarp-jaribu-dev")` on the builder chain.
+- `IncomingTraceContext.Restore()` wraps `app.RunAsync(args)`.
+- `tools/dev-cli/telemetry.md` names the export and trace-context environment variables.
+- A built dev CLI run with an OTLP endpoint set delivers a command span.
+- `dev --capabilities` and `dev build` work, and AOT publish of the dev CLI succeeds.
+
 ## Description
 
 Every `dev` command in this repo should emit OpenTelemetry spans and metrics so we can see
@@ -29,15 +41,32 @@ means no export, so the change is safe in CI even without a collector.
 
 ## Checklist
 
-- [ ] Add `UseTelemetry` call to `tools/dev-cli/dev.cs`
-- [ ] Add `IncomingTraceContext` and wrap `RunAsync`
-- [ ] Register repo-specific ActivitySources if any
-- [ ] Build dev CLI (`bin/dev build`) and run one command with `OTEL_EXPORTER_OTLP_ENDPOINT` set; confirm a span arrives
-- [ ] Add a short `tools/dev-cli/telemetry.md` naming the env vars (copy from timewarp-nuru)
+- [x] Add `UseTelemetry` call to `tools/dev-cli/dev.cs`
+- [x] Add `IncomingTraceContext` and wrap `RunAsync`
+- [x] Register repo-specific ActivitySources if any (none in this repo)
+- [x] Build dev CLI (`bin/dev build`) and run one command with `OTEL_EXPORTER_OTLP_ENDPOINT` set; confirm a span arrives
+- [x] Add a short `tools/dev-cli/telemetry.md` naming the env vars (copy from timewarp-nuru)
+
+## Results
+
+`tools/dev-cli/dev.cs` calls `UseTelemetry` with the literal service name `timewarp-jaribu-dev`. `IncomingTraceContext.Restore()` wraps `RunAsync`. The file matches timewarp-nuru `tools/dev-cli/endpoints/incoming-trace-context.cs`. A search of `*.cs` found no `ActivitySource`, so none is registered. `tools/dev-cli/telemetry.md` names `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `TRACEPARENT`, `TRACESTATE`, and `OTEL_EXPORTER_OTLP_PROTOCOL`. This repo's `workflow` command does not emit stage spans, so the doc does not copy the timewarp-nuru stage table.
+
+`dotnet run tools/dev-cli/dev.cs -- self-install` installed `bin/dev` (ELF x86-64). `./bin/dev --capabilities` exited 0 and listed `build`, `test`, `verify-samples`, `workflow`, `check-version`, `clean`, `release`, and `self-install`. `./bin/dev build` exited 0 and printed `Build completed successfully!`. `./bin/dev --help` with `OTEL_EXPORTER_OTLP_ENDPOINT` unset sent nothing to the collector.
+
+A local OTLP HTTP listener on `127.0.0.1:14357` received exports from that AOT binary with `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` set. The `check-version` span (DevCli route) and the `build` span both used service `timewarp-jaribu-dev` and source `TimeWarp.Nuru.Behavior`, and each had a `nuru.behavior.commands.duration` metric. Both trace payloads contained trace id `05705705705705705705705705705705` and parent span id `b057b057b057b057` from `TRACEPARENT`. `check-version` exited 0.
+
+`ganda repo audit` reported one advisory (`vscode-window-icon`). `ganda repo audit --fix` wrote a gitignored `.vscode/settings.json` window title. The follow-up audit passed 40 checks, failed 0, skipped 1. A second `./bin/dev check-version` against the same listener still delivered the `check-version` span.
+
+### How to validate
+
+Smoke: from the repo root, point `OTEL_EXPORTER_OTLP_ENDPOINT` at an HTTP protobuf collector (for example `http://127.0.0.1:14357`), set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and `TRACEPARENT=00-05705705705705705705705705705705-b057b057b057b057-01`, then run `./bin/dev build`.
+
+Expect: the command exits 0 and prints `Build completed successfully!`. The collector receives a `/v1/traces` payload whose service name is `timewarp-jaribu-dev`, whose span name is `build`, whose activity source is `TimeWarp.Nuru.Behavior`, and whose bytes include that trace id and parent span id. A `nuru.behavior.commands.duration` metric for `build` arrives on `/v1/metrics`. With `OTEL_EXPORTER_OTLP_ENDPOINT` unset, the same command exports nothing.
 
 ## Session
 
 - Created: b3be0249-1852-425a-9e90-5a7e56049503 (2026-11-08)
+- Implementation: 01a1bded-1e42-7ee0-9685-0eb1d67257ff (2026-11-09). Audit --fix wrote the gitignored VS Code window title. No repo ActivitySource to register.
 
 ## Notes
 
