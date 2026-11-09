@@ -38,6 +38,7 @@ Findings in task 038 report: CORE-8 (runner diagnostics bypass injected sink via
 - Review oracle round 1 (2026-11-09): reviewer general (claude, model claude-opus-5-5), effort 3, turn cap 200. The harness did not expose a session id. Result: 6 open findings (1 bug, 3 suggestion, 2 nit), so a fix pass is requested. Artifacts are under `review/round-1/`.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 7fb20890-6682-4e0a-a022-640b4d0abbd8, max-turns 200, artifacts general.md, merged.md — 2026-11-09T02:56:56Z
 - Fix pass (review round 1): implement-fix-2 (grok, model grok-4.7) — 2026-11-09. Restored the hook scaffold so `memsearch-scaffold` passes. TOOL-13 is ganda task 575, published to that repo's to-do. The release pack sets `JaribuExposeInternals=false` and rejects a packed lib assembly that still grants internals.
+- Fix pass resume: implement-fix-2 (grok, model grok-4.7) — 2026-11-09. The M1–M6 product changes were already on the branch. The Design region still said a published Error node rethrows; that sentence now says the handler returns. `ganda repo audit` passed, including `memsearch-scaffold`. `./bin/dev build` and `./bin/dev test` passed: the CI runner printed Passed 203, and the MTP run reported succeeded 203 and failed 0.
 
 ## Results
 
@@ -51,16 +52,12 @@ The fully-qualified `MethodInfo` and the unused Nuru test reference were already
 
 Smoke: `dotnet build timewarp-jaribu.slnx --nologo` then `dotnet run tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs /p:ExperimentalFileBasedProgramEnableTransitiveDirectives=true --nologo` and `dotnet test tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj --nologo`. Also `dotnet build tools/dev-cli/dev.cs` and `dotnet build` of each `.githooks/*.cs` runfile.
 
-Expect: the solution build reports 0 warnings and 0 errors. The CI runner prints `Passed: 173` and exits 0. The MTP project reports `succeeded: 173` and `failed: 0`. `dotnet build tools/dev-cli/dev.cs` succeeds. `ganda repo audit` exits 0, including `memsearch-scaffold`. A Release build with `-p:JaribuExposeInternals=false` writes a testing platform dll whose bytes do not contain `InternalsVisibleTo` or the local test assembly names.
+Expect: the solution build reports 0 warnings and 0 errors. The CI runner prints `Passed: 203` and exits 0. The MTP project reports `succeeded: 203` and `failed: 0`. `dotnet build tools/dev-cli/dev.cs` succeeds. `ganda repo audit` exits 0, including `memsearch-scaffold`. A Release build with `-p:JaribuExposeInternals=false` writes a testing platform dll whose bytes do not contain `InternalsVisibleTo` or the local test assembly names.
 
 ### Review
 
-Round 1 ran with one general reviewer at effort 3. The fix pass marked M1–M6 fixed on `review/round-1/merged.md`. Counts after that edit: bug 0 open / 1 fixed, suggestion 0 open / 3 fixed, nit 0 open / 2 fixed, none wontfix. Round 2 has not run, so there is no disposition yet. M1 restored the hook scaffold and filed ganda task 575. M2 passes `JaribuExposeInternals=false` on the release pack and checks the packed assemblies. M3 covers both MTP-2 paths. M4 drops the `beta` assertion. M5 rewords the aggregate comment. M6 names the no-dynamic-code path as a smoke check. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+Round 1 ran with one general reviewer at effort 3. The fix pass marked M1–M6 fixed on `review/round-1/merged.md`. Counts after that edit: bug 0 open / 1 fixed, suggestion 0 open / 3 fixed, nit 0 open / 2 fixed, none wontfix. Round 2 has not run, so there is no disposition yet. M1 restored the hook scaffold and filed ganda task 575. M2 passes `JaribuExposeInternals=false` on the release pack and checks the packed assemblies. M3 covers both MTP-2 paths. M4 drops the `beta` assertion. M5 rewords the aggregate comment, and the later Design sentence now says a successful publish returns. M6 names the no-dynamic-code path as a smoke check. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
 
 ## Review
 
 - Round 1: six findings, addressed in the fix pass (M1–M6 marked fixed). Round 2 has not run.
-
-## Blocked
-
-2026-11-09: placeholder — work still running
