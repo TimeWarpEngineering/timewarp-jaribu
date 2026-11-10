@@ -1,0 +1,177 @@
+{
+  "files": {
+    ".editorconfig": {
+      "CA1034": 1,
+      "CA1515": 2,
+      "CA1822": 1,
+      "IDE0211": 1,
+      "IDE0290": 1,
+      "IDE1006": 1,
+      "RCS0036": 1,
+      "RCS0051": 1,
+      "RCS0052": 1,
+      "RCS1021": 1,
+      "RCS1045": 1,
+      "RCS1046": 1,
+      "RCS1123": 1,
+      "RCS1124": 1,
+      "RCS1139": 1,
+      "RCS1140": 1,
+      "RCS1141": 1,
+      "RCS1142": 1,
+      "RCS1181": 1,
+      "RCS1194": 1,
+      "RCS1238": 1,
+      "RCS9001": 1,
+      "RCS9002": 1,
+      "RCS9003": 1,
+      "RS0030": 1,
+      "TWA002": 1,
+      "ca1308": 1
+    },
+    ".githooks/post-checkout.cs": {
+      "CA2007": 1
+    },
+    ".githooks/post-commit.cs": {
+      "CA2007": 1
+    },
+    ".githooks/post-merge.cs": {
+      "CA2007": 1
+    },
+    ".githooks/pre-commit.cs": {
+      "CA1849": 2,
+      "CA2007": 1,
+      "RS0030": 2
+    },
+    ".githooks/pre-push.cs": {
+      "CA1849": 3,
+      "CA2007": 1,
+      "RS0030": 3
+    },
+    "Directory.Build.props": {
+      "CA1014": 1,
+      "CA1052": 1,
+      "CA1308": 1,
+      "CA1724": 1,
+      "CA1812": 1,
+      "IDE0005": 1,
+      "IL2026": 1,
+      "IL2067": 1,
+      "IL2070": 1,
+      "IL2075": 1,
+      "IL2104": 1,
+      "IL3050": 1,
+      "IL3053": 1
+    },
+    "benchmarks/fixie/fixie-bench.csproj": {
+      "CA2007": 1
+    },
+    "source/timewarp-jaribu-testing-platform/jaribu-test-framework.cs": {
+      "CA1031": 2
+    },
+    "source/timewarp-jaribu-testing-platform/mtp-sink.cs": {
+      "MTP0001": 1
+    },
+    "source/timewarp-jaribu-testing-platform/mtp-tree-filter.cs": {
+      "TPEXP": 1
+    },
+    "source/timewarp-jaribu/input-row-order.cs": {
+      "IL3000": 1
+    },
+    "source/timewarp-jaribu/terminal-sink.cs": {
+      "CA1849": 5
+    },
+    "source/timewarp-jaribu/test-runner.cancellation.cs": {
+      "CA1031": 1
+    },
+    "source/timewarp-jaribu/test-runner.hooks.cs": {
+      "CA1031": 3
+    },
+    "source/timewarp-jaribu/test-runner.summary.cs": {
+      "CA1031": 1,
+      "CA1849": 3
+    },
+    "source/timewarp-jaribu/timewarp-jaribu.csproj": {
+      "CA1031": 1,
+      "CA1303": 1,
+      "CA2007": 1,
+      "IDE0305": 1,
+      "RCS1046": 1,
+      "RCS1146": 1,
+      "RCS1214": 1,
+      "RCS1248": 1
+    },
+    "tests/Directory.Build.props": {
+      "CA1031": 1,
+      "CA1050": 1,
+      "CA1052": 1,
+      "CA1303": 1,
+      "CA1307": 1,
+      "CA1515": 1,
+      "CA1707": 1,
+      "CA1849": 1,
+      "CA2007": 1,
+      "CA2211": 1,
+      "CA2255": 1,
+      "CS0050": 1,
+      "IDE0051": 1,
+      "RCS1046": 1,
+      "RCS1102": 1,
+      "RCS1110": 1
+    },
+    "tests/timewarp-jaribu/Directory.Build.props": {
+      "CA1812": 1,
+      "CA2252": 1,
+      "CS1998": 1,
+      "CS8652": 1
+    },
+    "tests/timewarp-jaribu/multi-file-runners/Directory.Build.props": {
+      "IDE0161": 1
+    },
+    "tests/timewarp-jaribu/single-file-tests/core/release-gate.decisions.cs": {
+      "IL3000": 1
+    },
+    "tests/timewarp-jaribu/single-file-tests/core/test-runner.session-fixture.fixtures.cs": {
+      "RCS1047": 1
+    },
+    "tests/timewarp-jaribu/single-file-tests/mtp/mtp-node-identity.cs": {
+      "IL3000": 1,
+      "MTP0001": 1
+    },
+    "tests/timewarp-jaribu/single-file-tests/mtp/mtp-review-cleanups.cs": {
+      "IL3000": 1,
+      "TPEXP": 2
+    },
+    "tools/dev-cli/Directory.Build.props": {
+      "CA1031": 1,
+      "CA1034": 1,
+      "CA1303": 1,
+      "CA1508": 1,
+      "CA1515": 1,
+      "CA1849": 1,
+      "CA2000": 1,
+      "CA2007": 1,
+      "CA2016": 1,
+      "CA5399": 1,
+      "CS1591": 1,
+      "IDE0005": 1,
+      "IDE0022": 1,
+      "IDE0028": 1,
+      "IDE0046": 1,
+      "IDE0052": 1,
+      "IDE0055": 1,
+      "IDE0058": 1,
+      "IDE0065": 1,
+      "IDE0066": 1,
+      "IDE0078": 1,
+      "IDE0160": 1,
+      "IDE0211": 1,
+      "IDE0290": 1,
+      "IL2026": 1,
+      "IL2104": 1,
+      "IL3050": 1,
+      "IL3053": 1,
+      "RCS1046": 1
+    }
+  }
+}
