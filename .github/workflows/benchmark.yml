@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   benchmark:
     name: benchmark
@@ -31,28 +35,40 @@ jobs:
         env:
           INSTALLED_SDK: ${{ steps.setup-dotnet.outputs.dotnet-version }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          version = os.environ["INSTALLED_SDK"].strip()
-          if not version.startswith("11.0."):
-              raise SystemExit(
-                  f"setup-dotnet must install an 11.0 SDK, found {version!r}"
-              )
-          path = Path("global.json")
-          document = json.loads(path.read_text())
-          document["sdk"] = {"version": version, "rollForward": "disable"}
-          runner = document.get("test", {}).get("runner")
-          if runner != "Microsoft.Testing.Platform":
-              raise SystemExit(
-                  f"test.runner must stay Microsoft.Testing.Platform, found {runner!r}"
-              )
-          path.write_text(json.dumps(document, indent=2) + "\n")
-          PY
-          version="$(dotnet --version)"
-          echo "Selected SDK: ${version}"
-          test "${version}" = "${INSTALLED_SDK}"
+          $ErrorActionPreference = 'Stop'
+          $installed = $env:INSTALLED_SDK.Trim()
+          if (-not $installed.StartsWith('11.0.')) {
+            throw "setup-dotnet must install an 11.0 SDK, found '$installed'"
+          }
+          $path = Join-Path (Get-Location) 'global.json'
+          $document = Get-Content -Raw -Path $path | ConvertFrom-Json
+          $runner = $null
+          if ($null -ne $document.test) {
+            $runner = $document.test.runner
+          }
+          if ($runner -ne 'Microsoft.Testing.Platform') {
+            throw "test.runner must stay Microsoft.Testing.Platform, found '$runner'"
+          }
+          $sdk = [pscustomobject]@{
+            version = $installed
+            rollForward = 'disable'
+          }
+          if ($null -eq $document.PSObject.Properties['sdk']) {
+            $document | Add-Member -NotePropertyName sdk -NotePropertyValue $sdk
+          }
+          else {
+            $document.sdk = $sdk
+          }
+          $json = ($document | ConvertTo-Json -Depth 10) + "`n"
+          [System.IO.File]::WriteAllText($path, $json)
+          $selected = (dotnet --version).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet --version failed: '$selected'"
+          }
+          Write-Host "Selected SDK: $selected"
+          if ($selected -ne $installed) {
+            throw "dotnet --version '$selected' does not match installed SDK '$installed'"
+          }
 
       - name: Cache NuGet packages
         uses: actions/cache@v6

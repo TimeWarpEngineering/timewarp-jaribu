@@ -7,6 +7,10 @@
 // dev test and dev workflow both call RunAsync, so a local pass cannot skip MTP.
 // The validation project is not a third target. Its intentional failures stay
 // inside the out-of-process harness that the CI-safe suite executes.
+// The MTP dotnet test passes coverage flags. A relative --coverage-output is
+// resolved from --results-directory artifacts/coverage. The runner project
+// references Microsoft.Testing.Extensions.CodeCoverage so --coverage is a
+// known option. DotNet.Test has no slot for those extension arguments.
 #endregion
 
 namespace DevCli.Commands;
@@ -48,9 +52,21 @@ internal static class CiTestSuite
       "multi-file-runners",
       "mtp-runner",
       "timewarp-jaribu-tests-mtp.csproj");
-    int exitCode = await DotNet.Test()
-      .WithProject(mtpProject)
-      .WithConfiguration("Release")
+    int exitCode = await Shell.Builder("dotnet")
+      .WithArguments
+      (
+        "test",
+        mtpProject,
+        "--configuration",
+        "Release",
+        "--results-directory",
+        "artifacts/coverage",
+        "--coverage",
+        "--coverage-output-format",
+        "cobertura",
+        "--coverage-output",
+        "coverage.cobertura.xml"
+      )
       .WithWorkingDirectory(repoRoot)
       .RunAsync(cancellationToken);
     if (exitCode != 0)

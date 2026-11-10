@@ -469,3 +469,6 @@ bin/dev.exe
 
 # Benchmark sources emitted by benchmarks/generator. The generator is the source of truth.
 benchmarks/generated/
+
+# ganda task work walk state (signal logs, walk locks, walk holders) in origin-home
+/.timewarp/signals/

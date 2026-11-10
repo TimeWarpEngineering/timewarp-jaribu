@@ -30,6 +30,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -59,6 +63,15 @@ jobs:
 
       - name: Run CI pipeline
         run: dotnet run tools/dev-cli/dev.cs -- workflow
+
+      # upload-artifact v4+ rejects a second upload of the same name, so each OS keeps its own.
+      - name: coverage
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}
+          path: artifacts/coverage
+          if-no-files-found: warn
 
   release:
     name: release

@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>
 
 </Project>
