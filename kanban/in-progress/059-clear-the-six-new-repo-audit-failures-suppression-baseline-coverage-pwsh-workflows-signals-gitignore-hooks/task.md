@@ -36,6 +36,10 @@ Done means `ganda repo audit` exits 0 on the task branch with no `[ganda.audit]`
 - [x] `ganda repo audit` exits 0 with no severity overrides
 - [ ] PR run green on all three OSes with a `coverage` artifact
 
+## Review
+
+- Round 1: Done
+
 ## Notes
 
 - Origin: `ganda repo audit` output pasted by Steve on 2026-11-11 after the ganda upgrade that shipped the `ci-code-coverage` check (ganda task 581).
@@ -46,6 +50,8 @@ Done means `ganda repo audit` exits 0 on the task branch with no `[ganda.audit]`
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-11)
 - Implementation: 01a1c6b4-2c8b-7d91-8bd1-1734e7756cbe (2026-11-11)
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1c6b4-2c8b-7d91-8bd1-1734e7756cbe, max-turns 500, Done — 2026-11-10T18:57:27Z
+- Review oracle: claude (model claude-opus-5-5), body tw-implementation-review, effort 2, roster general, turn cap 120, round 1, disposition clean (2026-11-11)
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 936437ae-1b16-48b1-a966-13b9ee4f0957, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-10T19:05:37Z
 
 ## Results
 
@@ -60,3 +66,17 @@ Done means `ganda repo audit` exits 0 on the task branch with no `[ganda.audit]`
 Smoke: `ganda repo audit` then `./bin/dev test`, and on a pull request open the test job artifacts.
 
 Expect: audit exits 0 with no new `[ganda.audit]` severity keys. `./bin/dev test` exits 0 and leaves `artifacts/coverage/coverage.cobertura.xml`. The pull request is green on ubuntu-latest, windows-latest, and macos-latest, and each leg uploads an artifact named `coverage-<os>`.
+
+### Review disposition
+
+- Rounds: 1. Roster: general. Effort: 2 (by diff, 460 lines).
+- Final counts: bug 0, suggestion 0, nit 0 (0 open, 0 fixed, 0 wontfix).
+- Disposition: **clean**. No findings were raised, so there are no wontfix items or escalations.
+- Reviewer checks:
+  - The six target audit checks pass, with no `.editorconfig` change.
+  - The pwsh SDK pin script ran locally. It wrote the pinned SDK on a valid `global.json`, and it refused a `VSTest` runner without writing.
+  - `./bin/dev test` exits 0 (MTP 204/204) and regenerates `artifacts/coverage/coverage.cobertura.xml`.
+- Open at review time:
+  - `ganda repo audit` on the branch reports `kanban-landed` (KitchenNotLanded 059). The kitchen is host-owned and has not landed yet.
+  - The three-OS PR run and its coverage artifacts belong to the host open-pr node.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
