@@ -15,10 +15,12 @@ using TimeWarp.Terminal;
 // A missing tool is an error that names `dotnet tool install -g dotnet-coverage`.
 // The coverage profiler GUID skips a second wrap when the process is already instrumented.
 // CollectFromChildProcesses stays on, so per-file `dotnet run` children are included.
-// The settings file excludes assembly file names and includes sources under the
-// consuming repository's git root. A local manifest is dotnet-tools.json or
-// .config/dotnet-tools.json. The walk stops at isRoot. dotnet tool run uses that
-// manifest's directory. A dotnet muxer host keeps argv[0] (the dll) on the command.
+// The settings file includes this repository's project assemblies. Sources match
+// the git root or the deterministic /_/ prefix. A local manifest is
+// dotnet-tools.json or .config/dotnet-tools.json. The walk stops at isRoot.
+// A manifest found from the working directory keeps that directory. The
+// entry-point fallback uses the manifest directory. A dotnet muxer host keeps
+// argv[0] (the dll) on the command. A report with no classes fails the run.
 #endregion
 
 /// <summary>
@@ -29,6 +31,11 @@ internal static partial class RunfileCoverage
   internal const string MissingToolMessage =
     "dotnet-coverage was not found. Install it with `dotnet tool install -g dotnet-coverage`, " +
     "or add it to a local tool manifest with `dotnet new tool-manifest` and `dotnet tool install dotnet-coverage`.";
+
+  internal const string EmptyReportMessage =
+    "The coverage report contains no classes. Deterministic builds record this repository's " +
+    "sources as /_/ paths, and those paths stay in the report only for this repository's project " +
+    "assemblies. An empty report is a failed collection, not a line-rate of 1.";
 
   private const string CoverageProfilerId = "324F817A-7420-4E6D-B3C1-143FBED6D855";
 
@@ -79,7 +86,7 @@ internal static partial class RunfileCoverage
     string outputPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.CoberturaFileName);
     string settingsPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.SettingsFileName);
     string sourceRoot = ResolveSourceRoot(entryPoint);
-    WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot);
+    WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot, entryPoint);
 
     string runnerFile;
     string? runnerArgument;
@@ -110,6 +117,12 @@ internal static partial class RunfileCoverage
         .WithNoValidation()
         .RunAsync(cancellationToken)
         .ConfigureAwait(false);
+      if (exitCode == 0 && !ReportHasClasses(outputPath))
+      {
+        await WriteErrorAsync(terminal, EmptyReportMessage, cancellationToken).ConfigureAwait(false);
+        return 1;
+      }
+
       return exitCode;
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -24,6 +24,7 @@
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.concurrency.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.launch.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.manifest.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.deterministic.cs" />
   </ItemGroup>
 
   <ItemGroup>

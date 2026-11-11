@@ -114,7 +114,8 @@ public partial class RunfileCoverage_Given_
       string coverageVariable,
       string? moduleFilter = null,
       bool passFilterAsArgument = true,
-      bool useResultsVariable = false)
+      bool useResultsVariable = false,
+      bool emptyReport = false)
     {
       string root = FindRepoRoot();
       string probe = ProbePath();
@@ -144,6 +145,7 @@ public partial class RunfileCoverage_Given_
           RunfileCoverageOptions.ModuleFilterVariableName,
           useResultsVariable ? moduleFilter ?? "0" : "0")
         .WithEnvironmentVariable("JARIBU_COVERAGE_PROBE_EXIT", probeExit ?? string.Empty)
+        .WithEnvironmentVariable("JARIBU_COVERAGE_FAKE_EMPTY", emptyReport ? "1" : "0")
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3));
 
@@ -187,19 +189,87 @@ public partial class RunfileCoverage_Given_
     private static void AssertRepositorySources(string settingsPath)
     {
       System.Xml.Linq.XDocument document = System.Xml.Linq.XDocument.Load(settingsPath);
-      string pattern = document.Descendants("Source").Single().Value;
-      System.Text.RegularExpressions.Regex regex = new(
-        pattern,
-        System.Text.RegularExpressions.RegexOptions.None,
-        TimeSpan.FromSeconds(1));
+      System.Collections.Generic.List<string> sources = [];
+      foreach (System.Xml.Linq.XElement element in document.Descendants("Source"))
+      {
+        sources.Add(element.Value);
+      }
+
+      sources.Count.ShouldBe(2);
       string product = Path.Combine(FindRepoRoot(), "source", "timewarp-jaribu", "runfile-coverage.cs");
-      regex.IsMatch(product).ShouldBeTrue(pattern);
-      regex.IsMatch("/_/CliWrap/Cli.cs").ShouldBeFalse(pattern);
-      regex.IsMatch("/_/source/timewarp-amuru/src/Command.cs").ShouldBeFalse(pattern);
-      regex.IsMatch("/_/TimeWarp.Builder/Builder.cs").ShouldBeFalse(pattern);
-      regex.IsMatch(
-          "/home/runner/work/timewarp-builder/timewarp-builder/source/timewarp-builder/builder.cs")
-        .ShouldBeFalse(pattern);
+      bool sawRepository = false;
+      bool sawMapped = false;
+      foreach (string source in sources)
+      {
+        System.Text.RegularExpressions.Regex regex = new(
+          source,
+          System.Text.RegularExpressions.RegexOptions.None,
+          TimeSpan.FromSeconds(1));
+        if (regex.IsMatch(product))
+        {
+          sawRepository = true;
+          regex.IsMatch("/_/lib/Calc.cs").ShouldBeFalse(source);
+          regex.IsMatch("/_/CliWrap/Cli.cs").ShouldBeFalse(source);
+          regex.IsMatch("/_/source/timewarp-amuru/core/shell.cs").ShouldBeFalse(source);
+          regex.IsMatch(
+              "/home/runner/work/timewarp-builder/timewarp-builder/source/timewarp-builder/builder.cs")
+            .ShouldBeFalse(source);
+        }
+
+        if (regex.IsMatch("/_/lib/Calc.cs"))
+        {
+          sawMapped = true;
+          regex.IsMatch(product).ShouldBeFalse(source);
+        }
+      }
+
+      sawRepository.ShouldBeTrue(string.Join(" | ", sources));
+      sawMapped.ShouldBeTrue(string.Join(" | ", sources));
+
+      System.Collections.Generic.List<string> includes = [];
+      foreach (System.Xml.Linq.XElement element in document.Descendants("ModulePath"))
+      {
+        if (element.Parent is System.Xml.Linq.XElement parent
+          && parent.Name.LocalName == "Include")
+        {
+          includes.Add(element.Value);
+        }
+      }
+
+      string repo = FindRepoRoot();
+      ModuleIncludeMatches(
+          includes,
+          Path.Combine(repo, "source", "timewarp-jaribu", "bin", "Debug", "net11.0", "timewarp-jaribu.dll"))
+        .ShouldBeTrue(string.Join(" | ", includes));
+      ModuleIncludeMatches(
+          includes,
+          "/home/runner/.local/share/dotnet/runfile/hash/bin/debug/timewarp-jaribu.dll")
+        .ShouldBeTrue(string.Join(" | ", includes));
+      ModuleIncludeMatches(
+          includes,
+          "/home/runner/.local/share/dotnet/runfile/hash/bin/debug/timewarp-amuru.dll")
+        .ShouldBeFalse(string.Join(" | ", includes));
+      ModuleIncludeMatches(
+          includes,
+          "/home/runner/.nuget/packages/cliwrap/3.6.6/lib/net8.0/CliWrap.dll")
+        .ShouldBeFalse(string.Join(" | ", includes));
+    }
+
+    private static bool ModuleIncludeMatches(System.Collections.Generic.List<string> patterns, string path)
+    {
+      foreach (string pattern in patterns)
+      {
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+          path,
+          pattern,
+          System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+          TimeSpan.FromSeconds(1)))
+        {
+          return true;
+        }
+      }
+
+      return false;
     }
 
     private static string[] ReadCommand(ProbeRun run)

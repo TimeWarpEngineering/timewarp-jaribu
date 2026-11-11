@@ -10,7 +10,7 @@
 // The CI runfile opts into RunAllTests coverage and writes
 // artifacts/coverage/runfile/coverage.cobertura.xml. Its module filter keeps
 // TimeWarp.Jaribu, which the default filter excludes, and still drops tests
-// and MSBuild nodes. The repository source rule drops SourceLink dependencies.
+// and MSBuild nodes. The project include drops dependency assemblies.
 // The MTP dotnet test passes
 // coverage flags and writes artifacts/coverage/coverage.cobertura.xml.
 // A relative --coverage-output is resolved from --results-directory.

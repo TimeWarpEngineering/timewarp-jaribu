@@ -54,6 +54,7 @@ bool toolRun = args.Length >= 4
   && args[3] == "--";
 if (toolRun)
 {
+  WriteStubReport(output);
   return 0;
 }
 
@@ -71,18 +72,33 @@ int exitCode = await Shell.Builder(fileName)
   .RunAsync()
   .ConfigureAwait(false);
 
-if (!string.IsNullOrEmpty(output))
+WriteStubReport(output);
+return exitCode;
+
+static void WriteStubReport(string outputPath)
 {
-  string? directory = Path.GetDirectoryName(Path.GetFullPath(output));
+  if (string.IsNullOrEmpty(outputPath))
+  {
+    return;
+  }
+
+  string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
   if (!string.IsNullOrEmpty(directory))
   {
     Directory.CreateDirectory(directory);
   }
 
-  if (!File.Exists(output))
+  bool empty = string.Equals(
+    Environment.GetEnvironmentVariable("JARIBU_COVERAGE_FAKE_EMPTY"),
+    "1",
+    StringComparison.Ordinal);
+  if (!empty && File.Exists(outputPath))
   {
-    File.WriteAllText(output, "<coverage />");
+    return;
   }
-}
 
-return exitCode;
+  string body = empty
+    ? "<coverage line-rate=\"1\"><packages /></coverage>"
+    : "<coverage><packages><package name=\"Stub\"><classes><class name=\"Stub\" filename=\"stub.cs\" /></classes></package></packages></coverage>";
+  File.WriteAllText(outputPath, body);
+}

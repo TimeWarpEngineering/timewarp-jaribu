@@ -125,8 +125,8 @@ public static partial class TestRunner
   /// The 1.0.0-beta.15 overload keeps a positional token on that signature.
   /// </param>
   /// <returns>
-  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, or the token fired.
-  /// A coverage relaunch returns the child process exit code.
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, the coverage report has no classes, or the token fired.
+  /// A coverage relaunch returns the child process exit code, or 1 when that child succeeds and the report has no classes.
   /// </returns>
   public static async Task<int> RunAllTests(
     string? filterTag = null,

@@ -2,6 +2,7 @@
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 #:include test-runner.runfile-coverage.launch.cs
 #:include test-runner.runfile-coverage.manifest.cs
+#:include test-runner.runfile-coverage.deterministic.cs
 
 #region Purpose
 // Proves RunAllTests relaunches under dotnet-coverage and fails clearly when the tool is missing.
@@ -167,6 +168,23 @@ namespace TestRunner_
       output.ExitCode.ShouldBe(0);
       File.Exists(run.LogPath).ShouldBeFalse();
       File.Exists(Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName)).ShouldBeFalse();
+    }
+
+    [Timeout(ProbeTimeoutMilliseconds)]
+    public static async Task EmptyReport_Should_FailTheRun()
+    {
+      using ProbeRun run = ProbeRun.Create();
+      string tool = await EnsureFakeToolAsync();
+      CommandOutput output = await RunProbeAsync(
+        run,
+        "api",
+        tool,
+        probeExit: null,
+        coverageVariable: "0",
+        emptyReport: true);
+
+      output.ExitCode.ShouldBe(1, output.Combined);
+      output.Combined.ShouldContain("no classes");
     }
   }
 }

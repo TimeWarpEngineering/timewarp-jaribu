@@ -10,8 +10,9 @@ using System.Text.Json;
 // JARIBU_COVERAGE_TOOL wins. Otherwise PATH, then JARIBU_COVERAGE_USER_TOOLS
 // (default ~/.dotnet/tools), then a manifest. Both dotnet-tools.json and
 // .config/dotnet-tools.json count. A manifest that does not list the tool stops
-// the walk only when isRoot is true. The directory that owns the manifest is
-// the working directory for `dotnet tool run`.
+// the walk only when isRoot is true. A manifest found from the working directory
+// keeps that directory. The entry-point fallback uses the manifest directory
+// so `dotnet tool run` can see a manifest outside the working directory.
 #endregion
 
 internal static partial class RunfileCoverage
@@ -52,13 +53,12 @@ internal static partial class RunfileCoverage
     }
 
     string? entryPoint = AppContext.GetData("EntryPointFilePath") as string;
-    string? manifestDirectory = FindCoverageManifestDirectory(entryPoint);
-    if (manifestDirectory is not null)
+    if (TryFindLocalTool(entryPoint, out string? manifestWorkingDirectory))
     {
       return new CoverageTool(
         "dotnet",
         ["tool", "run", CoverageToolPackageName, "--"],
-        manifestDirectory);
+        manifestWorkingDirectory);
     }
 
     return null;
@@ -150,26 +150,39 @@ internal static partial class RunfileCoverage
     return null;
   }
 
-  private static string? FindCoverageManifestDirectory(string? entryPointFile)
+  private static bool TryFindLocalTool(string? entryPointFile, out string? workingDirectory)
   {
+    workingDirectory = null;
     ManifestSearch fromWorkingDirectory = SearchManifests(Directory.GetCurrentDirectory());
-    if (fromWorkingDirectory.Directory is not null || fromWorkingDirectory.StoppedAtRoot)
+    if (fromWorkingDirectory.Directory is not null)
     {
-      return fromWorkingDirectory.Directory;
+      return true;
+    }
+
+    if (fromWorkingDirectory.StoppedAtRoot)
+    {
+      return false;
     }
 
     if (string.IsNullOrWhiteSpace(entryPointFile))
     {
-      return null;
+      return false;
     }
 
     string? entryDirectory = Path.GetDirectoryName(Path.GetFullPath(entryPointFile));
     if (string.IsNullOrWhiteSpace(entryDirectory))
     {
-      return null;
+      return false;
     }
 
-    return SearchManifests(entryDirectory).Directory;
+    string? manifestDirectory = SearchManifests(entryDirectory).Directory;
+    if (manifestDirectory is null)
+    {
+      return false;
+    }
+
+    workingDirectory = manifestDirectory;
+    return true;
   }
 
   private static ManifestSearch SearchManifests(string startDirectory)

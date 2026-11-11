@@ -12,15 +12,16 @@ namespace TimeWarp.Jaribu;
 // the relaunch sets on the child so that child does not relaunch again.
 // Module patterns match the assembly file name. A runfile cache directory
 // such as run-ci-tests keeps product dlls that do not themselves contain tests.
-// The settings file also includes sources under the consuming repository, so
-// SourceLink /_/ paths and other checkouts stay out of the default report.
+// The settings file includes this repository's project assemblies. Sources match
+// the repository directory or the deterministic /_/ prefix. Dependencies stay out.
 // JARIBU_COVERAGE_USER_TOOLS replaces ~/.dotnet/tools in the tool search.
 #endregion
 
 /// <summary>
 /// Requests a Cobertura report for a <see cref="TestRunner.RunAllTests"/> launch.
-/// The default report includes sources under the consuming repository and excludes
-/// test, Jaribu, and MSBuild assemblies.
+/// The default report includes this repository's project assemblies and excludes
+/// test, Jaribu, and MSBuild assemblies. Dependency assemblies stay out, including
+/// when a deterministic build records their sources under <c>/_/</c>.
 /// </summary>
 public sealed record RunfileCoverageOptions
 {
@@ -100,8 +101,9 @@ public sealed record RunfileCoverageOptions
   /// Module-path regexes excluded unless <see cref="ModuleFilter"/> replaces them.
   /// Each pattern matches the assembly file name, not a parent directory.
   /// The patterns drop test assemblies, Jaribu, and MSBuild nodes.
-  /// The settings file also limits sources to the consuming repository.
-  /// <see cref="ModuleFilter"/> does not remove that source rule.
+  /// The settings file also limits modules to this repository's projects and
+  /// sources to that repository or the deterministic <c>/_/</c> prefix.
+  /// <see cref="ModuleFilter"/> does not remove that rule.
   /// </summary>
   public static IReadOnlyList<string> DefaultModuleExcludes { get; } =
   [

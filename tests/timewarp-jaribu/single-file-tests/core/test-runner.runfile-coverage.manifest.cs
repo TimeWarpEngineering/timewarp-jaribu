@@ -1,5 +1,7 @@
 #region Purpose
-// Proves local dotnet-coverage manifests are found and used as the relaunch directory.
+// Proves local dotnet-coverage manifests are found. The relaunch keeps the
+// working directory when that walk finds the manifest, and uses the manifest
+// directory only for the entry-point fallback.
 #endregion
 
 #region Design
@@ -19,7 +21,7 @@ public partial class RunfileCoverage_Given_
       TimeWarp.Amuru.CommandOutput output = await RunManifestProbeAsync(workspace, workspace.OutsideDirectory);
 
       output.ExitCode.ShouldBe(0, output.Combined);
-      AssertManifestCommand(workspace);
+      AssertManifestCommand(workspace, workspace.RepoDirectory);
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
@@ -29,7 +31,7 @@ public partial class RunfileCoverage_Given_
       TimeWarp.Amuru.CommandOutput output = await RunManifestProbeAsync(workspace, workspace.RepoDirectory);
 
       output.ExitCode.ShouldBe(0, output.Combined);
-      AssertManifestCommand(workspace);
+      AssertManifestCommand(workspace, workspace.RepoDirectory);
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
@@ -43,7 +45,7 @@ public partial class RunfileCoverage_Given_
       TimeWarp.Amuru.CommandOutput output = await RunManifestProbeAsync(workspace, workspace.NestedDirectory);
 
       output.ExitCode.ShouldBe(0, output.Combined);
-      AssertManifestCommand(workspace);
+      AssertManifestCommand(workspace, workspace.NestedDirectory);
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
@@ -90,11 +92,11 @@ public partial class RunfileCoverage_Given_
         .CaptureAsync();
     }
 
-    private static void AssertManifestCommand(ManifestWorkspace workspace)
+    private static void AssertManifestCommand(ManifestWorkspace workspace, string workingDirectory)
     {
       string[] lines = File.ReadAllLines(workspace.LogPath);
       lines.ShouldContain("ACTIVE=1");
-      lines.ShouldContain("PWD=" + workspace.RepoDirectory);
+      lines.ShouldContain("PWD=" + workingDirectory);
       string settingsPath = Path.Combine(workspace.ResultsDirectory, RunfileCoverageOptions.SettingsFileName);
       string outputPath = Path.Combine(workspace.ResultsDirectory, RunfileCoverageOptions.CoberturaFileName);
       AssertCommand(
