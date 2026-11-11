@@ -11,9 +11,11 @@ using TimeWarp.Terminal;
 #region Design
 // macOS arm64 and Linux arm do not support dynamic instrumentation. The collect
 // then reports "Profiler was not initialized" and the Cobertura file has no
-// classes. Static instrumentation rewrites the built dlls, and --no-build runs
-// those files. JARIBU_COVERAGE_STATIC forces either path. The temp build is
-// deleted after the child exits. A later child `dotnet run` is not in that build.
+// classes. A file-based runner is built into a temp artifacts directory, and
+// --no-build runs that output. A compiled host has already loaded its output,
+// so that directory is copied and the copy is what gets instrumented and
+// relaunched. JARIBU_COVERAGE_STATIC forces either path. The owned directory
+// is deleted after the child exits. A later child `dotnet run` is not in that build.
 #endregion
 
 internal static partial class RunfileCoverage
@@ -21,7 +23,9 @@ internal static partial class RunfileCoverage
   private readonly record struct StaticLaunch(
     string? OwnedArtifactsPath,
     IReadOnlyList<string> IncludeFiles,
-    IReadOnlyList<string> RunnerOptions);
+    IReadOnlyList<string> RunnerOptions,
+    string? RunnerFile = null,
+    string? RunnerArgument = null);
 
   private static bool RequiresStaticInstrumentation()
   {
@@ -47,7 +51,7 @@ internal static partial class RunfileCoverage
     return RuntimeInformation.OSArchitecture is Architecture.Arm64 or Architecture.Arm;
   }
 
-  private static async Task<StaticLaunch?> PrepareStaticLaunchAsync(
+  private static Task<StaticLaunch?> PrepareStaticLaunch(
     string runnerFile,
     string? runnerArgument,
     string sourceRoot,
@@ -59,38 +63,138 @@ internal static partial class RunfileCoverage
     string target = string.IsNullOrWhiteSpace(runnerArgument) ? runnerFile : runnerArgument;
     if (target.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
     {
-      return await BuildFileBasedLaunchAsync(
+      return BuildFileBasedLaunchAsync(
         target,
         sourceRoot,
         entryPointFile,
         workingDirectory,
         terminal,
-        cancellationToken).ConfigureAwait(false);
+        cancellationToken);
     }
 
-    string? outputDirectory = Path.GetDirectoryName(Path.GetFullPath(target));
-    if (string.IsNullOrWhiteSpace(outputDirectory))
+    return CopyLoadedHostLaunchAsync(
+      runnerFile,
+      runnerArgument,
+      target,
+      sourceRoot,
+      entryPointFile,
+      terminal,
+      cancellationToken);
+  }
+
+  private static async Task<StaticLaunch?> CopyLoadedHostLaunchAsync(
+    string runnerFile,
+    string? runnerArgument,
+    string target,
+    string sourceRoot,
+    string? entryPointFile,
+    ITerminal? terminal,
+    CancellationToken cancellationToken)
+  {
+    string fullTarget = Path.GetFullPath(target);
+    string? outputDirectory = Path.GetDirectoryName(fullTarget);
+    if (string.IsNullOrWhiteSpace(outputDirectory) || !Directory.Exists(outputDirectory))
     {
       await WriteErrorAsync(
         terminal,
-        "Runfile coverage cannot statically instrument '" + target + "' because it has no directory.",
+        "Runfile coverage cannot statically instrument '" + target + "' because it has no output directory.",
         cancellationToken).ConfigureAwait(false);
       return null;
     }
 
-    List<string> includeFiles = FindBuiltAssemblies(
-      outputDirectory,
-      IncludedAssemblyNames(sourceRoot, entryPointFile));
-    if (includeFiles.Count == 0)
+    // The parent has already loaded this output. Instrumentation rewrites files
+    // in place, which aborts that process after the child exits.
+    string ownedDirectory = Path.GetFullPath(Path.Combine(
+      Path.GetTempPath(),
+      "jaribu-runfile-coverage",
+      Guid.NewGuid().ToString("N")));
+    try
     {
-      await WriteErrorAsync(
-        terminal,
-        "Runfile coverage found no product assemblies to instrument in '" + outputDirectory + "'.",
-        cancellationToken).ConfigureAwait(false);
-      return null;
+      try
+      {
+        CopyDirectory(outputDirectory, ownedDirectory);
+      }
+      catch (IOException exception)
+      {
+        return await FailOwnedLaunchAsync(
+          ownedDirectory,
+          terminal,
+          "Runfile coverage could not copy '" + outputDirectory + "' for static instrumentation."
+            + Environment.NewLine
+            + exception.Message,
+          cancellationToken).ConfigureAwait(false);
+      }
+      catch (UnauthorizedAccessException exception)
+      {
+        return await FailOwnedLaunchAsync(
+          ownedDirectory,
+          terminal,
+          "Runfile coverage could not copy '" + outputDirectory + "' for static instrumentation."
+            + Environment.NewLine
+            + exception.Message,
+          cancellationToken).ConfigureAwait(false);
+      }
+
+      string copiedTarget = Path.GetFullPath(Path.Combine(ownedDirectory, Path.GetFileName(fullTarget)));
+      if (!File.Exists(copiedTarget))
+      {
+        return await FailOwnedLaunchAsync(
+          ownedDirectory,
+          terminal,
+          "Runfile coverage copied '" + outputDirectory + "' but '" + copiedTarget + "' is missing.",
+          cancellationToken).ConfigureAwait(false);
+      }
+
+      List<string> includeFiles = FindBuiltAssemblies(
+        ownedDirectory,
+        IncludedAssemblyNames(sourceRoot, entryPointFile));
+      if (includeFiles.Count == 0)
+      {
+        return await FailOwnedLaunchAsync(
+          ownedDirectory,
+          terminal,
+          "Runfile coverage found no product assemblies to instrument in '" + ownedDirectory + "'.",
+          cancellationToken).ConfigureAwait(false);
+      }
+
+      bool apphost = string.IsNullOrWhiteSpace(runnerArgument);
+      return new StaticLaunch(
+        ownedDirectory,
+        includeFiles,
+        [],
+        apphost ? copiedTarget : runnerFile,
+        apphost ? null : copiedTarget);
+    }
+    catch
+    {
+      DeleteOwnedArtifacts(ownedDirectory);
+      throw;
+    }
+  }
+
+  private static async Task<StaticLaunch?> FailOwnedLaunchAsync(
+    string ownedDirectory,
+    ITerminal? terminal,
+    string message,
+    CancellationToken cancellationToken)
+  {
+    DeleteOwnedArtifacts(ownedDirectory);
+    await WriteErrorAsync(terminal, message, cancellationToken).ConfigureAwait(false);
+    return null;
+  }
+
+  private static void CopyDirectory(string source, string destination)
+  {
+    Directory.CreateDirectory(destination);
+    foreach (string file in Directory.EnumerateFiles(source))
+    {
+      File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
     }
 
-    return new StaticLaunch(null, includeFiles, []);
+    foreach (string directory in Directory.EnumerateDirectories(source))
+    {
+      CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+    }
   }
 
   private static async Task<StaticLaunch?> BuildFileBasedLaunchAsync(

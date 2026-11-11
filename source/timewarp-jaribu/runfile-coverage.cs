@@ -21,8 +21,9 @@ using TimeWarp.Terminal;
 // A manifest found from the working directory keeps that directory. The
 // entry-point fallback uses the manifest directory. A dotnet muxer host keeps
 // argv[0] (the dll) on the command. A report with no classes fails the run.
-// macOS arm64 and Linux arm have no dynamic profiler. Those runs build the
-// runner, instrument that output on disk, and relaunch with --no-build.
+// macOS arm64 and Linux arm have no dynamic profiler. A file-based runner is
+// built and relaunched with --no-build. A compiled host is copied first so
+// instrumentation does not rewrite assemblies this process has loaded.
 #endregion
 
 /// <summary>
@@ -116,7 +117,7 @@ internal static partial class RunfileCoverage
       IReadOnlyList<string> runnerOptions = [];
       if (staticInstrumentation)
       {
-        StaticLaunch? prepared = await PrepareStaticLaunchAsync(
+        StaticLaunch? prepared = await PrepareStaticLaunch(
           runnerFile,
           runnerArgument,
           sourceRoot,
@@ -132,6 +133,11 @@ internal static partial class RunfileCoverage
         ownedArtifacts = prepared.Value.OwnedArtifactsPath;
         includeFiles = prepared.Value.IncludeFiles;
         runnerOptions = prepared.Value.RunnerOptions;
+        if (!string.IsNullOrWhiteSpace(prepared.Value.RunnerFile))
+        {
+          runnerFile = prepared.Value.RunnerFile;
+          runnerArgument = prepared.Value.RunnerArgument;
+        }
       }
 
       WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot, entryPoint, staticInstrumentation);

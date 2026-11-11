@@ -438,7 +438,11 @@ public partial class RunfileCoverage_Given_
       throw new InvalidOperationException("dotnet was not found on PATH.");
     }
 
-    private static TimeWarp.Amuru.ShellBuilder IsolateCoverage(TimeWarp.Amuru.ShellBuilder builder, ProbeRun run, string? toolPath)
+    private static TimeWarp.Amuru.ShellBuilder IsolateCoverage(
+      TimeWarp.Amuru.ShellBuilder builder,
+      ProbeRun run,
+      string? toolPath,
+      bool staticInstrumentation = false)
     {
       return builder
         .WithEnvironmentVariable(
@@ -453,7 +457,9 @@ public partial class RunfileCoverage_Given_
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
-        .WithEnvironmentVariable(RunfileCoverageOptions.StaticVariableName, "0")
+        .WithEnvironmentVariable(
+          RunfileCoverageOptions.StaticVariableName,
+          staticInstrumentation ? "1" : "0")
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3));
     }
