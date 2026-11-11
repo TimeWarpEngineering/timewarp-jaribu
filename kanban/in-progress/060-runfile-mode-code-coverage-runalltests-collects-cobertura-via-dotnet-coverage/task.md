@@ -78,6 +78,10 @@ Round 2 (effort 3, `general`, delta `5b830e0..0bc004c`) found M1–M7 fixed and 
 
 This fix pass implements M8 and M9. Round 3 is the host review node.
 
+Round 3 ran at effort 2 with one `general` reviewer on delta `0bc004c..25129b4`. It found M8 and M9 fixed and no new issues. The coverage test file passed 13 of 13. `./bin/dev test` exited 0 with 217 passed on the runfile leg and 217 on the MTP leg. The runfile Cobertura file has line-rate 0.73 and only the packages `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`, with every source under this worktree. `ganda repo audit` fails only `kanban-landed`.
+
+**Review disposition: clean.** 3 rounds and 9 findings: 5 bugs, 2 suggestions, and 2 nits. All are fixed, none is wontfix, and 0 are open. Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`. One residual risk is not a finding. A repo that sets `AssemblyName` outside its `.csproj`, or as an MSBuild expression, falls back to the project file name. Its product is then missing from the module include, and the run most likely fails through the empty-report check instead of passing silently.
+
 ## Goal (implementer restatement)
 
 Runfile mode collects a Cobertura report when the runner asks for it. `RunAllTests` opts in through a `RunfileCoverageOptions` argument or `JARIBU_COVERAGE=1`. If this process is not already the coverage child and not already under the coverage profiler, it relaunches itself as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns that child's exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` on the child so the child runs the tests once. The default results directory is `artifacts/coverage`.
@@ -99,6 +103,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Fix pass: implement-fix-2 addressed M1–M7 (manifest file names and isRoot walk, repository source include, active-child test, manifest working directory, muxer dll argument, beta.15 forwarding overload, exact launch arguments). Split the coverage source and tests to clear `source-file-line-cap`. 2026-11-11
 - Review oracle round 2: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Delta `5b830e0..0bc004c`. Outcome: M1–M7 fixed, 2 open (M8, M9), fix pass requested, 2026-11-11
 - Fix pass: implement-fix-3 addressed M8 and M9. A manifest found from the working directory keeps that directory. Project-assembly includes keep deterministic `/_/` product sources and leave dependency assemblies out. An empty report fails the run. 2026-11-11
+- Review oracle round 3: claude-opus-5-5, effort 2, roster general, turn cap 120, session not reported. Delta `0bc004c..25129b4`. Outcome: M8 and M9 fixed, 0 open, disposition clean, 2026-11-11
 
 ## Learnings
 
@@ -110,7 +115,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Fix pass: M1–M7 implemented; round 2 reviews this tree
 - Round 2: Blocked — open M8, M9
 - Fix pass: M8 and M9 implemented; round 3 reviews this tree
-
+- Round 3: Done
 ## Notes
 
 Related: to-do 039 (per-test coverage for tautological-test detection) wants in-runner coverage data;
