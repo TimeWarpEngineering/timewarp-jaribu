@@ -88,6 +88,13 @@ Round 3 ran at effort 2 with one `general` reviewer on delta `0bc004c..25129b4`.
 
 **Review disposition: clean.** 3 rounds and 9 findings: 5 bugs, 2 suggestions, and 2 nits. All are fixed, none is wontfix, and 0 are open. Paths: `review/review-framework.md`, `review/round-3/general.md`, `review/round-3/merged.md`, `review/disposition.md`. One residual risk is not a finding. A repo that sets `AssemblyName` outside its `.csproj`, or as an MSBuild expression, falls back to the project file name. Its product is then missing from the module include, and the run most likely fails through the empty-report check instead of passing silently.
 
+**Review disposition: reopened (round 4).** CI failed after round 3, and the static-instrumentation fix that followed was reviewed in round 4 at effort 3 with one `general` reviewer, on delta `25129b4..2887617`. The `.cs` static path works with the real `dotnet-coverage`. With `JARIBU_COVERAGE_STATIC=1`, the dogfood runner passed 218 and its report holds `timewarp-jaribu` and `timewarp-jaribu-testing-platform` with every source under this worktree. The deterministic `/_/` test passes on the static path. Two findings are open:
+
+- M10 (bug): on the static path, a muxer or apphost host instruments the dlls it has already loaded and aborts with `BadImageFormatException` (exit 134). This is the default on macOS arm64 and Linux arm. Repro: `JARIBU_COVERAGE_STATIC=1 dotnet tests/timewarp-jaribu/coverage-muxer-host/bin/Release/net11.0/coverage-muxer-host.dll <dir>`.
+- M11 (nit): the How-to-validate line says the MTP leg passes 217. Both legs now pass 218.
+
+Gates run in round 4: the coverage test file passed 14 of 14, and also 14 of 14 with static forced. `./bin/dev test` exited 0 with 218 passed on each leg. `ganda repo audit` failed only `kanban-landed`. `gh pr checks 55` reports no checks for `2887617`, so macOS arm64 CI on this delta is unconfirmed. Counts: bug 1 open / 5 fixed, suggestion 0 open / 2 fixed, nit 1 open / 2 fixed. Paths: `review/round-4/general.md`, `review/round-4/merged.md`, `review/disposition.md`.
+
 ## Goal (implementer restatement)
 
 Runfile mode collects a Cobertura report when the runner asks for it. `RunAllTests` opts in through a `RunfileCoverageOptions` argument or `JARIBU_COVERAGE=1`. If this process is not already the coverage child and not already under the coverage profiler, it relaunches itself as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns that child's exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` on the child so the child runs the tests once. The default results directory is `artifacts/coverage`.
@@ -116,6 +123,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - CI fix (PR #55): macOS manifest tests compared PWD=/var/... to the child's /private/var/... (symlinked temp); tests now compare canonical paths, and the deterministic test returns early on macOS where dotnet-coverage 18.12 reports "Profiler was not initialized". Windows manifest tests exited 0x8000809A because the fake dotnet.exe was a symlink whose apphost looked for coverage-tool-fake.dll beside the link; Windows now copies the fake beside dotnet.exe. 2026-11-11
 - Static instrumentation for arm: macOS arm64 and Linux arm build the runner and relaunch with `--no-build` so an empty profiler report does not fail CI. `JARIBU_COVERAGE_STATIC` forces either path. 2026-11-11
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-11T11:47:32Z
+- Review oracle round 4: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Delta `25129b4..2887617`. Outcome: 2 open (M10 bug, M11 nit), fix pass requested, 2026-11-11
 
 ## Learnings
 
@@ -128,6 +136,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Round 2: Blocked — open M8, M9
 - Fix pass: M8 and M9 implemented; round 3 reviews this tree
 - Round 3: Done
+- Round 4: Blocked — open M10, M11
 ## Notes
 
 Related: to-do 039 (per-test coverage for tautological-test detection) wants in-runner coverage data;

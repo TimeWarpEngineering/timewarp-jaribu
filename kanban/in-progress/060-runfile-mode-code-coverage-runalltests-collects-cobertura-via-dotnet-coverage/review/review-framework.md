@@ -2,17 +2,18 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 786
-- Effort: 2
+- Lines changed: 3390
+- Effort: 3
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 120 (--max-turns; cursor uncapped)
+- Turn cap: 200 (--max-turns; cursor uncapped)
 
 ## Scope — task 060
 
 **Date:** 2026-11-11
 **Host task:** kanban/in-progress/060-runfile-mode-code-coverage-runalltests-collects-cobertura-via-dotnet-coverage/
 **Diff scope:** branch `task/060-runfile-mode-code-coverage-runalltests-collects-co` vs merge-base with `master` (commits 4269927, 0fc027d plus kanban lands)
+**Round 4 delta:** `25129b4..2887617` (commits `f39d3c9` test portability, `2887617` static instrumentation for macOS arm64 / Linux arm)
 **Plan / brief:** task.md Requirements and `## Goal (implementer restatement)`: runfile `RunAllTests` relaunch under `dotnet-coverage collect -f cobertura`, env/options opt-in, module filter, missing-tool error, readme, CI runner uses it.
 **Effort:** 3 (roster axes: general)
 **Reviewer roster:** general (review oracle, claude-opus-5-5)
