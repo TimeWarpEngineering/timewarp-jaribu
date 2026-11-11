@@ -339,13 +339,46 @@ namespace TestingPlatformProps_
       return values;
     }
 
-    private static Task<CommandOutput> RunDotNetAsync(string workingDirectory, params string[] arguments)
+    // The MTP runner runs under dotnet-coverage, which exports profiler variables. Child dotnet
+    // processes inherit them and restore hangs on Windows, so the children run without a profiler.
+    // Each call also has a hard timeout so a hang fails fast with the captured output.
+    private static readonly TimeSpan DotNetTimeout = TimeSpan.FromMinutes(5);
+
+    private static async Task<CommandOutput> RunDotNetAsync(string workingDirectory, params string[] arguments)
     {
-      return Shell.Builder("dotnet")
+      using CancellationTokenSource timeout = new(DotNetTimeout);
+      ShellBuilder builder = Shell.Builder("dotnet")
         .WithArguments(arguments)
         .WithWorkingDirectory(workingDirectory)
-        .WithNoValidation()
-        .RunAndCaptureAsync();
+        .WithEnvironmentVariable("CORECLR_ENABLE_PROFILING", "0")
+        .WithEnvironmentVariable("DOTNET_CLI_USE_MSBUILD_SERVER", "0")
+        .WithEnvironmentVariable("UseSharedCompilation", "false")
+        .WithEnvironmentVariable("MSBUILDDISABLENODEREUSE", "1")
+        .WithNoValidation();
+      foreach (string name in new[]
+      {
+        "CORECLR_PROFILER",
+        "CORECLR_PROFILER_PATH",
+        "CORECLR_PROFILER_PATH_32",
+        "CORECLR_PROFILER_PATH_64",
+        "CORECLR_PROFILER_PATH_ARM64",
+        "COR_ENABLE_PROFILING",
+        "COR_PROFILER",
+        "COR_PROFILER_PATH",
+      })
+      {
+        builder = builder.WithEnvironmentVariable(name, string.Empty);
+      }
+
+      try
+      {
+        return await builder.RunAndCaptureAsync(timeout.Token);
+      }
+      catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+      {
+        throw new TimeoutException(
+          $"dotnet {string.Join(' ', arguments)} did not finish within {DotNetTimeout.TotalMinutes} minutes.");
+      }
     }
 
     private static string ApphostName(string name) =>
