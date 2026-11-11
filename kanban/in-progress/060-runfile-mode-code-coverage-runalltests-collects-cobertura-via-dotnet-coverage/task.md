@@ -119,6 +119,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 
 ## Session
 
+- macOS CI: `DeterministicPathMap_Should_KeepTheProductAndOmitDependencies` reported only `/_/cover.cs` (no Calc.cs) on macOS arm64. Not reproducible on Linux with the static path forced (Calc.cs listed, also behind a symlinked TMPDIR). Likeliest cause: dotnet-coverage restricts static instrumentation to exact `--include-files` paths, and macOS temp paths sit behind /var -> /private/var. Fix: owned build and copy directories are now created under the symlink-resolved temp root; the test failure now prints the tool output. 2026-11-11
 - Created: b3be0249-1852-425a-9e90-5a7e56049503 (2026-11-11)
 - Implement oracle: implemented by implementer-cursor (not reported, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 4), Done — 2026-11-11T08:56:07Z
 - Review oracle round 1: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Outcome: 7 open (M1–M7), fix pass requested, 2026-11-11
