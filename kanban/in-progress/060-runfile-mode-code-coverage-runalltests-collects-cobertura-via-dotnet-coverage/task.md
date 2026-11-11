@@ -104,6 +104,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Review oracle round 2: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Delta `5b830e0..0bc004c`. Outcome: M1–M7 fixed, 2 open (M8, M9), fix pass requested, 2026-11-11
 - Fix pass: implement-fix-3 addressed M8 and M9. A manifest found from the working directory keeps that directory. Project-assembly includes keep deterministic `/_/` product sources and leave dependency assemblies out. An empty report fails the run. 2026-11-11
 - Review oracle round 3: claude-opus-5-5, effort 2, roster general, turn cap 120, session not reported. Delta `0bc004c..25129b4`. Outcome: M8 and M9 fixed, 0 open, disposition clean, 2026-11-11
+- Installed ganda changed during this walk: was 52431880 bytes c7bbb61cd011fc4249bc48c66cafc9f933344941eca4d4e2bd3c7da7b9a4cf32; now 52628808 bytes d6bd84c9ac2432acf2849a33cc96cb97e1e7463a7039bbbcbe0b2cbd9db2c6c1
 
 ## Learnings
 
