@@ -67,6 +67,7 @@ Acceptance:
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 10d8e593-28cd-4729-8083-c0608c7d9bf0, max-turns 120, artifacts general.md, merged.md — 2026-11-11T20:16:00Z
 - Review oracle round 2: claude (claude-opus-5-5), roster general, effort 1, turn cap 80. The session id is not exposed in print mode. Outcome: 0 open findings, disposition clean (2026-11-12).
 - Fix pass: removed `tools/dev-cli/Directory.Build.targets` and held TimeWarp.SourceGenerators at 1.0.0-beta.11. Restored the ci-runner `#region Design` note. `ganda repo audit --fix` wrote no product changes (2026-11-12).
+- Installed ganda changed during this walk: was 52954568 bytes 6baff9649cbb7e5496d769807db87e4ca0df0a6d32da07d789a1b2630d5adb90; now 52975336 bytes 40457ae4199bceefe4f936e6f2bfefcc5a836743a1dc91f9a0f29e2f8ea4cd1f
 
 ## Results
 
