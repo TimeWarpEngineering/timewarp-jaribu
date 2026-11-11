@@ -46,7 +46,7 @@ The CI runfile writes `artifacts/coverage/runfile/coverage.cobertura.xml` and om
 
 `./bin/dev test` exited 0 before the assembly-file-name filter change: the CI runner passed 210 and the MTP runner passed 210. After that change the CI runner was run again and passed 210. `artifacts/coverage/runfile/coverage.cobertura.xml` is about 2.6 MB and includes package `timewarp-jaribu`. The coverage file tests passed 6. MTP was rebuilt; it does not use the runfile filter.
 
-`ganda repo audit --fix` wrote the gitignored VS Code window icon settings. The audit then passed: 45 passed, 0 failed, 1 skipped (`self-hosted-runner`). No `[ganda.audit]` severity was turned off.
+`ganda repo audit --fix` wrote the gitignored VS Code window icon settings. The first commit's attest then failed `runfile-executable` on the two new shebang files. Those files are now executable. A full `ganda repo audit` still reports `kanban-landed` because this claim kitchen is not on master. Task-worktree attest skips that check. No `[ganda.audit]` severity was turned off.
 
 `1.0.0-beta.16` is the version in source and is not on nuget.org (the feed stops at `1.0.0-beta.15`). Publishing that prerelease is the release cut from master after this branch merges. This walk does not publish it.
 
