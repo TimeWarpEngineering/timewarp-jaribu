@@ -22,6 +22,10 @@
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.failure.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.concurrency.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.launch.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.manifest.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.deterministic.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.static.cs" />
   </ItemGroup>
 
   <ItemGroup>

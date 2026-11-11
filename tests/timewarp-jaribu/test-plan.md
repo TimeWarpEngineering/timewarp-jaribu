@@ -6,11 +6,13 @@ This suite checks `TestRunner`, the sinks, and the pieces of the Microsoft.Testi
 
 | Path | What it holds |
 |------|----------------|
-| `tests/timewarp-jaribu/single-file-tests/core/` | Discovery, tags, filter parity, skip, `[Input]`, edges, hooks, session fixtures, cancellation, timeouts, and runner guards |
+| `tests/timewarp-jaribu/single-file-tests/core/` | Discovery, tags, filter parity, skip, `[Input]`, edges, hooks, session fixtures, cancellation, timeouts, runner guards, and runfile coverage relaunch, including a deterministic `/_/` path map |
 | `tests/timewarp-jaribu/single-file-tests/api/` | Structured `TestRunStats` and multi-class registration |
 | `tests/timewarp-jaribu/single-file-tests/output/` | `TerminalSink` tables and reporting |
 | `tests/timewarp-jaribu/single-file-tests/mtp/` | MTP node identity and the packed-props transitive consumer |
 | `tests/timewarp-jaribu/multi-file-runners/` | `run-tests.cs`, `ci-runner/`, and `mtp-runner/` |
+| `tests/timewarp-jaribu/coverage-tool-fake/` | Stand-in for `dotnet-coverage` used by the runfile coverage tests |
+| `tests/timewarp-jaribu/coverage-muxer-host/` | `dotnet app.dll` host that proves the relaunch keeps the entry assembly |
 | `tests/timewarp-jaribu-mtp-validation/` | Samples with intentional failures for an out-of-process adapter check. `./bin/dev test` does not run this project |
 
 `tests/timewarp-jaribu/multi-file-runners/ci-safe-tests.props` is the compile set shared by the CI runner, the MTP runner, and `run-tests.cs`.

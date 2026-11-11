@@ -244,6 +244,69 @@ Jaribu uses this pattern for its own test suite:
 - `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI-safe runfile. `./bin/dev test` runs this and the MTP project below
 - `tests/timewarp-jaribu/multi-file-runners/mtp-runner/` — the same CI-safe compile set under `dotnet test`
 
+### Code coverage
+
+Runfile mode writes a Cobertura report when coverage is requested. Pass a `RunfileCoverageOptions` argument to `RunAllTests`, or set `JARIBU_COVERAGE=1` and call `RunAllTests()` with no coverage argument.
+
+```csharp
+return await RunAllTests(
+  coverage: new RunfileCoverageOptions
+  {
+    ResultsDirectory = "artifacts/coverage"
+  });
+```
+
+```bash
+JARIBU_COVERAGE=1 dotnet run tests/run-ci-tests.cs
+```
+
+When this process is not already the coverage child, Jaribu relaunches it:
+
+```bash
+dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …
+```
+
+The default results directory is `artifacts/coverage`. Override it with `RunfileCoverageOptions.ResultsDirectory` or, for the environment opt-in, `JARIBU_COVERAGE_RESULTS`. The relaunch sets `JARIBU_COVERAGE_ACTIVE=1` on the child, returns that child's exit code, and does not run tests in the parent. Child processes stay in the collection, so a standalone per-file `dotnet run` started by a test is included.
+
+macOS on arm64, and Linux on arm, have no dynamic profiler. `dotnet-coverage` reports `Profiler was not initialized` there and the Cobertura file has no classes. For a file-based runner, Jaribu builds it, instruments that build's product and runner assemblies on disk, and relaunches `dotnet <runner> --artifacts-path <dir> --no-build`. A compiled host (`dotnet app.dll` or an apphost) is copied to a temp directory first. Instrumentation rewrites the copy, and the relaunch runs that copy, so the assemblies the parent has already loaded stay unchanged. A `dotnet run` of a different file started later is not in that build, so it is not in the report on those machines. Windows, including Windows arm64, and Linux x64 keep the profiler and still cover those children. `JARIBU_COVERAGE_STATIC=1` forces the static build. `JARIBU_COVERAGE_STATIC=0` keeps the profiler.
+
+The report includes the consuming repository's project assemblies and the runner assembly. Sources match the git root of the runner file (or the working directory when that file has no git root) and the deterministic `/_/` prefix a CI build writes into the PDB (`ContinuousIntegrationBuild` / `DeterministicSourcePaths`). Assemblies that are not those projects stay out, so CliWrap, TimeWarp.Amuru, and TimeWarp.Builder are not part of the default line rate even when their PDBs use the same `/_/` prefix. A report that contains no classes fails the run. The default module filter also excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild` (including `Microsoft.Build`). A directory named `tests` does not match, so a product dll that sits beside a runfile stays in the report. Replace those assembly exclusions with semicolon-separated module-path regexes on `RunfileCoverageOptions.ModuleFilter` or `JARIBU_COVERAGE_MODULE_FILTER`. That override does not remove the project include or the source rule. `JARIBU_COVERAGE_TOOL` pins the `dotnet-coverage` executable when it is not on `PATH`. `JARIBU_COVERAGE_USER_TOOLS` replaces the `~/.dotnet/tools` directory checked before a local manifest.
+
+A missing `dotnet-coverage` fails the run. Install it with either of these:
+
+```bash
+dotnet tool install -g dotnet-coverage
+```
+
+```bash
+dotnet new tool-manifest
+dotnet tool install dotnet-coverage
+```
+
+`dotnet new tool-manifest` writes `dotnet-tools.json` in the current directory. A manifest at `.config/dotnet-tools.json` is also accepted. The search walks parent directories until a manifest whose `isRoot` is true. A manifest found by walking up from the working directory leaves that directory unchanged. When the manifest is found from the runner file and the working directory is outside that tree, the relaunch uses the manifest's directory so `dotnet tool run` can see it. The coverage output, the settings file, and the runner path are absolute.
+
+`RunAllTests(string?, bool, bool, ITerminal?, CancellationToken)` is the 1.0.0-beta.15 signature. It forwards to the overload that accepts `RunfileCoverageOptions`. A host started as `dotnet app.dll` relaunches `dotnet app.dll` plus the original arguments.
+
+Upload the report from GitHub Actions. `path: artifacts/coverage` includes the default file and any subdirectory a runner uses for a second report:
+
+```yaml
+- name: coverage
+  if: success()
+  uses: actions/upload-artifact@v7
+  with:
+    name: coverage
+    path: artifacts/coverage
+    if-no-files-found: warn
+```
+
+M.T.P. mode collects Cobertura through `dotnet test` when the test project references `Microsoft.Testing.Extensions.CodeCoverage`:
+
+```bash
+dotnet test --results-directory artifacts/coverage --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+```
+
+The same upload step publishes that directory.
+
 ---
 
 ## M.T.P. Mode

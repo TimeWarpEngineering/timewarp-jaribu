@@ -61,6 +61,9 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '**/*.props') }}
           restore-keys: ${{ runner.os }}-nuget-
 
+      - name: Install dotnet-coverage
+        run: dotnet tool install --global dotnet-coverage
+
       - name: Run CI pipeline
         run: dotnet run tools/dev-cli/dev.cs -- workflow
 
