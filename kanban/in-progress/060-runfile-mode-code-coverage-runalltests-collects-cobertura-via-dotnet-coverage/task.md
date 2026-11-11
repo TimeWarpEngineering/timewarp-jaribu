@@ -99,6 +99,8 @@ This fix pass implements M10 and M11. A compiled host is copied to an owned temp
 
 `dotnet tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` exited 0 with 16 passed, including the fake-tool muxer copy and the real-tool muxer collect. `./bin/dev test` exited 0: the runfile leg passed 220 and the MTP leg passed 220. The runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`, with line-rate 0.69. `ganda repo audit` passes every check, including `kanban-landed`, after the kitchen land. No `[ganda.audit]` severity was turned off. Round 5 is the host review node.
 
+**Review disposition: clean (round 5).** Round 5 ran at effort 2 with one `general` reviewer on delta `1f07853..a47e06d` (product commit `685ccad`). M10 and M11 are fixed. With the real `dotnet-coverage` and `JARIBU_COVERAGE_STATIC=1`, both `dotnet coverage-muxer-host.dll <dir>` (exit 134 in round 4) and the apphost form exit 0, the report has a class, the loaded dlls' SHA-256 hashes are unchanged, and the temp copy is removed. Gates run in round 5: the coverage test file passed 16 of 16. `./bin/dev test` exited 0 with 220 passed on the runfile leg and 220 on the MTP leg, and the runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`. Final counts over 5 rounds: bug 6 fixed, suggestion 2 fixed, nit 3 fixed, 0 wontfix, 0 open. Residual risks, not findings: a compiled host's static-path child has `AppContext.BaseDirectory` in the temp copy, outside the repository; the apphost branch has no automated test; macOS arm64 CI on this delta was not observed. Paths: `review/review-framework.md`, `review/round-5/general.md`, `review/round-5/merged.md`, `review/disposition.md`.
+
 ## Goal (implementer restatement)
 
 Runfile mode collects a Cobertura report when the runner asks for it. `RunAllTests` opts in through a `RunfileCoverageOptions` argument or `JARIBU_COVERAGE=1`. If this process is not already the coverage child and not already under the coverage profiler, it relaunches itself as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns that child's exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` on the child so the child runs the tests once. The default results directory is `artifacts/coverage`.
@@ -132,6 +134,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Review oracle round 4: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Delta `25129b4..2887617`. Outcome: 2 open (M10 bug, M11 nit), fix pass requested, 2026-11-11
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 42578abb-8064-4dac-b164-c5d961d67e25, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-11T12:01:16Z
 - Fix pass: implement-fix-2 addressed M10 and M11. A compiled host's static relaunch instruments an owned copy of its output. The validation counts are 16 and 220/220. 2026-11-11
+- Review oracle round 5: claude-opus-5-5, effort 2, roster general, turn cap 120, session not reported. Delta `1f07853..a47e06d`. Outcome: M10 and M11 fixed, 0 open, disposition clean, 2026-11-11
 
 ## Learnings
 
@@ -146,6 +149,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Round 3: Done
 - Round 4: Blocked — open M10, M11
 - Fix pass: M10 and M11 implemented; round 5 reviews this tree
+- Round 5: Done
 ## Notes
 
 Related: to-do 039 (per-test coverage for tautological-test detection) wants in-runner coverage data;
