@@ -354,7 +354,15 @@ public partial class RunfileCoverage_Given_
 
       try
       {
-        File.CreateSymbolicLink(link, toolPath);
+        if (OperatingSystem.IsWindows())
+        {
+          // An apphost finds its dll beside the link, not beside the target, so copy.
+          CopyFakeBesideDotnet(toolPath, directory, link);
+        }
+        else
+        {
+          File.CreateSymbolicLink(link, toolPath);
+        }
       }
       catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
       {

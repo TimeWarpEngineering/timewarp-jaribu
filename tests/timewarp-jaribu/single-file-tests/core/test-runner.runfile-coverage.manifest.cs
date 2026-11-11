@@ -96,7 +96,8 @@ public partial class RunfileCoverage_Given_
     {
       string[] lines = File.ReadAllLines(workspace.LogPath);
       lines.ShouldContain("ACTIVE=1");
-      lines.ShouldContain("PWD=" + workingDirectory);
+      string pwdLine = lines.Single(line => line.StartsWith("PWD=", StringComparison.Ordinal));
+      CanonicalPath(pwdLine["PWD=".Length..]).ShouldBe(CanonicalPath(workingDirectory));
       string settingsPath = Path.Combine(workspace.ResultsDirectory, RunfileCoverageOptions.SettingsFileName);
       string outputPath = Path.Combine(workspace.ResultsDirectory, RunfileCoverageOptions.CoberturaFileName);
       AssertCommand(
@@ -116,6 +117,19 @@ public partial class RunfileCoverage_Given_
         "dotnet",
         Path.GetFullPath(workspace.ProbePath),
         workspace.ResultsDirectory);
+    }
+
+    private static string CanonicalPath(string path)
+    {
+      // macOS reports a temp child's working directory as /private/var/..., the
+      // resolved form of the /var/... symlink Path.GetTempPath returns.
+      string full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+      if (OperatingSystem.IsMacOS() && full.StartsWith("/private/", StringComparison.Ordinal))
+      {
+        return full["/private".Length..];
+      }
+
+      return full;
     }
 
     private sealed class ManifestWorkspace : IDisposable
