@@ -13,7 +13,8 @@ WriteLine();
 // uploads artifacts/coverage, which includes this subdirectory.
 // The default module filter excludes Jaribu by assembly file name. This repo's
 // product assembly is Jaribu, so the CI report keeps tests and MSBuild nodes
-// out and leaves timewarp-jaribu.dll in the report.
+// out and leaves timewarp-jaribu.dll in the report. The repository source rule
+// still drops SourceLink dependencies such as CliWrap, Amuru, and Builder.
 return await RunAllTests(
   coverage: new RunfileCoverageOptions
   {

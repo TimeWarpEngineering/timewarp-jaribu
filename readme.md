@@ -268,7 +268,7 @@ dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- 
 
 The default results directory is `artifacts/coverage`. Override it with `RunfileCoverageOptions.ResultsDirectory` or, for the environment opt-in, `JARIBU_COVERAGE_RESULTS`. The relaunch sets `JARIBU_COVERAGE_ACTIVE=1` on the child, returns that child's exit code, and does not run tests in the parent. Child processes stay in the collection, so a standalone per-file `dotnet run` started by a test is included.
 
-The default module filter excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild` (including `Microsoft.Build`). A directory named `tests` does not match, so a product dll that sits beside a runfile stays in the report. Replace that exclusion list with semicolon-separated module-path regexes on `RunfileCoverageOptions.ModuleFilter` or `JARIBU_COVERAGE_MODULE_FILTER`. `JARIBU_COVERAGE_TOOL` pins the `dotnet-coverage` executable when it is not on `PATH`.
+The report includes sources under the consuming repository: the git root of the runner file, or the working directory when that file has no git root. SourceLink paths such as `/_/…` and sources from other checkouts stay out, so packages such as CliWrap, TimeWarp.Amuru, and TimeWarp.Builder are not part of the default line rate. The default module filter also excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild` (including `Microsoft.Build`). A directory named `tests` does not match, so a product dll that sits beside a runfile stays in the report. Replace those assembly exclusions with semicolon-separated module-path regexes on `RunfileCoverageOptions.ModuleFilter` or `JARIBU_COVERAGE_MODULE_FILTER`. That override does not remove the repository source rule. `JARIBU_COVERAGE_TOOL` pins the `dotnet-coverage` executable when it is not on `PATH`. `JARIBU_COVERAGE_USER_TOOLS` replaces the `~/.dotnet/tools` directory checked before a local manifest.
 
 A missing `dotnet-coverage` fails the run. Install it with either of these:
 
@@ -280,6 +280,10 @@ dotnet tool install -g dotnet-coverage
 dotnet new tool-manifest
 dotnet tool install dotnet-coverage
 ```
+
+`dotnet new tool-manifest` writes `dotnet-tools.json` in the current directory. A manifest at `.config/dotnet-tools.json` is also accepted. The search walks parent directories until a manifest whose `isRoot` is true. When the manifest is found from the runner file and the working directory is outside that tree, the relaunch uses the manifest's directory so `dotnet tool run` can see it. The coverage output, the settings file, and the runner path are absolute.
+
+`RunAllTests(string?, bool, bool, ITerminal?, CancellationToken)` is the 1.0.0-beta.15 signature. It forwards to the overload that accepts `RunfileCoverageOptions`. A host started as `dotnet app.dll` relaunches `dotnet app.dll` plus the original arguments.
 
 Upload the report from GitHub Actions. `path: artifacts/coverage` includes the default file and any subdirectory a runner uses for a second report:
 

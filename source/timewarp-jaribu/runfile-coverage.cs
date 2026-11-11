@@ -1,7 +1,6 @@
 namespace TimeWarp.Jaribu;
 
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using TimeWarp.Amuru;
 using TimeWarp.Terminal;
 
@@ -16,13 +15,16 @@ using TimeWarp.Terminal;
 // A missing tool is an error that names `dotnet tool install -g dotnet-coverage`.
 // The coverage profiler GUID skips a second wrap when the process is already instrumented.
 // CollectFromChildProcesses stays on, so per-file `dotnet run` children are included.
-// The module filter is a coverage settings file of path regexes.
+// The settings file excludes assembly file names and includes sources under the
+// consuming repository's git root. A local manifest is dotnet-tools.json or
+// .config/dotnet-tools.json. The walk stops at isRoot. dotnet tool run uses that
+// manifest's directory. A dotnet muxer host keeps argv[0] (the dll) on the command.
 #endregion
 
 /// <summary>
 /// Process relaunch that collects Cobertura for a runfile <see cref="TestRunner.RunAllTests"/> call.
 /// </summary>
-internal static class RunfileCoverage
+internal static partial class RunfileCoverage
 {
   internal const string MissingToolMessage =
     "dotnet-coverage was not found. Install it with `dotnet tool install -g dotnet-coverage`, " +
@@ -72,30 +74,38 @@ internal static class RunfileCoverage
       return 1;
     }
 
-    Directory.CreateDirectory(request.ResultsDirectory);
-    string outputPath = Path.Combine(request.ResultsDirectory, RunfileCoverageOptions.CoberturaFileName);
-    string settingsPath = Path.Combine(request.ResultsDirectory, RunfileCoverageOptions.SettingsFileName);
-    WriteSettings(settingsPath, request.ModuleExcludes);
+    string resultsDirectory = Path.GetFullPath(request.ResultsDirectory);
+    Directory.CreateDirectory(resultsDirectory);
+    string outputPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.CoberturaFileName);
+    string settingsPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.SettingsFileName);
+    string sourceRoot = ResolveSourceRoot(entryPoint);
+    WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot);
 
     string runnerFile;
     string? runnerArgument;
     if (!string.IsNullOrWhiteSpace(entryPoint))
     {
       runnerFile = "dotnet";
-      runnerArgument = entryPoint;
+      runnerArgument = Path.GetFullPath(entryPoint);
     }
     else
     {
-      runnerFile = Environment.ProcessPath ?? string.Empty;
-      runnerArgument = null;
+      string processPath = Environment.ProcessPath ?? string.Empty;
+      runnerFile = processPath;
+      runnerArgument = MuxerEntryAssembly(processPath);
+      if (runnerArgument is not null)
+      {
+        runnerArgument = Path.GetFullPath(runnerArgument);
+      }
     }
 
     string[] command = BuildCommand(tool, outputPath, settingsPath, runnerFile, runnerArgument);
+    string workingDirectory = tool.WorkingDirectory ?? Directory.GetCurrentDirectory();
     try
     {
       int exitCode = await Shell.Builder(tool.FileName)
         .WithArguments(command)
-        .WithWorkingDirectory(Directory.GetCurrentDirectory())
+        .WithWorkingDirectory(workingDirectory)
         .WithEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName, "1")
         .WithNoValidation()
         .RunAsync(cancellationToken)
@@ -190,136 +200,6 @@ internal static class RunfileCoverage
     return null;
   }
 
-  private static CoverageTool? LocateTool()
-  {
-    string? configured = Environment.GetEnvironmentVariable(RunfileCoverageOptions.ToolVariableName);
-    if (!string.IsNullOrWhiteSpace(configured))
-    {
-      string? resolved = ResolveConfiguredTool(configured);
-      return resolved is null ? null : new CoverageTool(resolved, []);
-    }
-
-    string? onPath = FindOnPath("dotnet-coverage");
-    if (onPath is not null)
-    {
-      return new CoverageTool(onPath, []);
-    }
-
-    string userTools = Path.Combine(
-      Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-      ".dotnet",
-      "tools");
-    string[] userCandidates = OperatingSystem.IsWindows()
-      ? [Path.Combine(userTools, "dotnet-coverage.exe"), Path.Combine(userTools, "dotnet-coverage")]
-      : [Path.Combine(userTools, "dotnet-coverage")];
-    foreach (string candidate in userCandidates)
-    {
-      if (File.Exists(candidate))
-      {
-        return new CoverageTool(candidate, []);
-      }
-    }
-
-    string? entryPoint = AppContext.GetData("EntryPointFilePath") as string;
-    if (HasLocalCoverageManifest(entryPoint))
-    {
-      return new CoverageTool("dotnet", ["tool", "run", "dotnet-coverage", "--"]);
-    }
-
-    return null;
-  }
-
-  private static string? ResolveConfiguredTool(string configured)
-  {
-    if (configured.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)
-      || configured.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
-      || Path.IsPathRooted(configured))
-    {
-      return File.Exists(configured) ? configured : null;
-    }
-
-    return FindOnPath(configured);
-  }
-
-  private static string? FindOnPath(string name)
-  {
-    string? path = Environment.GetEnvironmentVariable("PATH");
-    if (string.IsNullOrEmpty(path))
-    {
-      return null;
-    }
-
-    string[] extensions = OperatingSystem.IsWindows() ? [".exe", ".cmd", ".bat", ""] : [""];
-    foreach (string directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-    {
-      foreach (string extension in extensions)
-      {
-        string candidate = Path.Combine(directory, name + extension);
-        if (File.Exists(candidate))
-        {
-          return candidate;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  private static bool HasLocalCoverageManifest(string? entryPointFile)
-  {
-    if (ManifestListsCoverage(Directory.GetCurrentDirectory()))
-    {
-      return true;
-    }
-
-    if (string.IsNullOrWhiteSpace(entryPointFile))
-    {
-      return false;
-    }
-
-    string? directory = Path.GetDirectoryName(entryPointFile);
-    if (string.IsNullOrWhiteSpace(directory))
-    {
-      return false;
-    }
-
-    return ManifestListsCoverage(directory);
-  }
-
-  private static bool ManifestListsCoverage(string startDirectory)
-  {
-    DirectoryInfo? directory = new(startDirectory);
-    while (directory is not null)
-    {
-      string manifest = Path.Combine(directory.FullName, ".config", "dotnet-tools.json");
-      if (File.Exists(manifest))
-      {
-        string text = File.ReadAllText(manifest);
-        return text.Contains("\"dotnet-coverage\"", StringComparison.Ordinal);
-      }
-
-      directory = directory.Parent;
-    }
-
-    return false;
-  }
-
-  private static void WriteSettings(string settingsPath, IReadOnlyList<string> excludes)
-  {
-    XElement exclude = new(
-      "Exclude",
-      excludes.Select(pattern => new XElement("ModulePath", pattern)));
-    XDocument document = new(
-      new XDeclaration("1.0", "utf-8", "yes"),
-      new XElement(
-        "Configuration",
-        new XElement(
-          "CodeCoverage",
-          new XElement("CollectFromChildProcesses", "True"),
-          new XElement("ModulePaths", exclude))));
-    document.Save(settingsPath);
-  }
-
   private static string[] BuildCommand(
     CoverageTool tool,
     string outputPath,
@@ -371,6 +251,4 @@ internal static class RunfileCoverage
   }
 
   private readonly record struct CoverageRequest(string ResultsDirectory, IReadOnlyList<string> ModuleExcludes);
-
-  private readonly record struct CoverageTool(string FileName, string[] PrefixArguments);
 }

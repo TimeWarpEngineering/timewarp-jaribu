@@ -3,9 +3,11 @@
 #endregion
 
 #region Design
-// JARIBU_COVERAGE_FAKE_LOG receives the arguments and the settings file.
-// The command after `--` is the runner. A stub Cobertura file is written when
-// that runner does not write one, which is this stand-in rather than dotnet-coverage.
+// JARIBU_COVERAGE_FAKE_LOG receives the arguments, the working directory,
+// JARIBU_COVERAGE_ACTIVE, and the settings file.
+// `dotnet tool run dotnet-coverage -- …` is logged and not executed.
+// Otherwise the command after `--` is the runner. A stub Cobertura file is
+// written when that runner does not write one.
 #endregion
 
 string? logPath = Environment.GetEnvironmentVariable("JARIBU_COVERAGE_FAKE_LOG");
@@ -30,9 +32,12 @@ for (int index = 0; index < args.Length; index++)
   }
 }
 
+string active = Environment.GetEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName) ?? string.Empty;
 File.AppendAllText(
   logPath,
-  "ARGS" + Environment.NewLine
+  "ACTIVE=" + active + Environment.NewLine
+  + "PWD=" + Directory.GetCurrentDirectory() + Environment.NewLine
+  + "ARGS" + Environment.NewLine
   + string.Join(Environment.NewLine, args)
   + Environment.NewLine
   + "SETTINGS"
@@ -41,6 +46,16 @@ File.AppendAllText(
   + Environment.NewLine
   + "END"
   + Environment.NewLine);
+
+bool toolRun = args.Length >= 4
+  && args[0] == "tool"
+  && args[1] == "run"
+  && args[2] == "dotnet-coverage"
+  && args[3] == "--";
+if (toolRun)
+{
+  return 0;
+}
 
 if (separator < 0 || separator + 1 >= args.Length)
 {
@@ -51,6 +66,7 @@ string fileName = args[separator + 1];
 string[] rest = args[(separator + 2)..];
 int exitCode = await Shell.Builder(fileName)
   .WithArguments(rest)
+  .WithEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName, active)
   .WithNoValidation()
   .RunAsync()
   .ConfigureAwait(false);

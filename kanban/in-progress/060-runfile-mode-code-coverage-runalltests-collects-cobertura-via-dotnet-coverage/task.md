@@ -40,13 +40,15 @@ Steve, 2026-11-11: "Jaribu has to support code coverage; if not that is a bug in
 
 ## Results
 
-`RunAllTests` collects Cobertura when the caller passes `RunfileCoverageOptions` or the process has `JARIBU_COVERAGE=1`. The parent relaunches as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns the child exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` so the child runs the tests once. A missing `dotnet-coverage` fails the run and names `dotnet tool install -g dotnet-coverage` (a local tool manifest is the other install). The default results directory is `artifacts/coverage`. The default module filter matches assembly file names that contain `Tests`, `Jaribu`, or `MSBuild`, so a directory named `tests` does not drop a product dll.
+Round 1 findings M1–M7 are implemented on this branch. `RunAllTests` still relaunches under `dotnet-coverage collect -f cobertura` when the caller passes `RunfileCoverageOptions` or the process has `JARIBU_COVERAGE=1`, returns the child exit code, and sets `JARIBU_COVERAGE_ACTIVE=1`.
 
-The CI runfile writes `artifacts/coverage/runfile/coverage.cobertura.xml` and omits the Jaribu file-name exclusion, because this repo's product assembly is Jaribu. The MTP report stays at `artifacts/coverage/coverage.cobertura.xml`. The workflow installs `dotnet-coverage` and already uploads `artifacts/coverage`. The three-OS upload is the host open-pr node.
+The settings file includes sources under the consuming repository's git root and still excludes assembly file names that contain Tests, Jaribu, or MSBuild. Replacing the module filter does not remove that source rule. The CI runfile omits the Jaribu assembly exclusion because this repo's product assembly is Jaribu. After `./bin/dev test`, `artifacts/coverage/runfile/coverage.cobertura.xml` lists packages `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`. CliWrap, timewarp-amuru, and TimeWarp.Builder are absent, and every source path is under this worktree.
 
-`./bin/dev test` exited 0 before the assembly-file-name filter change: the CI runner passed 210 and the MTP runner passed 210. After that change the CI runner was run again and passed 210. `artifacts/coverage/runfile/coverage.cobertura.xml` is about 2.6 MB and includes package `timewarp-jaribu`. The coverage file tests passed 6. MTP was rebuilt; it does not use the runfile filter.
+Local tool lookup accepts `dotnet-tools.json` and `.config/dotnet-tools.json`, keeps walking until `isRoot` is true, and runs `dotnet tool run` with that manifest's directory as the working directory. The coverage output, settings file, and runner path are absolute. A `dotnet app.dll` host keeps the dll on the relaunch. The 1.0.0-beta.15 `RunAllTests(string?, bool, bool, ITerminal?, CancellationToken)` signature remains and forwards to the coverage overload. The launch test asserts the exact argument sequence, and an empty probe-exit value calls `RunAllTests` so a missing active-child guard fails the single-launch assertion.
 
-`ganda repo audit --fix` wrote the gitignored VS Code window icon settings. The first commit's attest then failed `runfile-executable` on the two new shebang files. Those files are now executable. A full `ganda repo audit` still reports `kanban-landed` because this claim kitchen is not on master. Task-worktree attest skips that check. No `[ganda.audit]` severity was turned off.
+`dotnet tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` exited 0 with 11 passed. `./bin/dev test` exited 0: the runfile leg passed 215 and the MTP leg passed 215. MTP still writes `artifacts/coverage/coverage.cobertura.xml`.
+
+`source-file-line-cap` failed after the fix, so tool lookup and settings writing are partial files, and the coverage tests are split into launch and manifest partials. `ganda repo audit` then passes every check except `kanban-landed`, which reports this in-progress kitchen because it is not on master. Task-worktree attest skips that check. No `[ganda.audit]` severity was turned off.
 
 `1.0.0-beta.16` is the version in source and is not on nuget.org (the feed stops at `1.0.0-beta.15`). Publishing that prerelease is the release cut from master after this branch merges. This walk does not publish it.
 
@@ -55,27 +57,47 @@ The CI runfile writes `artifacts/coverage/runfile/coverage.cobertura.xml` and om
 Smoke:
 
 - `dotnet tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs`
-- `dotnet tests/timewarp-jaribu/multi-file-runners/ci-runner/run-ci-tests.cs`
 - `./bin/dev test`
 - `ganda repo audit`
 
 Expect:
 
-- The coverage file exits 0 with 6 passed. A missing tool prints `dotnet tool install -g dotnet-coverage` and exits 1. The relaunch log contains `collect`, `-f`, `cobertura`, and one `ARGS` record.
-- The CI runner exits 0 with 210 passed and writes `artifacts/coverage/runfile/coverage.cobertura.xml`. The report includes package `timewarp-jaribu` and is not an empty `<packages />`.
-- `./bin/dev test` exits 0. The runfile leg is 210 passed and the MTP leg is 210 passed. MTP still writes `artifacts/coverage/coverage.cobertura.xml`.
-- `ganda repo audit` exits 0 with no new `[ganda.audit]` severity keys.
+- The coverage file exits 0 with 11 passed. The default source pattern matches a file under this repo and does not match `/_/CliWrap/Cli.cs`, `/_/source/timewarp-amuru/…`, or `/home/runner/work/timewarp-builder/…`. A `./dotnet-tools.json` manifest found from the runner file, with the working directory outside that tree, relaunches from the manifest directory. A root manifest that does not list the tool prints `dotnet tool install -g dotnet-coverage` and exits 1. The muxer command is `collect -f cobertura -o <path> -s <path> -- <dotnet> <dll> <results>`.
+- `./bin/dev test` exits 0. The runfile leg is 215 passed and the MTP leg is 215 passed. The runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`.
+- `ganda repo audit` reports `kanban-landed` for this in-progress kitchen and passes every other check. No new `[ganda.audit]` severity keys.
+
+### Review
+
+Round 1 ran at effort 3 with one `general` reviewer and left M1–M7 open. This fix pass implements them. Round 2 is the host review node. Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`. `review/disposition.md` is not written yet.
 
 ## Goal (implementer restatement)
 
-Runfile mode can collect a Cobertura report when the runner asks for it. `RunAllTests` opts in through a `RunfileCoverageOptions` argument or `JARIBU_COVERAGE=1`. If this process is not already the coverage child and not already under the coverage profiler, it relaunches itself as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns that child's exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` on the child so the child runs the tests once. The default results directory is `artifacts/coverage`. The default module filter drops paths matching Tests, Jaribu, and MSBuild nodes, and a runner can replace that list. A missing `dotnet-coverage` tool fails the run and names `dotnet tool install -g dotnet-coverage` (a local tool manifest is the other install path). The readme documents this beside M.T.P. coverage, including an `actions/upload-artifact` step whose path is `artifacts/coverage`. Jaribu's CI runfile runner turns the mode on and writes its report under that uploaded directory.
+Runfile mode collects a Cobertura report when the runner asks for it. `RunAllTests` opts in through a `RunfileCoverageOptions` argument or `JARIBU_COVERAGE=1`. If this process is not already the coverage child and not already under the coverage profiler, it relaunches itself as `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …`, returns that child's exit code, and sets `JARIBU_COVERAGE_ACTIVE=1` on the child so the child runs the tests once. The default results directory is `artifacts/coverage`.
 
-Acceptance: the relaunch, the filter and results-directory overrides, and the missing-tool error are covered by tests; the readme shows the runfile workflow; `./bin/dev test` produces the runfile Cobertura file and still passes; `ganda repo audit` passes. Publishing the prerelease is the release cut after this branch merges, not this walk.
+The default report is the consuming repository's product. The settings file includes sources under that repo's git root (the entry-point file's repo, otherwise the working directory) and excludes assembly file names that contain Tests, Jaribu, or MSBuild. SourceLink `/_/` paths and other checkouts stay out, so Jaribu's dependency closure (CliWrap, TimeWarp.Amuru, TimeWarp.Builder) is not in a consumer's default line rate. A runner can replace the assembly-name excludes. The repository source rule stays.
+
+A missing `dotnet-coverage` fails the run and names `dotnet tool install -g dotnet-coverage`. A local manifest is the other install. The lookup accepts both `dotnet-tools.json` (what `dotnet new tool-manifest` writes) and `.config/dotnet-tools.json`, and it keeps walking parent directories until a manifest with `isRoot` true. When the manifest is found from the runner file and the working directory is outside that tree, the relaunch uses the manifest directory and absolute output, settings, and runner paths. A `dotnet app.dll` host keeps the dll on the relaunch command. The 1.0.0-beta.15 `RunAllTests` signature remains as a forwarding overload.
+
+The readme documents this beside M.T.P. coverage, including an `actions/upload-artifact` step whose path is `artifacts/coverage`. Jaribu's CI runfile runner turns the mode on and writes its report under that uploaded directory.
+
+Acceptance: the relaunch, the repository source rule, the filter and results-directory overrides, both manifest layouts, the manifest working directory, the muxer dll argument, the active-child guard, and the missing-tool error are covered by tests; the readme shows the runfile workflow; `./bin/dev test` produces a runfile Cobertura file that includes this repo's product and omits the dependency closure; `ganda repo audit` passes. Publishing the prerelease is the release cut after this branch merges, not this walk.
 
 ## Session
 
 - Created: b3be0249-1852-425a-9e90-5a7e56049503 (2026-11-11)
 - Implement oracle: implemented by implementer-cursor (not reported, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 4), Done — 2026-11-11T08:56:07Z
+- Review oracle round 1: claude-opus-5-5, effort 3, roster general, turn cap 200, session not reported. Outcome: 7 open (M1–M7), fix pass requested, 2026-11-11
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session be74ca49-c1b1-42f5-a3e5-d82827f71b58, max-turns 200, artifacts general.md, merged.md — 2026-11-11T09:00:14Z
+- Fix pass: implement-fix-2 addressed M1–M7 (manifest file names and isRoot walk, repository source include, active-child test, manifest working directory, muxer dll argument, beta.15 forwarding overload, exact launch arguments). Split the coverage source and tests to clear `source-file-line-cap`. 2026-11-11
+
+## Learnings
+
+- Misread (narrowing): the task says the module filter "defaults to the consuming repo's product assemblies (exclude *Tests*, Jaribu, MSBuild nodes)". The implementer restatement dropped the first clause and kept only "drops paths matching Tests, Jaribu, and MSBuild nodes". The implementation followed the restatement. That is how review finding M2 happened: Jaribu's dependencies (Amuru, CliWrap, TimeWarp.Builder) stay in consumer reports.
+
+## Review
+
+- Round 1: Blocked — open M1, M2, M3, M4, M5, M6, M7
+- Fix pass: M1–M7 implemented; round 2 reviews this tree
 
 ## Notes
 

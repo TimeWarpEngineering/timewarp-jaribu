@@ -1,5 +1,7 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
+#:include test-runner.runfile-coverage.launch.cs
+#:include test-runner.runfile-coverage.manifest.cs
 
 #region Purpose
 // Proves RunAllTests relaunches under dotnet-coverage and fails clearly when the tool is missing.
@@ -11,6 +13,8 @@
 // which records the command and runs the runner after `--`.
 // The suite process may already be instrumented; the probe launch clears that marker
 // and the coverage profiler variables.
+// Manifest tests hide PATH and ~/.dotnet/tools, then point `dotnet` at the same fake.
+// coverage-muxer-host is a dll launched by the dotnet muxer.
 #endregion
 
 #if !JARIBU_MULTI
@@ -19,16 +23,23 @@ return await RunAllTests();
 
 namespace TestRunner_
 {
+  using System.Globalization;
+  using System.Text.RegularExpressions;
+  using System.Xml.Linq;
   using TimeWarp.Amuru;
 
   [TestTag("Jaribu")]
-  public class RunfileCoverage_Given_
+  public partial class RunfileCoverage_Given_
   {
     private const int ProbeTimeoutMilliseconds = 180_000;
 
     private static readonly SemaphoreSlim BuildGate = new(1, 1);
 
     private static string? FakeToolPath;
+
+    private static string? FakeDotnetDirectory;
+
+    private static string? MuxerHostPath;
 
     [ModuleInitializer]
     internal static void Register() => RegisterTests<RunfileCoverage_Given_>();
@@ -73,23 +84,32 @@ namespace TestRunner_
 
       output.ExitCode.ShouldBe(0);
       AssertOneLaunch(run);
-      string settings = File.ReadAllText(Path.Combine(run.Directory, RunfileCoverageOptions.SettingsFileName));
+      AssertActiveChild(run);
+      string settingsPath = Path.Combine(run.Directory, RunfileCoverageOptions.SettingsFileName);
+      string settings = File.ReadAllText(settingsPath);
       foreach (string pattern in RunfileCoverageOptions.DefaultModuleExcludes)
       {
         settings.ShouldContain(pattern);
       }
 
       settings.ShouldContain("CollectFromChildProcesses");
-      string log = File.ReadAllText(run.LogPath);
-      log.ShouldContain("collect");
-      log.ShouldContain("-f");
-      log.ShouldContain("cobertura");
-      log.ShouldContain("--");
-      log.ShouldContain("dotnet");
-      log.ShouldContain("runfile-coverage-probe.cs");
-      log.ShouldContain(Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName));
-      File.ReadAllText(Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName))
-        .ShouldContain("<coverage");
+      AssertRepositorySources(settingsPath);
+      string outputPath = Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName);
+      AssertCommand(
+        ReadCommand(run),
+        "collect",
+        "-f",
+        "cobertura",
+        "-o",
+        Path.GetFullPath(outputPath),
+        "-s",
+        Path.GetFullPath(settingsPath),
+        "--",
+        "dotnet",
+        ProbePath(),
+        "api",
+        run.Directory);
+      File.ReadAllText(outputPath).ShouldContain("<coverage");
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
@@ -106,9 +126,11 @@ namespace TestRunner_
         moduleFilter: @"MyProduct\.dll");
 
       output.ExitCode.ShouldBe(0);
-      string settings = File.ReadAllText(Path.Combine(run.Directory, RunfileCoverageOptions.SettingsFileName));
+      string settingsPath = Path.Combine(run.Directory, RunfileCoverageOptions.SettingsFileName);
+      string settings = File.ReadAllText(settingsPath);
       settings.ShouldContain(@"MyProduct\.dll");
       settings.ShouldNotContain(RunfileCoverageOptions.TestsModuleExclude);
+      AssertRepositorySources(settingsPath);
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
@@ -128,6 +150,7 @@ namespace TestRunner_
 
       output.ExitCode.ShouldBe(4);
       AssertOneLaunch(run);
+      AssertActiveChild(run);
       string settings = File.ReadAllText(Path.Combine(run.Directory, RunfileCoverageOptions.SettingsFileName));
       settings.ShouldContain(@"Other\.dll");
       File.ReadAllText(run.LogPath).ShouldContain(
@@ -144,165 +167,6 @@ namespace TestRunner_
       output.ExitCode.ShouldBe(0);
       File.Exists(run.LogPath).ShouldBeFalse();
       File.Exists(Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName)).ShouldBeFalse();
-    }
-
-    private static void AssertOneLaunch(ProbeRun run)
-    {
-      string log = File.ReadAllText(run.LogPath);
-      int launches = 0;
-      foreach (string line in log.Split('\n'))
-      {
-        if (line.TrimEnd('\r') == "ARGS")
-        {
-          launches++;
-        }
-      }
-
-      launches.ShouldBe(1);
-    }
-
-    private static async Task<string> EnsureFakeToolAsync()
-    {
-      await BuildGate.WaitAsync();
-      try
-      {
-        if (FakeToolPath is not null && File.Exists(FakeToolPath))
-        {
-          return FakeToolPath;
-        }
-
-        string root = FindRepoRoot();
-        string project = Path.Combine(root, "tests", "timewarp-jaribu", "coverage-tool-fake", "coverage-tool-fake.csproj");
-        CommandOutput build = await Shell.Builder("dotnet")
-          .WithArguments("build", project, "-c", "Release", "--nologo")
-          .WithWorkingDirectory(root)
-          .WithNoValidation()
-          .WithTimeout(TimeSpan.FromMinutes(3))
-          .CaptureAsync();
-        build.ExitCode.ShouldBe(0, build.Combined);
-
-        string built = Path.Combine(
-          root,
-          "tests",
-          "timewarp-jaribu",
-          "coverage-tool-fake",
-          "bin",
-          "Release",
-          "net11.0",
-          "coverage-tool-fake");
-        if (OperatingSystem.IsWindows())
-        {
-          built += ".exe";
-        }
-
-        File.Exists(built).ShouldBeTrue(build.Combined);
-        FakeToolPath = built;
-        return built;
-      }
-      finally
-      {
-        BuildGate.Release();
-      }
-    }
-
-    private static Task<CommandOutput> RunProbeAsync(
-      ProbeRun run,
-      string mode,
-      string toolPath,
-      string? probeExit,
-      string coverageVariable,
-      string? moduleFilter = null,
-      bool passFilterAsArgument = true,
-      bool useResultsVariable = false)
-    {
-      string root = FindRepoRoot();
-      string probe = Path.Combine(
-        root,
-        "tests",
-        "timewarp-jaribu",
-        "single-file-tests",
-        "core",
-        "fixtures",
-        "runfile-coverage-probe.cs");
-      List<string> arguments = ["run", probe, "--", mode, run.Directory];
-      if (passFilterAsArgument && moduleFilter is not null)
-      {
-        arguments.Add(moduleFilter);
-      }
-
-      ShellBuilder builder = Shell.Builder("dotnet")
-        .WithArguments([.. arguments])
-        .WithWorkingDirectory(root)
-        .WithEnvironmentVariable(RunfileCoverageOptions.ToolVariableName, toolPath)
-        .WithEnvironmentVariable("JARIBU_COVERAGE_FAKE_LOG", run.LogPath)
-        .WithEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName, "0")
-        .WithEnvironmentVariable(RunfileCoverageOptions.VariableName, coverageVariable)
-        .WithEnvironmentVariable("CORECLR_ENABLE_PROFILING", "0")
-        .WithEnvironmentVariable("CORECLR_PROFILER", "0")
-        .WithEnvironmentVariable("CORECLR_PROFILER_PATH", "0")
-        .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
-        .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
-        .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
-        .WithEnvironmentVariable(
-          RunfileCoverageOptions.ResultsVariableName,
-          useResultsVariable ? run.Directory : "0")
-        .WithEnvironmentVariable(
-          RunfileCoverageOptions.ModuleFilterVariableName,
-          useResultsVariable ? moduleFilter ?? "0" : "0")
-        .WithEnvironmentVariable("JARIBU_COVERAGE_PROBE_EXIT", probeExit ?? "0")
-        .WithNoValidation()
-        .WithTimeout(TimeSpan.FromMinutes(3));
-
-      return builder.CaptureAsync();
-    }
-
-    private static string FindRepoRoot()
-    {
-      DirectoryInfo? directory = new(Directory.GetCurrentDirectory());
-      while (directory is not null)
-      {
-        if (File.Exists(Path.Combine(directory.FullName, "timewarp-jaribu.slnx")))
-        {
-          return directory.FullName;
-        }
-
-        directory = directory.Parent;
-      }
-
-      throw new InvalidOperationException(
-        $"Repository root not found from '{Directory.GetCurrentDirectory()}'.");
-    }
-
-    private sealed class ProbeRun : IDisposable
-    {
-      private ProbeRun(string directory)
-      {
-        Directory = directory;
-        LogPath = Path.Combine(directory, "launch.log");
-      }
-
-      public string Directory { get; }
-
-      public string LogPath { get; }
-
-      public static ProbeRun Create()
-      {
-        string directory = Path.Combine(Path.GetTempPath(), "jaribu-coverage-" + Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(directory);
-        return new ProbeRun(directory);
-      }
-
-      public void Dispose()
-      {
-        try
-        {
-          System.IO.Directory.Delete(Directory, recursive: true);
-        }
-        catch (IOException)
-        {
-          // The assertion already ran. A leftover temp directory is not a test failure.
-        }
-      }
     }
   }
 }

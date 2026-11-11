@@ -7,8 +7,9 @@
 
 #region Design
 // JARIBU_COVERAGE_ACTIVE means dotnet-coverage (or the test stand-in) already
-// launched this process. JARIBU_COVERAGE_PROBE_EXIT returns that code immediately.
-// Otherwise the probe calls RunAllTests so the product code decides whether to relaunch.
+// launched this process. A non-empty JARIBU_COVERAGE_PROBE_EXIT returns that
+// code immediately. An empty value calls RunAllTests so the active-child guard
+// is what stops a second relaunch.
 #endregion
 
 if (string.Equals(

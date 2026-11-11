@@ -106,9 +106,11 @@ namespace TimeWarp.Jaribu;
 //   RunAllTests accepts RunfileCoverageOptions, or JARIBU_COVERAGE=1 when that
 //   argument is omitted. The parent relaunches under dotnet-coverage and returns
 //   the child exit code. JARIBU_COVERAGE_ACTIVE=1 marks the child. The coverage
-//   profiler GUID also counts as already instrumented. The default module filter
-//   excludes Tests, Jaribu, and MSBuild nodes. The Cobertura file is
-//   artifacts/coverage/coverage.cobertura.xml unless the caller overrides the directory.
+//   profiler GUID also counts as already instrumented. The settings file includes
+//   sources under the consuming repository and excludes Tests, Jaribu, and MSBuild
+//   assemblies. The 1.0.0-beta.15 signature (token, no coverage argument) forwards
+//   to that overload. The Cobertura file is artifacts/coverage/coverage.cobertura.xml
+//   unless the caller overrides the directory.
 //
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink on the caller's ITerminal, or a new one,

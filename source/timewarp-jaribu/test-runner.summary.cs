@@ -13,6 +13,7 @@ using TimeWarp.Terminal;
 // grand total all write there. A caller-owned terminal is not disposed.
 // A coverage request relaunches before that terminal and before the session.
 // The parent returns the child's exit code and does not run tests.
+// The 1.0.0-beta.15 RunAllTests signature (no coverage argument) forwards here.
 #endregion
 
 public static partial class TestRunner
@@ -59,6 +60,45 @@ public static partial class TestRunner
 
   /// <summary>
   /// Runs all registered test classes and returns an exit code.
+  /// This is the 1.0.0-beta.15 signature. It forwards to the overload that accepts
+  /// <see cref="RunfileCoverageOptions"/>.
+  /// </summary>
+  /// <param name="filterTag">Optional tag to filter tests.</param>
+  /// <param name="strictSignatures">
+  /// When true, each near-miss test signature fails the run. The default warns.
+  /// </param>
+  /// <param name="allowEmpty">
+  /// When true, a run with no registered classes or no discoverable tests succeeds.
+  /// The default fails that run.
+  /// </param>
+  /// <param name="terminal">
+  /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
+  /// A null value creates one terminal for the call and disposes it.
+  /// </param>
+  /// <param name="cancellationToken">
+  /// Stops the run.
+  /// </param>
+  /// <returns>
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, or the token fired.
+  /// </returns>
+  public static Task<int> RunAllTests(
+    string? filterTag,
+    bool strictSignatures,
+    bool allowEmpty,
+    ITerminal? terminal,
+    CancellationToken cancellationToken)
+  {
+    return RunAllTests(
+      filterTag,
+      strictSignatures,
+      allowEmpty,
+      terminal,
+      coverage: null,
+      cancellationToken);
+  }
+
+  /// <summary>
+  /// Runs all registered test classes and returns an exit code.
   /// Uses TerminalSink internally for backward compatibility.
   /// The .NET runfile cache is left untouched.
   /// </summary>
@@ -82,7 +122,7 @@ public static partial class TestRunner
   /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
-  /// Named use keeps a new optional parameter from shifting this token.
+  /// The 1.0.0-beta.15 overload keeps a positional token on that signature.
   /// </param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, or the token fired.
