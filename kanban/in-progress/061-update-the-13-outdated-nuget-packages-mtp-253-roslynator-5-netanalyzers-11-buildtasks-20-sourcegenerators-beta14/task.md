@@ -35,8 +35,8 @@ Rules:
 
 ## Review
 
-- Round 1: M1 and M2 fixed on this branch; round 2 has not run
-
+- Round 1: M1 and M2 fixed on this branch
+- Round 2: Done
 ## Notes
 
 - Origin: `ganda nuget outdated` output pasted by Steve on 2026-11-12.
@@ -65,6 +65,7 @@ Acceptance:
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-11T20:13:33Z
 - Review oracle round 1: claude (claude-opus-5-5), roster general, effort 2, turn cap 120. Session id is not exposed in print mode. Outcome: 1 bug and 1 nit open, fix pass requested (2026-11-12).
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 10d8e593-28cd-4729-8083-c0608c7d9bf0, max-turns 120, artifacts general.md, merged.md — 2026-11-11T20:16:00Z
+- Review oracle round 2: claude (claude-opus-5-5), roster general, effort 1, turn cap 80. The session id is not exposed in print mode. Outcome: 0 open findings, disposition clean (2026-11-12).
 - Fix pass: removed `tools/dev-cli/Directory.Build.targets` and held TimeWarp.SourceGenerators at 1.0.0-beta.11. Restored the ci-runner `#region Design` note. `ganda repo audit --fix` wrote no product changes (2026-11-12).
 
 ## Results
@@ -141,5 +142,7 @@ ganda repo audit
 - Round 1 (effort 2, roster: general): 2 findings, both fixed on this branch.
   - **M1 (bug):** removed `tools/dev-cli/Directory.Build.targets`. TimeWarp.SourceGenerators stays at 1.0.0-beta.11, and Results quotes the TWA0038 errors.
   - **M2 (nit):** `run-ci-tests.cs` has a `#region Design` with the `[ModuleInitializer]` / `JARIBU_MULTI` note.
-- Disposition: fixed, awaiting round 2.
-- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`
+- Round 2 (effort 1, roster: general): re-verified M1 and M2 against `c83103d..20f12f1` and found nothing new. The reviewer re-ran `./bin/dev test` (220 succeeded, 0 failed), `ganda repo audit` (passes), and `ganda nuget outdated` (only TimeWarp.SourceGenerators).
+- Final counts: bug 1 fixed, nit 1 fixed, 0 open, 0 wontfix.
+- Disposition: **clean**.
+- Paths: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md` (round 1: `review/round-1/merged.md`)
