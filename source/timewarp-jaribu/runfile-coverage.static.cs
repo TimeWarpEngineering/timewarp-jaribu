@@ -104,10 +104,7 @@ internal static partial class RunfileCoverage
 
     // The parent has already loaded this output. Instrumentation rewrites files
     // in place, which aborts that process after the child exits.
-    string ownedDirectory = Path.GetFullPath(Path.Combine(
-      Path.GetTempPath(),
-      "jaribu-runfile-coverage",
-      Guid.NewGuid().ToString("N")));
+    string ownedDirectory = NewOwnedDirectoryPath();
     try
     {
       try
@@ -172,6 +169,53 @@ internal static partial class RunfileCoverage
     }
   }
 
+  // dotnet-coverage restricts instrumentation to the exact --include-files paths
+  // and matches them against the paths the runtime loads modules from. macOS temp
+  // directories sit behind symlinks (/var -> /private/var), so the loaded path can
+  // differ from the spelled one and a module is silently left out of the report.
+  private static string NewOwnedDirectoryPath()
+  {
+    string root = ResolveSymbolicLinks(Path.GetFullPath(Path.GetTempPath()));
+    return Path.Combine(root, "jaribu-runfile-coverage", Guid.NewGuid().ToString("N"));
+  }
+
+  private static string ResolveSymbolicLinks(string path)
+  {
+    try
+    {
+      string full = Path.GetFullPath(path);
+      string? root = Path.GetPathRoot(full);
+      if (string.IsNullOrEmpty(root))
+      {
+        return full;
+      }
+
+      string current = root;
+      string[] segments = full[root.Length..].Split(
+        [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+        StringSplitOptions.RemoveEmptyEntries);
+      foreach (string segment in segments)
+      {
+        current = Path.Combine(current, segment);
+        FileSystemInfo? target = new DirectoryInfo(current).ResolveLinkTarget(returnFinalTarget: true);
+        if (target is not null)
+        {
+          current = Path.GetFullPath(target.FullName);
+        }
+      }
+
+      return current;
+    }
+    catch (IOException)
+    {
+      return Path.GetFullPath(path);
+    }
+    catch (UnauthorizedAccessException)
+    {
+      return Path.GetFullPath(path);
+    }
+  }
+
   private static async Task<StaticLaunch?> FailOwnedLaunchAsync(
     string ownedDirectory,
     ITerminal? terminal,
@@ -205,10 +249,7 @@ internal static partial class RunfileCoverage
     ITerminal? terminal,
     CancellationToken cancellationToken)
   {
-    string artifactsPath = Path.GetFullPath(Path.Combine(
-      Path.GetTempPath(),
-      "jaribu-runfile-coverage",
-      Guid.NewGuid().ToString("N")));
+    string artifactsPath = NewOwnedDirectoryPath();
     Directory.CreateDirectory(artifactsPath);
     try
     {

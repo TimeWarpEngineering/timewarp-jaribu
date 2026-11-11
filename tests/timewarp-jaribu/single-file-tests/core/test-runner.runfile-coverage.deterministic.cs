@@ -75,7 +75,7 @@ public partial class RunfileCoverage_Given_
           .ShouldBeFalse(listed);
       }
 
-      sawMappedProduct.ShouldBeTrue(listed);
+      sawMappedProduct.ShouldBeTrue(listed + Environment.NewLine + output.Combined);
     }
 
     private sealed class ConsumerWorkspace : IDisposable
