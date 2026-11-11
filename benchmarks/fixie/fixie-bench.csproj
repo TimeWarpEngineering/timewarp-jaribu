@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AssemblyName>fixie-bench</AssemblyName>
-    <!-- Fixie compiles Fixie.Main.cs into this project. That file awaits without
-         ConfigureAwait (CA2007) and has no Purpose region (TWA0004). It lives in the package. -->
-    <NoWarn>$(NoWarn);CA2007;TWA0004</NoWarn>
+    <!-- Fixie.Main.cs is removed in Directory.Build.targets. Generated workload
+         files still await without ConfigureAwait. -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
