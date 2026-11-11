@@ -82,6 +82,20 @@ internal static partial class RunfileCoverage
     return null;
   }
 
+  // macOS temp roots sit behind symlinks (/var -> /private/var), so a compiler can record
+  // either spelling. Accept both or the product source is filtered out of the report.
+  private static List<string> SourceRootPatterns(string root)
+  {
+    List<string> patterns = [SourceRootPattern(root)];
+    string resolved = ResolveSymbolicLinks(root);
+    if (!string.Equals(resolved, Path.GetFullPath(root), StringComparison.Ordinal))
+    {
+      patterns.Add(SourceRootPattern(resolved));
+    }
+
+    return patterns;
+  }
+
   private static string SourceRootPattern(string root)
   {
     string full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
@@ -114,7 +128,7 @@ internal static partial class RunfileCoverage
       "Sources",
       new XElement(
         "Include",
-        new XElement("Source", SourceRootPattern(sourceRoot)),
+        SourceRootPatterns(sourceRoot).Select(pattern => new XElement("Source", pattern)),
         new XElement("Source", DeterministicSourcePattern)));
     XDocument document = new(
       new XDeclaration("1.0", "utf-8", "yes"),

@@ -103,6 +103,12 @@ public partial class RunfileCoverage_Given_
         string resultsDirectory = Path.Combine(root, "results");
         System.IO.Directory.CreateDirectory(Path.Combine(repoDirectory, "lib"));
         System.IO.Directory.CreateDirectory(resultsDirectory);
+        // macOS temp roots sit behind symlinks (/var -> /private/var). Map the resolved spelling
+        // too, so the compiler records /_/ whichever spelling it resolved the project path to.
+        string resolvedRepo = ResolveLinks(repoDirectory);
+        string pathMapExtra = string.Equals(resolvedRepo, repoDirectory, StringComparison.Ordinal)
+          ? string.Empty
+          : "," + resolvedRepo + Path.DirectorySeparatorChar + "=/_/";
         File.WriteAllText(
           Path.Combine(repoDirectory, "Directory.Build.props"),
           """
@@ -114,10 +120,10 @@ public partial class RunfileCoverage_Given_
               <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
               <DeterministicSourcePaths>true</DeterministicSourcePaths>
               <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-              <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+              <PathMap>$(MSBuildThisFileDirectory)=/_/PATHMAPEXTRA</PathMap>
             </PropertyGroup>
           </Project>
-          """);
+          """.Replace("PATHMAPEXTRA", pathMapExtra, StringComparison.Ordinal));
         File.WriteAllText(
           Path.Combine(repoDirectory, "lib", "Calc.csproj"),
           """
@@ -163,6 +169,24 @@ public partial class RunfileCoverage_Given_
           + "    ResultsDirectory = \"" + resultsLiteral + "\"" + Environment.NewLine
           + "  });" + Environment.NewLine);
         return new ConsumerWorkspace(root, repoDirectory, resultsDirectory, probePath);
+      }
+
+      private static string ResolveLinks(string path)
+      {
+        string full = Path.GetFullPath(path);
+        string root = Path.GetPathRoot(full) ?? string.Empty;
+        string current = root;
+        foreach (string segment in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+          current = Path.Combine(current, segment);
+          FileSystemInfo? target = new DirectoryInfo(current).ResolveLinkTarget(returnFinalTarget: true);
+          if (target is not null)
+          {
+            current = Path.GetFullPath(target.FullName);
+          }
+        }
+
+        return current;
       }
 
       public void Dispose()
