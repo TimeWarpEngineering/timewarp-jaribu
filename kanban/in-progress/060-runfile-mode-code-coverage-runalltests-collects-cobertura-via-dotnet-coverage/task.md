@@ -115,6 +115,7 @@ Acceptance: the relaunch, the repository project filter, on-disk and `/_/` sourc
 - Installed ganda changed during this walk: was 52431880 bytes c7bbb61cd011fc4249bc48c66cafc9f933344941eca4d4e2bd3c7da7b9a4cf32; now 52628808 bytes d6bd84c9ac2432acf2849a33cc96cb97e1e7463a7039bbbcbe0b2cbd9db2c6c1
 - CI fix (PR #55): macOS manifest tests compared PWD=/var/... to the child's /private/var/... (symlinked temp); tests now compare canonical paths, and the deterministic test returns early on macOS where dotnet-coverage 18.12 reports "Profiler was not initialized". Windows manifest tests exited 0x8000809A because the fake dotnet.exe was a symlink whose apphost looked for coverage-tool-fake.dll beside the link; Windows now copies the fake beside dotnet.exe. 2026-11-11
 - Static instrumentation for arm: macOS arm64 and Linux arm build the runner and relaunch with `--no-build` so an empty profiler report does not fail CI. `JARIBU_COVERAGE_STATIC` forces either path. 2026-11-11
+- Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-11T11:47:32Z
 
 ## Learnings
 
