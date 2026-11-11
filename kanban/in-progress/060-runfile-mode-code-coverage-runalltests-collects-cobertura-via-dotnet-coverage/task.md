@@ -68,7 +68,7 @@ Expect:
 
 - The coverage file exits 0 with 16 passed. The settings include a repository source pattern and `^/_/`. The repository pattern matches a file under this repo and does not match `/_/lib/Calc.cs` or `/_/CliWrap/Cli.cs`. The module include matches `timewarp-jaribu.dll` in a runfile cache path and does not match `timewarp-amuru.dll` or `CliWrap.dll`. A nested manifest keeps the nested working directory. A manifest found from the runner file, with the working directory outside that tree, relaunches from the manifest directory. A temp consumer built with `PathMap=<repo>=/_/` reports `/_/…/Calc.cs` and omits Amuru. An empty Cobertura file prints `no classes` and exits 1. With `JARIBU_COVERAGE_STATIC=1`, the settings set static instrumentation on and dynamic instrumentation off, `--include-files` names `runfile-coverage-probe.dll` and `timewarp-jaribu.dll` under the artifacts directory, and the relaunch contains `--artifacts-path` and `--no-build`. The muxer host's `--include-files` and relaunch dll sit under a `jaribu-runfile-coverage` temp directory, and the loaded `coverage-muxer-host.dll` is not an argument. With the real `dotnet-coverage` and `JARIBU_COVERAGE_STATIC=1`, that host exits 0, the report has a class, and the loaded `coverage-muxer-host.dll` and `timewarp-jaribu.dll` are unchanged.
 - `./bin/dev test` exits 0. The runfile leg is 220 passed and the MTP leg is 220 passed. The runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`.
-- `ganda repo audit` passes every check except `kanban-landed`, which reports this in-progress kitchen because it is not on master. Task-worktree attest skips that check. No `[ganda.audit]` severity was turned off.
+- `ganda repo audit` passes every check, including `kanban-landed`. No `[ganda.audit]` severity was turned off.
 
 ### Review
 
@@ -97,7 +97,7 @@ Gates run in round 4: the coverage test file passed 14 of 14, and also 14 of 14 
 
 This fix pass implements M10 and M11. A compiled host is copied to an owned temp directory. `--include-files` names the copies, and the relaunch runs the copied dll or apphost, so static instrumentation does not rewrite assemblies the parent has loaded. The How-to-validate counts are 16 for the coverage file and 220 on each `./bin/dev test` leg.
 
-`dotnet tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` exited 0 with 16 passed, including the fake-tool muxer copy and the real-tool muxer collect. `./bin/dev test` exited 0: the runfile leg passed 220 and the MTP leg passed 220. The runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`, with line-rate 0.69. `ganda repo audit` passes every check except `kanban-landed`, which reports this in-progress kitchen. Task-worktree attest skips that check. No `[ganda.audit]` severity was turned off. Round 5 is the host review node.
+`dotnet tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` exited 0 with 16 passed, including the fake-tool muxer copy and the real-tool muxer collect. `./bin/dev test` exited 0: the runfile leg passed 220 and the MTP leg passed 220. The runfile report's packages are `timewarp-jaribu`, `timewarp-jaribu-testing-platform`, and `timewarp-jaribu-mtp-validation`, with line-rate 0.69. `ganda repo audit` passes every check, including `kanban-landed`, after the kitchen land. No `[ganda.audit]` severity was turned off. Round 5 is the host review node.
 
 ## Goal (implementer restatement)
 
