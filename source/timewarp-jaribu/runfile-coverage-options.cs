@@ -15,6 +15,8 @@ namespace TimeWarp.Jaribu;
 // The settings file includes this repository's project assemblies. Sources match
 // the repository directory or the deterministic /_/ prefix. Dependencies stay out.
 // JARIBU_COVERAGE_USER_TOOLS replaces ~/.dotnet/tools in the tool search.
+// JARIBU_COVERAGE_STATIC selects static instrumentation. macOS arm64 and
+// Linux arm use it unless the variable is 0.
 #endregion
 
 /// <summary>
@@ -60,6 +62,13 @@ public sealed record RunfileCoverageOptions
   /// runs tests and does not relaunch.
   /// </summary>
   public const string ActiveVariableName = "JARIBU_COVERAGE_ACTIVE";
+
+  /// <summary>
+  /// <c>1</c> or <c>true</c> builds the runner and instruments that output on disk.
+  /// <c>0</c> or <c>false</c> keeps the dynamic profiler. When unset, macOS arm64 and
+  /// Linux arm use the static path because those systems have no dynamic profiler.
+  /// </summary>
+  public const string StaticVariableName = "JARIBU_COVERAGE_STATIC";
 
   /// <summary>
   /// Default directory for <see cref="CoberturaFileName"/>.

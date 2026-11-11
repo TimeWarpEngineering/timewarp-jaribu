@@ -25,6 +25,7 @@
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.launch.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.manifest.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.deterministic.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.static.cs" />
   </ItemGroup>
 
   <ItemGroup>

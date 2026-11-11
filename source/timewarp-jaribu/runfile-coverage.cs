@@ -21,6 +21,8 @@ using TimeWarp.Terminal;
 // A manifest found from the working directory keeps that directory. The
 // entry-point fallback uses the manifest directory. A dotnet muxer host keeps
 // argv[0] (the dll) on the command. A report with no classes fails the run.
+// macOS arm64 and Linux arm have no dynamic profiler. Those runs build the
+// runner, instrument that output on disk, and relaunch with --no-build.
 #endregion
 
 /// <summary>
@@ -86,7 +88,6 @@ internal static partial class RunfileCoverage
     string outputPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.CoberturaFileName);
     string settingsPath = Path.Combine(resultsDirectory, RunfileCoverageOptions.SettingsFileName);
     string sourceRoot = ResolveSourceRoot(entryPoint);
-    WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot, entryPoint);
 
     string runnerFile;
     string? runnerArgument;
@@ -106,10 +107,42 @@ internal static partial class RunfileCoverage
       }
     }
 
-    string[] command = BuildCommand(tool, outputPath, settingsPath, runnerFile, runnerArgument);
     string workingDirectory = tool.WorkingDirectory ?? Directory.GetCurrentDirectory();
+    string? ownedArtifacts = null;
     try
     {
+      bool staticInstrumentation = RequiresStaticInstrumentation();
+      IReadOnlyList<string> includeFiles = [];
+      IReadOnlyList<string> runnerOptions = [];
+      if (staticInstrumentation)
+      {
+        StaticLaunch? prepared = await PrepareStaticLaunchAsync(
+          runnerFile,
+          runnerArgument,
+          sourceRoot,
+          entryPoint,
+          workingDirectory,
+          terminal,
+          cancellationToken).ConfigureAwait(false);
+        if (prepared is null)
+        {
+          return 1;
+        }
+
+        ownedArtifacts = prepared.Value.OwnedArtifactsPath;
+        includeFiles = prepared.Value.IncludeFiles;
+        runnerOptions = prepared.Value.RunnerOptions;
+      }
+
+      WriteSettings(settingsPath, request.ModuleExcludes, sourceRoot, entryPoint, staticInstrumentation);
+      string[] command = BuildCommand(
+        tool,
+        outputPath,
+        settingsPath,
+        runnerFile,
+        runnerArgument,
+        includeFiles,
+        runnerOptions);
       int exitCode = await Shell.Builder(tool.FileName)
         .WithArguments(command)
         .WithWorkingDirectory(workingDirectory)
@@ -128,6 +161,10 @@ internal static partial class RunfileCoverage
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
     {
       return 1;
+    }
+    finally
+    {
+      DeleteOwnedArtifacts(ownedArtifacts);
     }
   }
 
@@ -218,7 +255,9 @@ internal static partial class RunfileCoverage
     string outputPath,
     string settingsPath,
     string runnerFile,
-    string? runnerArgument)
+    string? runnerArgument,
+    IReadOnlyList<string> includeFiles,
+    IReadOnlyList<string> runnerOptions)
   {
     List<string> arguments = [.. tool.PrefixArguments];
     arguments.Add("collect");
@@ -228,12 +267,20 @@ internal static partial class RunfileCoverage
     arguments.Add(outputPath);
     arguments.Add("-s");
     arguments.Add(settingsPath);
+    foreach (string includeFile in includeFiles)
+    {
+      arguments.Add("--include-files");
+      arguments.Add(includeFile);
+    }
+
     arguments.Add("--");
     arguments.Add(runnerFile);
     if (!string.IsNullOrWhiteSpace(runnerArgument))
     {
       arguments.Add(runnerArgument);
     }
+
+    arguments.AddRange(runnerOptions);
 
     string[] argv = Environment.GetCommandLineArgs();
     if (argv.Length > 1)

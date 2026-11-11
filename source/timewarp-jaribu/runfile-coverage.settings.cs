@@ -93,7 +93,8 @@ internal static partial class RunfileCoverage
     string settingsPath,
     IReadOnlyList<string> excludes,
     string sourceRoot,
-    string? entryPointFile)
+    string? entryPointFile,
+    bool staticInstrumentation)
   {
     List<XElement> moduleChildren = [];
     List<string> includes = ModuleIncludePatterns(sourceRoot, entryPointFile);
@@ -122,17 +123,29 @@ internal static partial class RunfileCoverage
         new XElement(
           "CodeCoverage",
           new XElement("CollectFromChildProcesses", "True"),
+          staticInstrumentation
+            ? new XElement("EnableDynamicManagedInstrumentation", "False")
+            : null,
+          staticInstrumentation
+            ? new XElement("EnableStaticManagedInstrumentation", "True")
+            : null,
           new XElement("ModulePaths", moduleChildren),
           sources)));
     document.Save(settingsPath);
   }
 
-  private static List<string> ModuleIncludePatterns(string sourceRoot, string? entryPointFile)
+  private static List<string> IncludedAssemblyNames(string sourceRoot, string? entryPointFile)
   {
     List<string> names = [];
     AddProjectAssemblyNames(sourceRoot, names);
     AddAssemblyName(names, EntryAssemblyName(entryPointFile));
     names.Sort(StringComparer.OrdinalIgnoreCase);
+    return names;
+  }
+
+  private static List<string> ModuleIncludePatterns(string sourceRoot, string? entryPointFile)
+  {
+    List<string> names = IncludedAssemblyNames(sourceRoot, entryPointFile);
     List<string> patterns = [];
     foreach (string name in names)
     {

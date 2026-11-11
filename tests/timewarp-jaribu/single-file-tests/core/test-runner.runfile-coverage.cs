@@ -3,6 +3,7 @@
 #:include test-runner.runfile-coverage.launch.cs
 #:include test-runner.runfile-coverage.manifest.cs
 #:include test-runner.runfile-coverage.deterministic.cs
+#:include test-runner.runfile-coverage.static.cs
 
 #region Purpose
 // Proves RunAllTests relaunches under dotnet-coverage and fails clearly when the tool is missing.
@@ -94,6 +95,7 @@ namespace TestRunner_
       }
 
       settings.ShouldContain("CollectFromChildProcesses");
+      settings.ShouldNotContain("EnableStaticManagedInstrumentation");
       AssertRepositorySources(settingsPath);
       string outputPath = Path.Combine(run.Directory, RunfileCoverageOptions.CoberturaFileName);
       AssertCommand(

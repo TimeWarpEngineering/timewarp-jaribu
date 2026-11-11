@@ -115,7 +115,8 @@ public partial class RunfileCoverage_Given_
       string? moduleFilter = null,
       bool passFilterAsArgument = true,
       bool useResultsVariable = false,
-      bool emptyReport = false)
+      bool emptyReport = false,
+      bool staticInstrumentation = false)
     {
       string root = FindRepoRoot();
       string probe = ProbePath();
@@ -146,6 +147,9 @@ public partial class RunfileCoverage_Given_
           useResultsVariable ? moduleFilter ?? "0" : "0")
         .WithEnvironmentVariable("JARIBU_COVERAGE_PROBE_EXIT", probeExit ?? string.Empty)
         .WithEnvironmentVariable("JARIBU_COVERAGE_FAKE_EMPTY", emptyReport ? "1" : "0")
+        .WithEnvironmentVariable(
+          RunfileCoverageOptions.StaticVariableName,
+          staticInstrumentation ? "1" : "0")
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3));
 
@@ -389,6 +393,28 @@ public partial class RunfileCoverage_Given_
       {
         File.Copy(toolPath, link, overwrite: true);
       }
+
+      // Some apphosts load <exe-name>.* from beside the executable. The built
+      // names are coverage-tool-fake.*; the relaunch executable is dotnet.exe.
+      CopyAlias(sourceDirectory, directory, ".dll");
+      CopyAlias(sourceDirectory, directory, ".deps.json");
+      CopyAlias(sourceDirectory, directory, ".runtimeconfig.json");
+    }
+
+    private static void CopyAlias(string sourceDirectory, string directory, string extension)
+    {
+      if (!OperatingSystem.IsWindows())
+      {
+        return;
+      }
+
+      string source = Path.Combine(sourceDirectory, "coverage-tool-fake" + extension);
+      if (!File.Exists(source))
+      {
+        return;
+      }
+
+      File.Copy(source, Path.Combine(directory, "dotnet" + extension), overwrite: true);
     }
 
     private static string FindDotnet()
@@ -427,6 +453,7 @@ public partial class RunfileCoverage_Given_
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
+        .WithEnvironmentVariable(RunfileCoverageOptions.StaticVariableName, "0")
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3));
     }

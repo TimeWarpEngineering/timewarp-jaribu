@@ -87,6 +87,7 @@ public partial class RunfileCoverage_Given_
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
+        .WithEnvironmentVariable(RunfileCoverageOptions.StaticVariableName, "0")
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3))
         .CaptureAsync();
