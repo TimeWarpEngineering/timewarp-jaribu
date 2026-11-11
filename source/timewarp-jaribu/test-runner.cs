@@ -102,6 +102,14 @@ namespace TimeWarp.Jaribu;
 //   node is Cancelled. Later tests are not started. Timeout stays Timeout
 //   unless the token has also fired. A cancelled run exits non-zero.
 //
+// Runfile coverage:
+//   RunAllTests accepts RunfileCoverageOptions, or JARIBU_COVERAGE=1 when that
+//   argument is omitted. The parent relaunches under dotnet-coverage and returns
+//   the child exit code. JARIBU_COVERAGE_ACTIVE=1 marks the child. The coverage
+//   profiler GUID also counts as already instrumented. The default module filter
+//   excludes Tests, Jaribu, and MSBuild nodes. The Cobertura file is
+//   artifacts/coverage/coverage.cobertura.xml unless the caller overrides the directory.
+//
 // Backward compatibility:
 //   RunTests<T>() creates a TerminalSink on the caller's ITerminal, or a new one,
 //   and delegates to RunTestsAsync<T>(sink).

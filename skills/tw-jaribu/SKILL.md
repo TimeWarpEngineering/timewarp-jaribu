@@ -57,6 +57,10 @@ public class YourTestClassName
 } // namespace Your.Namespace.Here
 ```
 
+## Runfile code coverage
+
+`RunAllTests` collects Cobertura when the call passes `new RunfileCoverageOptions()` or the process has `JARIBU_COVERAGE=1`. The runner relaunches under `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …` and returns the child exit code. The default directory is `artifacts/coverage`. `JARIBU_COVERAGE_RESULTS` and `RunfileCoverageOptions.ResultsDirectory` override it. The default module filter excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild`. A directory named `tests` does not match. `JARIBU_COVERAGE_MODULE_FILTER` or `ModuleFilter` replaces that list. A missing `dotnet-coverage` fails the run and names `dotnet tool install -g dotnet-coverage`.
+
 ## Test Methods
 
 - Must be `public static async Task`

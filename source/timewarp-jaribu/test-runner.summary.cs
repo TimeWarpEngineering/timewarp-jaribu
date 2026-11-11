@@ -11,6 +11,8 @@ using TimeWarp.Terminal;
 // RunAllTests owns one terminal for the call unless the caller passes one.
 // Class sinks, the empty-registration line, session-dispose failures, and the
 // grand total all write there. A caller-owned terminal is not disposed.
+// A coverage request relaunches before that terminal and before the session.
+// The parent returns the child's exit code and does not run tests.
 #endregion
 
 public static partial class TestRunner
@@ -71,21 +73,38 @@ public static partial class TestRunner
   /// <param name="terminal">
   /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
   /// A null value creates one terminal for the call and disposes it.
+  /// A coverage relaunch uses it only for the missing-tool error.
+  /// </param>
+  /// <param name="coverage">
+  /// When set, collects Cobertura by relaunching this runner under <c>dotnet-coverage</c>
+  /// unless this process is already the coverage child.
+  /// <see cref="RunfileCoverageOptions.VariableName"/> is the opt-in when this argument is omitted.
   /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// Named use keeps a new optional parameter from shifting this token.
   /// </param>
   /// <returns>
-  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, or the token fired.
+  /// A coverage relaunch returns the child process exit code.
   /// </returns>
   public static async Task<int> RunAllTests(
     string? filterTag = null,
     bool strictSignatures = false,
     bool allowEmpty = false,
     ITerminal? terminal = null,
+    RunfileCoverageOptions? coverage = null,
     CancellationToken cancellationToken = default)
   {
+    int? relaunched = await RunfileCoverage.TryRelaunchAsync(
+      coverage,
+      terminal,
+      cancellationToken).ConfigureAwait(false);
+    if (relaunched is int relaunchExitCode)
+    {
+      return relaunchExitCode;
+    }
+
     bool ownsTerminal = terminal is null;
     ITerminal output = terminal ?? new TimeWarpTerminal();
     try

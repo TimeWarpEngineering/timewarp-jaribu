@@ -244,6 +244,63 @@ Jaribu uses this pattern for its own test suite:
 - `tests/timewarp-jaribu/multi-file-runners/ci-runner/` — CI-safe runfile. `./bin/dev test` runs this and the MTP project below
 - `tests/timewarp-jaribu/multi-file-runners/mtp-runner/` — the same CI-safe compile set under `dotnet test`
 
+### Code coverage
+
+Runfile mode writes a Cobertura report when coverage is requested. Pass a `RunfileCoverageOptions` argument to `RunAllTests`, or set `JARIBU_COVERAGE=1` and call `RunAllTests()` with no coverage argument.
+
+```csharp
+return await RunAllTests(
+  coverage: new RunfileCoverageOptions
+  {
+    ResultsDirectory = "artifacts/coverage"
+  });
+```
+
+```bash
+JARIBU_COVERAGE=1 dotnet run tests/run-ci-tests.cs
+```
+
+When this process is not already the coverage child, Jaribu relaunches it:
+
+```bash
+dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …
+```
+
+The default results directory is `artifacts/coverage`. Override it with `RunfileCoverageOptions.ResultsDirectory` or, for the environment opt-in, `JARIBU_COVERAGE_RESULTS`. The relaunch sets `JARIBU_COVERAGE_ACTIVE=1` on the child, returns that child's exit code, and does not run tests in the parent. Child processes stay in the collection, so a standalone per-file `dotnet run` started by a test is included.
+
+The default module filter excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild` (including `Microsoft.Build`). A directory named `tests` does not match, so a product dll that sits beside a runfile stays in the report. Replace that exclusion list with semicolon-separated module-path regexes on `RunfileCoverageOptions.ModuleFilter` or `JARIBU_COVERAGE_MODULE_FILTER`. `JARIBU_COVERAGE_TOOL` pins the `dotnet-coverage` executable when it is not on `PATH`.
+
+A missing `dotnet-coverage` fails the run. Install it with either of these:
+
+```bash
+dotnet tool install -g dotnet-coverage
+```
+
+```bash
+dotnet new tool-manifest
+dotnet tool install dotnet-coverage
+```
+
+Upload the report from GitHub Actions. `path: artifacts/coverage` includes the default file and any subdirectory a runner uses for a second report:
+
+```yaml
+- name: coverage
+  if: success()
+  uses: actions/upload-artifact@v7
+  with:
+    name: coverage
+    path: artifacts/coverage
+    if-no-files-found: warn
+```
+
+M.T.P. mode collects Cobertura through `dotnet test` when the test project references `Microsoft.Testing.Extensions.CodeCoverage`:
+
+```bash
+dotnet test --results-directory artifacts/coverage --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+```
+
+The same upload step publishes that directory.
+
 ---
 
 ## M.T.P. Mode

@@ -7,10 +7,14 @@
 // dev test and dev workflow both call RunAsync, so a local pass cannot skip MTP.
 // The validation project is not a third target. Its intentional failures stay
 // inside the out-of-process harness that the CI-safe suite executes.
-// The MTP dotnet test passes coverage flags. A relative --coverage-output is
-// resolved from --results-directory artifacts/coverage. The runner project
-// references Microsoft.Testing.Extensions.CodeCoverage so --coverage is a
-// known option. DotNet.Test has no slot for those extension arguments.
+// The CI runfile opts into RunAllTests coverage and writes
+// artifacts/coverage/runfile/coverage.cobertura.xml. Its module filter keeps
+// TimeWarp.Jaribu, which the default filter excludes, and still drops tests
+// and MSBuild nodes. The MTP dotnet test passes
+// coverage flags and writes artifacts/coverage/coverage.cobertura.xml.
+// A relative --coverage-output is resolved from --results-directory.
+// The runner project references Microsoft.Testing.Extensions.CodeCoverage so
+// --coverage is a known option. DotNet.Test has no slot for those extension arguments.
 #endregion
 
 namespace DevCli.Commands;
