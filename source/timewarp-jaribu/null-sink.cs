@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Sink that discards every event. Tests and benchmarks use it when output is not under test.
+#endregion
+
 /// <summary>
 /// A silent test result sink that discards all events. Useful for testing and benchmarking.
 /// </summary>

@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu.MtpValidation;
 
+#region Purpose
+// Passing, failing, skipped, and timeout cases for the out-of-process MTP harness.
+#endregion
+
 /// <summary>
 /// Basic tests to validate Microsoft.Testing.Platform integration.
 /// Tests passing, failing, skipped, and timeout scenarios.

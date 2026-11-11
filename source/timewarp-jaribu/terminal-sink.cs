@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Console sink that prints colored test results through TimeWarp.Terminal.
+#endregion
+
 using System.Globalization;
 using TimeWarp.Terminal;
 

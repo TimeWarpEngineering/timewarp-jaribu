@@ -1,9 +1,9 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 
-// CI Test Runner
-// Runs only CI-safe tests (no intentional failures).
-// Test classes are auto-registered via [ModuleInitializer] when compiled with JARIBU_MULTI.
+#region Purpose
+// Runs only CI-safe tests. Intentional failures stay inside the nested fixtures.
+#endregion
 
 WriteLine("CI Test Runner - Running CI-safe tests only");
 WriteLine();

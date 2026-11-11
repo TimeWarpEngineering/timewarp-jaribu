@@ -2,8 +2,12 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <!-- Suppress warnings that don't apply to CLI tools -->
-    <NoWarn>$(NoWarn);CA1031;CA1303;CA1508;CA1515;CA1849;CA2007;CA2016;CA2000;CA1034;CA5399;RCS1046;IDE0005;IDE0022;IDE0028;IDE0046;IDE0055;IDE0058;IDE0065;IDE0066;IDE0078;IDE0160;IDE0052;IDE0290;IDE0211;CS1591;IL2026;IL2104;IL3050;IL3053</NoWarn>
+    <!-- Suppress warnings that don't apply to CLI tools.
+         TWA0038: TimeWarp.Nuru.DevCli content files release-command.cs (609 lines)
+         and nuget-version-service.cs (704 lines) exceed the 500-line limit.
+         They are compiled from the package, and an .editorconfig section does not
+         reach files outside this repo. Dev CLI sources in this repo stay under 500. -->
+    <NoWarn>$(NoWarn);CA1031;CA1303;CA1508;CA1515;CA1849;CA2007;CA2016;CA2000;CA1034;CA5399;RCS1046;IDE0005;IDE0022;IDE0028;IDE0046;IDE0055;IDE0058;IDE0065;IDE0066;IDE0078;IDE0160;IDE0052;IDE0290;IDE0211;CS1591;IL2026;IL2104;IL3050;IL3053;TWA0038</NoWarn>
 
     <!-- AOT Support -->
     <PublishAot>true</PublishAot>

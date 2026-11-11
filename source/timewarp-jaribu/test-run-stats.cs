@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Counts and timing for one class run.
+#endregion
+
 /// <summary>
 /// Contains aggregated statistics from running all tests in a test class.
 /// </summary>
