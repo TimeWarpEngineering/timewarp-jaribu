@@ -28,7 +28,7 @@
     <PackageVersion Include="TimeWarp.Build.Tasks" Version="2.0.0" />
     <PackageVersion Include="TimeWarp.Amuru.Tools" Version="3.0.0-beta.2" />
     <!-- Held at 1.0.0-beta.11. beta.14 still errors TWA0038 on TimeWarp.Nuru.DevCli content this repo does not own (timewarp-source-generators 040). -->
-    <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.11" />
+    <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.14" />
 
     <!-- Benchmark hosts (task 040). Results headers copy these versions. -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
