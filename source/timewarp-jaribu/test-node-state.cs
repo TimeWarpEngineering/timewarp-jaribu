@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Lifecycle states a test node can report, aligned with the testing platform.
+#endregion
+
 /// <summary>
 /// Represents the lifecycle state of a test node, aligned with Microsoft.Testing.Platform's TestNodeStateProperty types.
 /// </summary>

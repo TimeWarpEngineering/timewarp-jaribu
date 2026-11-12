@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Fixie.Main.cs has no Purpose region. program.cs is the entry point, so the
+    package file stays out of the compilation.
+  -->
+  <Target Name="RemoveFixiePackageEntry" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Compile Remove="@(Compile)"
+        Condition="$([System.String]::Copy('%(Identity)').EndsWith('Fixie.Main.cs'))" />
+    </ItemGroup>
+  </Target>
+</Project>

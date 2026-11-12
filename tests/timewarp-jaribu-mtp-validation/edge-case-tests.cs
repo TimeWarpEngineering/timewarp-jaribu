@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu.MtpValidation;
 
+#region Purpose
+// Exception and boundary cases the MTP harness launches out of process.
+#endregion
+
 /// <summary>
 /// Edge case tests for Microsoft.Testing.Platform integration.
 /// </summary>

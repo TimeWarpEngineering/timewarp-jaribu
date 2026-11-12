@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// One discovered or executed test node: identity, state, timing, and failure text.
+#endregion
+
 using System.Reflection;
 
 /// <summary>

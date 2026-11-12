@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu.MtpValidation;
 
+#region Purpose
+// Setup and CleanUp lifecycle cases for the MTP harness.
+#endregion
+
 /// <summary>
 /// Tests that validate Setup and CleanUp lifecycle methods.
 /// </summary>

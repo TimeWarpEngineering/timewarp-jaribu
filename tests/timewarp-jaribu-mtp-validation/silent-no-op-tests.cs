@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu.MtpValidation;
 
+#region Purpose
+// A real test beside a near-miss, so a default MTP run reports the near-miss as skipped.
+#endregion
+
 /// <summary>
 /// One real test beside a near-miss, so a default MTP run must say the near-miss was skipped.
 /// </summary>

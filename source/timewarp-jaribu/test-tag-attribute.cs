@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Tag on a test class or method so a run can filter by category.
+#endregion
+
 /// <summary>
 /// Tags a test method or class for filtering and categorization.
 /// Can be applied multiple times to add multiple tags.

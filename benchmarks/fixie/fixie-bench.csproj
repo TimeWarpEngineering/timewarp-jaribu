@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AssemblyName>fixie-bench</AssemblyName>
-    <!-- Fixie compiles Fixie.Main.cs into this project. That file awaits without ConfigureAwait. -->
+    <!-- Fixie.Main.cs is removed in Directory.Build.targets. Generated workload
+         files still await without ConfigureAwait. -->
     <NoWarn>$(NoWarn);CA2007</NoWarn>
   </PropertyGroup>
 

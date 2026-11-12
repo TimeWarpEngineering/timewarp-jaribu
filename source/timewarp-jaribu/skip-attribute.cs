@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Marks a test method skipped and keeps the caller's reason.
+#endregion
+
 /// <summary>
 /// Marks a test method to be skipped during test execution.
 /// </summary>

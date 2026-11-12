@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu.MtpValidation;
 
+#region Purpose
+// One failing input row and one passing row, so discovery and the run both report two nodes.
+#endregion
+
 /// <summary>
 /// One failing row followed by a passing row. Discovery and the run must both report two nodes.
 /// </summary>

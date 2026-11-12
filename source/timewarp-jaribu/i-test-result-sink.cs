@@ -1,5 +1,9 @@
 namespace TimeWarp.Jaribu;
 
+#region Purpose
+// Sink that receives discovery, start, completion, and class-run events.
+#endregion
+
 /// <summary>
 /// Abstraction for receiving test execution events. Enables pluggable output destinations
 /// (terminal, MTP message bus, files, etc.) without changing the TestRunner.
