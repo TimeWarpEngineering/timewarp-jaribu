@@ -100,3 +100,4 @@ ganda nuget outdated
 - Final counts: bug 0, suggestion 0, nit 0. All open, fixed, and wontfix counts are 0.
 - Disposition: **clean**. The review raised no findings, and the goal restatement matches the amended task.
 - Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+- 2026-11-12: the walk audit step ran `--fix`, which bumped SourceGenerators to beta.14 and broke CI on all three OSes (TWA0038). `warning` does not stop the fixer; only `off` does. Pin reverted to beta.11 and `package-pin-currency.severity = off` with reason. Restore to error when timewarp-ganda 627 or timewarp-source-generators 040 ships.
