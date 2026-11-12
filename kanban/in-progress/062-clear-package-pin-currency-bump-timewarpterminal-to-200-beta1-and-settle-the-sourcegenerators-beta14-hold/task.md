@@ -38,6 +38,7 @@ Done when `ganda repo audit` exits 0, `./bin/dev test` exits 0, and `ganda nuget
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-12)
 - Implement (2026-11-12): TimeWarp.Terminal is 2.0.0-beta.1. No call-site edits. TimeWarp.SourceGenerators was restored to 1.0.0-beta.14 and `dotnet build tools/dev-cli/dev.cs` failed TWA0038 on the two Nuru.DevCli content files, so the pin went back to 1.0.0-beta.11. Installed ganda `1.0.0-beta.38+5b5634cc` documents only `package-pin-currency.dev-only-paths` and `package-pin-currency.meaningful-exclusions`. The audit failure text does not name a per-package hold key, so the allowed hold cannot be recorded. `ganda repo audit --fix --checks vscode-window-icon` wrote the gitignored `.vscode/settings.json` (window title). That file is not a product change.
+- Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Blocked — 2026-11-12T15:12:54Z
 
 ## Results
 
@@ -83,3 +84,9 @@ dotnet build tools/dev-cli/dev.cs -c Release
 - `./bin/dev build` — exit 0 (`Build completed successfully!`)
 - `./bin/dev test` — exit 0 (220 succeeded, 0 failed, both the runfile leg and the MTP leg)
 - `ganda repo audit` — exit 1 after `ganda repo audit --fix --checks vscode-window-icon`. 44 passed, 1 failed, 1 skipped. The failure is `package-pin-currency` on TimeWarp.SourceGenerators only. `vscode-window-icon` passes after that fix wrote gitignored `.vscode/settings.json`.
+
+## Blocked
+
+2026-11-12: TimeWarp.SourceGenerators 1.0.0-beta.14 still errors TWA0038 on TimeWarp.Nuru.DevCli 4.0.0-beta.12 content (release-command.cs 609 lines, nuget-version-service.cs 704 lines), and ganda 1.0.0-beta.38 package-pin-currency has no per-package hold key. Unblocks when timewarp-source-generators 040 ships a SourceGenerators that skips package-owned files, or Nuru.DevCli ships those two files at or under 500 lines, or ganda honors a documented per-package exception under [ganda.audit]. https://github.com/TimeWarpEngineering/timewarp-source-generators/blob/master/kanban/to-do/040-twa0038-file-length-rule-fires-on-nuget-package-content-the-consuming-repo-does-not-own.md`./bin/dev build` and `./bin/dev test` both finished successfully. The suite reported 220 passed and 0 failed on the runfile leg and the MTP leg. That result is already recorded on the task. The walk stays blocked on the TimeWarp.SourceGenerators pin.
+
+- https://github.com/TimeWarpEngineering/timewarp-source-generators/blob/master/kanban/to-do/040-twa0038-file-length-rule-fires-on-nuget-package-content-the-consuming-repo-does-not-own.md`./bin/dev
