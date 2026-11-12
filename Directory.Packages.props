@@ -9,7 +9,7 @@
     <!-- Newest publish. net11.0 asset; Amuru dependency is still the 2.0.0 minimum. -->
     <PackageVersion Include="TimeWarp.Nuru" Version="4.0.0-beta.12" />
     <PackageVersion Include="TimeWarp.Nuru.DevCli" Version="4.0.0-beta.12" />
-    <PackageVersion Include="TimeWarp.Terminal" Version="1.0.2" />
+    <PackageVersion Include="TimeWarp.Terminal" Version="2.0.0-beta.1" />
 
     <!-- Test packages -->
     <PackageVersion Include="Shouldly" Version="4.3.0" />
@@ -27,7 +27,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
     <PackageVersion Include="TimeWarp.Build.Tasks" Version="2.0.0" />
     <PackageVersion Include="TimeWarp.Amuru.Tools" Version="3.0.0-beta.2" />
-    <!-- Held at 1.0.0-beta.11. beta.13 added TWA0038, and beta.14 still errors on TimeWarp.Nuru.DevCli content this repo does not own. -->
+    <!-- Held at 1.0.0-beta.11. beta.14 still errors TWA0038 on TimeWarp.Nuru.DevCli content this repo does not own (timewarp-source-generators 040). -->
     <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.11" />
 
     <!-- Benchmark hosts (task 040). Results headers copy these versions. -->

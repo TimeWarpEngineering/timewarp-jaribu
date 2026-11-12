@@ -464,3 +464,9 @@ dotnet_diagnostic.IDE0005.severity = none
 # NuGet imports this directory name as written. A kebab rename would not flow
 # the adapter targets (task 056).
 kebab-path-names.prune = buildTransitive
+# TimeWarp.SourceGenerators is held at 1.0.0-beta.11: beta.14's TWA0038 fires on two
+# TimeWarp.Nuru.DevCli package files this repo does not own (timewarp-source-generators 040).
+# ganda 1.0.0-beta.38 has no per-package hold (timewarp-ganda 627), and `warning` does not
+# stop `--fix` from bumping the pin and breaking the build, so the check is off. Restore to
+# error when either upstream task ships; task 062.
+package-pin-currency.severity = off
