@@ -29,9 +29,9 @@ prints "Skipping target CoreCompile" and the packed dll still names the test ass
 
 ## Checklist
 
-- [x] Clean each packable project (Release) immediately before its pack in `RunReleaseWorkflowAsync`
+- [x] Replace the incremental pack in `RunReleaseWorkflowAsync` with `dotnet build --no-incremental -p:JaribuExposeInternals=false -p:PackageOutputPath=artifacts/packages/` (GeneratePackageOnBuild writes the nupkg)
 - [ ] Re-cut v1.0.0-beta.16 (delete the empty release and tag first) once this is on master and CI is green
 
 ## Session
 
-- 2026-11-13: diagnosed from the second beta.16 release run; fix is a per-project clean before pack.
+- 2026-11-13: diagnosed from the second beta.16 release run; first try was clean then pack, which fails NU5026 because GeneratePackageOnBuild is on; a forced rebuild with the property set writes a grant-free dll and both nupkgs. Verified locally with the exact command.

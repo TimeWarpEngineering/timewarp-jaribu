@@ -15,7 +15,7 @@
 // handler decides whether that evaluated version is already published.
 // artifacts/packages is deleted before pack. The push list is the two nupkgs just
 // packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
-// Pack passes JaribuExposeInternals=false so the testing platform omits its test
+// Pack rebuilds with JaribuExposeInternals=false so the testing platform omits its test
 // InternalsVisibleTo grants. The release gate then reads each packed lib assembly
 // and refuses the release when any grant remains.
 // Auto-detects mode from GITHUB_EVENT_NAME. A non-empty API key also selects release.
@@ -184,23 +184,15 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       {
         Terminal.WriteLine($"  Packing {project.PackageId}...");
 
-        // The Release build from the test step is up to date, so an incremental pack
-        // skips CoreCompile and keeps the InternalsVisibleTo grants it compiled in.
-        // Clean first so JaribuExposeInternals=false reaches the compiler.
-        exitCode = await DotNet.Clean(project.ProjectPath)
+        // GeneratePackageOnBuild is on, so a forced rebuild writes the package. An
+        // incremental pack after the Release test build skips CoreCompile and keeps
+        // the InternalsVisibleTo grants it compiled in; a clean followed by pack hits
+        // NU5026 for the same reason. Rebuild with the grants off instead.
+        exitCode = await DotNet.Build(project.ProjectPath)
           .WithConfiguration("Release")
-          .WithWorkingDirectory(repoRoot)
-          .RunAsync(ct);
-
-        if (exitCode != 0)
-        {
-          throw new InvalidOperationException($"Clean {project.PackageId} failed!");
-        }
-
-        exitCode = await DotNet.Pack(project.ProjectPath)
-          .WithConfiguration("Release")
+          .WithNoIncremental()
           .WithProperty("JaribuExposeInternals", "false")
-          .WithOutput(artifactsDir)
+          .WithProperty("PackageOutputPath", artifactsDir + Path.DirectorySeparatorChar)
           .WithWorkingDirectory(repoRoot)
           .RunAsync(ct);
 
