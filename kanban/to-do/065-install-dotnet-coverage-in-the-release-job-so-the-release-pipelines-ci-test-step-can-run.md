@@ -16,3 +16,19 @@
 ## Notes
 
 [Additional context]
+
+## Description
+
+`dev release` for v1.0.0-beta.16 (run 43452130576) failed at the release job's test step:
+`dotnet-coverage was not found`. Task 060 made the CI runfile opt into coverage and added an
+"Install dotnet-coverage" step to the `test` job only. The `release` job runs the same
+`dev workflow` pipeline and never got the step. No package was pushed.
+
+## Checklist
+
+- [x] Add the "Install dotnet-coverage" step to the `release` job before "Run release pipeline"
+- [ ] Re-cut v1.0.0-beta.16 once this is on master and CI is green
+
+## Session
+
+- 2026-11-13: release run 43452130576 failed in Step 3/5 Test; fix is the one missing workflow step.
