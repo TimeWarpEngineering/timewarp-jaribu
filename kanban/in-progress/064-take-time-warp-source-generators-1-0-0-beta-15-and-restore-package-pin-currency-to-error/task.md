@@ -20,6 +20,10 @@ Steps:
 - [x] `./bin/dev test` exits 0 on both legs
 - [x] Results: before/after diagnostics and `ganda nuget outdated` output
 
+## Review
+
+- Round 1: Done
+
 ## Notes
 
 - Origin: Steve, 2026-11-13: "TimeWarp.SourceGenerators 1.0.0-beta.15 has shipped".
@@ -43,6 +47,8 @@ Acceptance:
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-13)
 - Implement (2026-11-13): tried TimeWarp.SourceGenerators 1.0.0-beta.15. `dotnet build tools/dev-cli/dev.cs` restored that pin and failed TWA0038 on the two TimeWarp.Nuru.DevCli 4.0.0-beta.12 content files. Pin returned to 1.0.0-beta.11. The `package-pin-currency.severity = off` hold stays. Hold comments in `Directory.Packages.props` and `.editorconfig` name beta.15 and task 064. No `NoWarn`, no compile-from-`obj/` target. `.timewarp/suppression-baseline.json` unchanged (sha256 `201796bc8d45afe4510c46115c0d5c987622d87782bd035dc8a63562d05654b0`, 140 suppressions).
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-13T08:59:53Z
+- Review oracle (2026-11-13): claude, model claude-opus-5-5, effort 1, roster general, max-turns 80; session id not exposed in print mode. Round 1 clean.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session a992f258-cf6c-46d0-87b5-0340924e93ca, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-13T09:01:01Z
 
 ## Results
 
@@ -98,3 +104,11 @@ ganda nuget outdated
 - `ganda repo audit` — exit 0. 42 passed, 2 failed, 1 skipped. Failed checks are `memsearch-scaffold` and `vscode-window-icon` at Warning. 140 analyzer suppressions, none above the baseline. Closing line: `Repository passes — 2 advisory (non-blocking) warning(s).`
 
 Three-OS CI is the host open-pr node. This oracle does not create the pull request. The product compile pin is unchanged.
+
+### Review disposition
+
+- **Outcome:** clean, 1 round, effort 1, roster `general`
+- **Final counts:** bug 0, suggestion 0, nit 0 (0 open, 0 fixed, 0 wontfix)
+- The diff matches the task's step-2 verified-hold branch and the implementer restatement. No misread. The reviewer took gates from the recorded Results and did not re-run them.
+- Follow-up outside this repo: confirm upstream whether timewarp-source-generators 040 (package-content TWA0038 exemption) shipped in 1.0.0-beta.15.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`
