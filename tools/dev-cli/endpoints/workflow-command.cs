@@ -183,6 +183,20 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       foreach (PackableProject project in packableProjects)
       {
         Terminal.WriteLine($"  Packing {project.PackageId}...");
+
+        // The Release build from the test step is up to date, so an incremental pack
+        // skips CoreCompile and keeps the InternalsVisibleTo grants it compiled in.
+        // Clean first so JaribuExposeInternals=false reaches the compiler.
+        exitCode = await DotNet.Clean(project.ProjectPath)
+          .WithConfiguration("Release")
+          .WithWorkingDirectory(repoRoot)
+          .RunAsync(ct);
+
+        if (exitCode != 0)
+        {
+          throw new InvalidOperationException($"Clean {project.PackageId} failed!");
+        }
+
         exitCode = await DotNet.Pack(project.ProjectPath)
           .WithConfiguration("Release")
           .WithProperty("JaribuExposeInternals", "false")
