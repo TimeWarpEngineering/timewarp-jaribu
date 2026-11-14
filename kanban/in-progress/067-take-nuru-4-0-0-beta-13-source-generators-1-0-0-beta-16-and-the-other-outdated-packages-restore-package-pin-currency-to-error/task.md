@@ -57,11 +57,11 @@ Acceptance:
 ## Session
 
 - 2026-11-15: created from the pasted `ganda nuget outdated` output after Jaribu 1.0.0-beta.16 shipped.
-- Implement (2026-11-15): bumped the six pins and removed the `package-pin-currency` hold. `dotnet build tools/dev-cli/dev.cs` restored Nuru 4.0.0-beta.13, Nuru.DevCli 4.0.0-beta.13, SourceGenerators 1.0.0-beta.16, and Terminal 2.0.0-beta.2, and exited 0 with zero TWA0038. `release-command.cs` is 356 lines and `nuget-version-service.cs` is 411 lines, both under the 500-line cap. CodeStyle 5.12.0 reports IDE0028 on `new(capacity)` under C# 15; the two lists in `session-fixture.end.cs` now use `[with(capacity: …)]`. No `NoWarn` added. `.timewarp/suppression-baseline.json` unchanged (sha256 `201796bc8d45afe4510c46115c0d5c987622d87782bd035dc8a63562d05654b0`, 140 suppressions). `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`). That file is not a product change. The Windows-side taskbar icon was not applied: Windows-side ganda was not found.
+- Implement (2026-11-15): bumped the six pins and removed the `package-pin-currency` hold. The post-commit attest then failed `package-pin-currency` on TimeWarp.Build.Tasks 2.0.0 behind 2.0.1-beta.1 (published 2026-11-14). `ganda nuget outdated` does not offer that prerelease over the stable pin. The pin is now 2.0.1-beta.1. Its `TimeWarp.Build.Tasks.props` matches 2.0.0. `dotnet build tools/dev-cli/dev.cs` restored Nuru 4.0.0-beta.13, Nuru.DevCli 4.0.0-beta.13, SourceGenerators 1.0.0-beta.16, and Terminal 2.0.0-beta.2, and exited 0 with zero TWA0038. `release-command.cs` is 356 lines and `nuget-version-service.cs` is 411 lines, both under the 500-line cap. CodeStyle 5.12.0 reports IDE0028 on `new(capacity)` under C# 15; the two lists in `session-fixture.end.cs` now use `[with(capacity: …)]`. No `NoWarn` added. `.timewarp/suppression-baseline.json` unchanged (sha256 `201796bc8d45afe4510c46115c0d5c987622d87782bd035dc8a63562d05654b0`, 140 suppressions). `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`). That file is not a product change. The Windows-side taskbar icon was not applied: Windows-side ganda was not found.
 
 ## Results
 
-The six pins are current and `package-pin-currency` is Error again. TWA0038 did not fire, so the hold is gone.
+The six pins from the task are current, TimeWarp.Build.Tasks is 2.0.1-beta.1, and `package-pin-currency` is Error again. TWA0038 did not fire, so the hold is gone.
 
 ### Pins
 
@@ -73,8 +73,9 @@ The six pins are current and `package-pin-currency` is Error again. TWA0038 did 
 | TimeWarp.SourceGenerators | 1.0.0-beta.11 | 1.0.0-beta.16 |
 | Microsoft.CodeAnalysis.CSharp.CodeStyle | 5.9.0 | 5.12.0 |
 | TUnit | 1.83.8 | 1.84.0 |
+| TimeWarp.Build.Tasks | 2.0.0 | 2.0.1-beta.1 |
 
-`.editorconfig` no longer sets `package-pin-currency.severity`. The hold comment is gone from `Directory.Packages.props`.
+`.editorconfig` no longer sets `package-pin-currency.severity`. The hold comment is gone from `Directory.Packages.props`. TimeWarp.Build.Tasks moved because the post-commit attest reported `package-pin-currency` for it. `ganda nuget outdated` had called 2.0.0 current: it does not offer 2.0.1-beta.1 over a stable pin. The 2.0.1-beta.1 props file matches 2.0.0.
 
 ### Diagnostics
 
@@ -107,12 +108,12 @@ ganda nuget outdated
 
 **Expect**
 
-`dotnet build tools/dev-cli/dev.cs` exits 0 with zero TWA0038, and the runfile assets pin Nuru and Nuru.DevCli 4.0.0-beta.13 plus SourceGenerators 1.0.0-beta.16. `./bin/dev build` exits 0. `./bin/dev test` exits 0: runfile grand total 220 passed, 0 failed; MTP `passed [+220/x0/?0]`, 220 succeeded, 0 failed. `ganda repo audit` exits 0: 45 passed, 0 failed, 1 skipped. The skipped row is `self-hosted` (public repository). The closing line is `Repository passes all audit checks.` `package-pin-currency` passes at Error. Analyzer suppressions: 140, none above the baseline. `ganda nuget outdated` prints `All packages are up to date!`
+`dotnet build tools/dev-cli/dev.cs` exits 0 with zero TWA0038, and the runfile assets pin Nuru and Nuru.DevCli 4.0.0-beta.13 plus SourceGenerators 1.0.0-beta.16. `./bin/dev build` exits 0. `./bin/dev test` exits 0: runfile grand total 220 passed, 0 failed; MTP `passed [+220/x0/?0]`, 220 succeeded, 0 failed. `ganda repo audit` exits 0: 45 passed, 0 failed, 1 skipped. The skipped row is `self-hosted` (public repository). The closing line is `Repository passes all audit checks.` `package-pin-currency` passes at Error, including TimeWarp.Build.Tasks 2.0.1-beta.1. Analyzer suppressions: 140, none above the baseline. `ganda nuget outdated` prints `All packages are up to date!` It does not offer 2.0.1-beta.1 over the stable 2.0.0 pin; the audit check does.
 
 **Gates**
 
-- `./bin/dev build` — exit 0 (`Build completed successfully!`). The first run failed IDE0028 on the two capacity constructors; after `[with(capacity: …)]` the rerun exited 0. Zero TWA0038.
-- `./bin/dev test` — exit 0. Runfile grand total 220 passed, 0 failed. MTP `passed [+220/x0/?0]` (7m 23s), summary `total: 220`, `failed: 0`, `succeeded: 220`. `Tests completed successfully!`
-- `ganda repo audit` — the passing run is `ganda repo audit --fix --checks vscode-window-icon`, which exits 0 and then audits. 45 passed, 0 failed, 1 skipped (`self-hosted`). 140 analyzer suppressions, none above the baseline. Closing line: `Repository passes all audit checks.` The fix wrote gitignored `.vscode/settings.json` only. `package-pin-currency` is included and passes.
+- `./bin/dev build` — exit 0 (`Build completed successfully!`). The first run failed IDE0028 on the two capacity constructors; after `[with(capacity: …)]` the rerun exited 0. The run after the TimeWarp.Build.Tasks 2.0.1-beta.1 pin also exited 0. Zero TWA0038.
+- `./bin/dev test` — exit 0. Runfile grand total 220 passed, 0 failed. MTP `passed [+220/x0/?0]` (7m 23s), summary `total: 220`, `failed: 0`, `succeeded: 220`. `Tests completed successfully!` This run is on the six task pins and the IDE0028 edit. TimeWarp.Build.Tasks 2.0.1-beta.1 keeps the 2.0.0 props file, and no test reads `CommitHash` or `CommitDate`.
+- `ganda repo audit` — exit 0 after the Build.Tasks pin. 45 passed, 0 failed, 1 skipped (`self-hosted`). 140 analyzer suppressions, none above the baseline. Closing line: `Repository passes all audit checks.` `package-pin-currency` is included and passes. Earlier, `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`). The first commit's post-commit attest failed this check on TimeWarp.Build.Tasks 2.0.0 behind 2.0.1-beta.1; this audit is after that pin moved.
 
 Three-OS CI is the host open-pr node. This oracle does not create the pull request.
