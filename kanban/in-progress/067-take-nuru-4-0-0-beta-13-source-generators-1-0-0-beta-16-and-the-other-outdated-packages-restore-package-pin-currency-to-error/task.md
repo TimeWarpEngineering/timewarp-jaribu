@@ -13,6 +13,11 @@
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-14)
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-14T19:08:31Z
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 03d8f06c-26f2-4edc-8aff-96d2ec87ba6a, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-14T19:10:00Z
+
+## Review
+
+- Round 1: Done
 
 ## Notes
 
@@ -59,6 +64,7 @@ Acceptance:
 
 - 2026-11-15: created from the pasted `ganda nuget outdated` output after Jaribu 1.0.0-beta.16 shipped.
 - Implement (2026-11-15): bumped the six pins and removed the `package-pin-currency` hold. The post-commit attest then failed `package-pin-currency` on TimeWarp.Build.Tasks 2.0.0 behind 2.0.1-beta.1 (published 2026-11-14). `ganda nuget outdated` does not offer that prerelease over the stable pin. The pin is now 2.0.1-beta.1. Its `TimeWarp.Build.Tasks.props` matches 2.0.0. `dotnet build tools/dev-cli/dev.cs` restored Nuru 4.0.0-beta.13, Nuru.DevCli 4.0.0-beta.13, SourceGenerators 1.0.0-beta.16, and Terminal 2.0.0-beta.2, and exited 0 with zero TWA0038. `release-command.cs` is 356 lines and `nuget-version-service.cs` is 411 lines, both under the 500-line cap. CodeStyle 5.12.0 reports IDE0028 on `new(capacity)` under C# 15; the two lists in `session-fixture.end.cs` now use `[with(capacity: …)]`. No `NoWarn` added. `.timewarp/suppression-baseline.json` unchanged (sha256 `201796bc8d45afe4510c46115c0d5c987622d87782bd035dc8a63562d05654b0`, 140 suppressions). `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`). That file is not a product change. The Windows-side taskbar icon was not applied: Windows-side ganda was not found.
+- Review (2026-11-15): review oracle (claude, claude-opus-5-5, session id not exposed in print mode), effort 1, roster general, 1 round, turn cap 80. Disposition accepted-exceptions.
 
 ## Results
 
@@ -118,3 +124,11 @@ ganda nuget outdated
 - `ganda repo audit` — exit 0 after the Build.Tasks pin. 45 passed, 0 failed, 1 skipped (`self-hosted`). 140 analyzer suppressions, none above the baseline. Closing line: `Repository passes all audit checks.` `package-pin-currency` is included and passes. Earlier, `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`). The first commit's post-commit attest failed this check on TimeWarp.Build.Tasks 2.0.0 behind 2.0.1-beta.1; this audit is after that pin moved.
 
 Three-OS CI is the host open-pr node. This oracle does not create the pull request.
+
+### Review disposition
+
+- **Outcome:** accepted-exceptions. 1 round, effort 1, roster `general`.
+- **Final counts:** bug 0 open / 0 fixed / 0 wontfix; suggestion 0 / 0 / 0; nit 0 open / 0 fixed / 1 wontfix.
+- **Wontfix:** M1 (nit). The `task.md` template stubs from `ganda kanban create` duplicate the Description, Checklist, and Session headings. This is kitchen-only and predates this diff. Not worth a fix pass.
+- **Review checks:** pins match the acceptance list, the hold is fully removed, and the `[with(capacity: …)]` rewrites keep the old behavior (net11.0, LangVersion latest). TimeWarp.Build.Tasks 2.0.1-beta.1 is `PrivateAssets="all"`. One targeted `diff` of the cached `TimeWarp.Build.Tasks.props` (build and buildTransitive, 2.0.0 vs 2.0.1-beta.1) showed both pairs identical. No full gate was re-run.
+- **Paths:** `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`
