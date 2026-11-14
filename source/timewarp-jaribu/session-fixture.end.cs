@@ -142,7 +142,7 @@ public static partial class SessionFixture
   private static List<(Type Type, IAsyncDisposable Instance)> TakeDisposeList()
   {
     Generation++;
-    List<(Type Type, IAsyncDisposable Instance)> toDispose = new(CreationOrder.Count);
+    List<(Type Type, IAsyncDisposable Instance)> toDispose = [with(capacity: CreationOrder.Count)];
     for (int index = CreationOrder.Count - 1; index >= 0; index--)
     {
       Type type = CreationOrder[index];
@@ -179,7 +179,7 @@ public static partial class SessionFixture
     CancellationToken cancellationToken)
   {
     List<Exception> errors = [];
-    List<(Type Type, Task DisposeTask)> pending = new(toDispose.Count);
+    List<(Type Type, Task DisposeTask)> pending = [with(capacity: toDispose.Count)];
     foreach ((Type type, IAsyncDisposable instance) in toDispose)
     {
       try

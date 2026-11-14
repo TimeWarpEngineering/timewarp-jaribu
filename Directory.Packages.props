@@ -7,9 +7,9 @@
     <!-- TimeWarp packages -->
     <PackageVersion Include="TimeWarp.Amuru" Version="3.0.0-beta.2" />
     <!-- Newest publish. net11.0 asset; Amuru dependency is still the 2.0.0 minimum. -->
-    <PackageVersion Include="TimeWarp.Nuru" Version="4.0.0-beta.12" />
-    <PackageVersion Include="TimeWarp.Nuru.DevCli" Version="4.0.0-beta.12" />
-    <PackageVersion Include="TimeWarp.Terminal" Version="2.0.0-beta.1" />
+    <PackageVersion Include="TimeWarp.Nuru" Version="4.0.0-beta.13" />
+    <PackageVersion Include="TimeWarp.Nuru.DevCli" Version="4.0.0-beta.13" />
+    <PackageVersion Include="TimeWarp.Terminal" Version="2.0.0-beta.2" />
 
     <!-- Test packages -->
     <PackageVersion Include="Shouldly" Version="4.3.0" />
@@ -23,19 +23,18 @@
     <PackageVersion Include="Roslynator.CodeAnalysis.Analyzers" Version="5.0.1" />
     <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="5.0.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="11.0.100" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeStyle" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeStyle" Version="5.12.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
-    <PackageVersion Include="TimeWarp.Build.Tasks" Version="2.0.0" />
+    <PackageVersion Include="TimeWarp.Build.Tasks" Version="2.0.1-beta.1" />
     <PackageVersion Include="TimeWarp.Amuru.Tools" Version="3.0.0-beta.2" />
-    <!-- Held at 1.0.0-beta.11. 1.0.0-beta.15 errors TWA0038 on TimeWarp.Nuru.DevCli content this repo does not own (timewarp-source-generators 040, task 064). -->
-    <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.11" />
+    <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.16" />
 
     <!-- Benchmark hosts (task 040). Results headers copy these versions. -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="Fixie" Version="4.2.0" />
     <PackageVersion Include="Fixie.TestAdapter" Version="4.2.0" />
     <PackageVersion Include="TimeWarp.Fixie" Version="3.1.0" />
-    <PackageVersion Include="TUnit" Version="1.83.8" />
+    <PackageVersion Include="TUnit" Version="1.84.0" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.3" />
   </ItemGroup>
 </Project>
