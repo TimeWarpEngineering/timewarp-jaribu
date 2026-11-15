@@ -16,3 +16,13 @@
 ## Notes
 
 [Additional context]
+
+## Description
+
+`ganda nuget outdated` on 2026-11-16: TimeWarp.Amuru and TimeWarp.Amuru.Tools 3.0.0-beta.4 -> beta.5.
+`ganda repo audit --fix` applied both. Audit clean, build green.
+
+## Checklist
+
+- [x] Amuru / Amuru.Tools 3.0.0-beta.5 via `ganda repo audit --fix`
+- [ ] CI green, merged
