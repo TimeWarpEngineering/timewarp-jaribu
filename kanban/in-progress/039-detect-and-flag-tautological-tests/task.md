@@ -58,6 +58,8 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 - Round 3 (2026-11-16): M1, M7, M13, M14, M15, and M16 are fixed. M17 stays open in a narrower form: the JARIBU1003 negative check still cannot fail. New: M18 (suggestion), because the trailing-`using` fixture does not isolate the `Dispose` rule. 2 open, so a fix pass is needed. Ledger: `review/round-3/merged.md`.
 - Round 3: Blocked — open M17, M18
 - Round 3 fix: M17 and M18 are addressed in this fix pass.
+- Round 4 (2026-11-16): M17 and M18 are verified fixed in `ce6d12e`. No new findings. 0 open. Disposition: clean (`review/disposition.md`).
+- Round 4: Done
 ## Notes
 
 - Rewritten 2026-11-09 after discussion: the original draft led with a rule catalog. The objective test (survives a broken system under test) is now the primary deliverable, and the catalog is the cheap pre-filter.
@@ -79,6 +81,7 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 - Fix pass (implement-fix-3): implementer-cursor, round-2 findings M1, M7, M13, M14, M15, M16, M17 — 2026-11-16
 - Review oracle round 3: claude-opus-5-5 (Claude Code, print mode), effort 3, roster general (orchestrator only, no helper), turn cap 200, session id not exposed. Scope `811fd64..50f08ae`. Outcome: 2 open (M17 bug, M18 suggestion), so a fix pass is needed — 2026-11-16
 - Fix pass (implement-fix-4): implementer-cursor, round-3 findings M17, M18 — 2026-11-16
+- Review oracle round 4: claude-opus-5-5 (Claude Code, print mode), effort 1, roster general (orchestrator only, no helper), turn cap 80, session id not exposed. Scope `50f08ae..ce6d12e`. Outcome: 0 open, disposition clean — 2026-11-16
 
 ## Results
 
@@ -129,7 +132,12 @@ Gates:
   - Final counts: bug 1 open (M17) and 9 fixed (M1–M7, M13, M16); suggestion 1 open (M18) and 6 fixed (M8–M11, M14, M15); nit 1 fixed (M12). 0 wontfix.
   - Disposition: not reached. 2 findings are open, so a fix pass is needed before round 4.
   - Open: `'DifferentSymbols_Should_NotFlag'` can never appear, because JARIBU1003 prints the expression and not the method (M17). The trailing-`using` fixture ties `Parse` and `Dispose` on subtree size, so it passes without the `Dispose` exclusion (M18).
-  - Paths: `review/round-3/general.md`, `review/round-3/merged.md` (the live status ledger).
+  - Paths: `review/round-3/general.md`, `review/round-3/merged.md` (frozen).
+- Round 4 review (2026-11-16): effort 1, roster general (orchestrator only), scope `50f08ae..ce6d12e`. No build, test, audit, hook, or targeted command was run. The review read the diff, `tautology-inference.cs`, the instrumenter's `SkipMethod`, and this record.
+  - M17 fixed: the detector rejects any `negative.cs(` location, so a diagnostic on any negative case under any rule fails it. M18 fixed: `Dispose` has subtree 0 and `Parse` has subtree 2 (`get_Disposed`, `Copy`), so the trailing-`using` test holds only through the dispose exclusion. No new findings.
+  - Final counts: bug 0 open and 10 fixed (M1–M7, M13, M16, M17); suggestion 0 open and 7 fixed (M8–M11, M14, M15, M18); nit 0 open and 1 fixed (M12). 0 wontfix.
+  - Rounds: 4. Disposition: **clean** (every raised finding fixed, none wontfix, no escalations).
+  - Paths: `review/review-framework.md`, `review/round-4/general.md`, `review/round-4/merged.md` (final ledger), `review/disposition.md`.
 
 ## Learnings
 
