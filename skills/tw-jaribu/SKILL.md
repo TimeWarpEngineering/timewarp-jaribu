@@ -74,7 +74,7 @@ public static async Task Add_Should_ReturnTheSum()
 }
 ```
 
-Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI or pre-PR gate. It needs `JaribuInstrument=true` on the production build. A test with no claim uses the last production method it entered. `[KnownTautology("reason")]` is the escape hatch for a smoke or compile-only test. Do not use it to hide a test that should assert a production result. The model is `documentation/tautology.md`.
+Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI or pre-PR gate. It needs `JaribuInstrument=true` on the production build. The package ships that MSBuild target and the instrumenter. A test with no claim uses the last production method the test called directly, skipping a trailing getter. The runner's wait for the test task is not that call. `[KnownTautology("reason")]` is the escape hatch for a smoke or compile-only test. Do not use it to hide a test that should assert a production result. The model is `documentation/tautology.md`.
 
 ## Test Methods
 

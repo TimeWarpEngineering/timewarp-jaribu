@@ -42,6 +42,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<CleanupOutcome_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BodyFailure_Should_KeepBodyExceptionWhenCleanUpThrows()
     {
       CleanupOutcomeCollectingSink sink = new();
@@ -60,6 +61,7 @@ namespace TestRunner_
       node.Message.ShouldContain("cleanup boom");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Timeout_Should_StayTimeoutWhenCleanUpThrows()
     {
       CleanupOutcomeTimeoutFixture.CleanUpCount = 0;
@@ -78,6 +80,7 @@ namespace TestRunner_
       node.Message.ShouldContain("cleanup boom");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SyncBodyFailure_Should_StayFailedWhenCleanUpThrows()
     {
       CleanupOutcomeCollectingSink sink = new();
@@ -94,6 +97,7 @@ namespace TestRunner_
       node.Message.ShouldContain("cleanup boom");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task PassingBody_Should_BecomeErrorWhenCleanUpThrows()
     {
       CleanupOutcomeCollectingSink sink = new();

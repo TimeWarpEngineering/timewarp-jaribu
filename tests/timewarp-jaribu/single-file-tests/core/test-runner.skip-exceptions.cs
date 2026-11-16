@@ -47,6 +47,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<SkipExceptions_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SkipAttribute_Should_ReportReason()
     {
       SkipExceptionsFixture.Reset();
@@ -66,6 +67,7 @@ namespace TestRunner_
       skipped.Exception.ShouldBeNull();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task RuntimeException_Should_FailWithArgumentException()
     {
       SkipExceptionsCollectingSink sink = new();
@@ -79,6 +81,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldContain("Intentional runtime exception");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task InvocationException_Should_UnwrapAndFail()
     {
       SkipExceptionsCollectingSink sink = new();
@@ -92,6 +95,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldContain("Inner exception for SKIP-03");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task AsyncException_Should_FailAfterAwait()
     {
       SkipExceptionsCollectingSink sink = new();
@@ -105,6 +109,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldContain("Async exception after await");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task PassingMethod_Should_NotBeAffectedBySkips()
     {
       SkipExceptionsFixture.Reset();

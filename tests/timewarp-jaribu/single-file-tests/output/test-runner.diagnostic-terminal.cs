@@ -31,6 +31,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<DiagnosticTerminal_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task TwoClasses_Should_WriteGrandTotalToSuppliedTerminal()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -46,6 +47,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task EmptyRegistry_Should_WriteWarningAndReturnOne()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -59,6 +61,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestHelpers), nameof(TestHelpers.TestSkipped))]
     public static async Task StatusHelpers_Should_WriteToSuppliedTerminal()
     {
       using TestTerminal terminal = new();
@@ -73,6 +76,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task OutermostDisposeFailure_Should_WriteToSuppliedTerminal()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -96,6 +100,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunSingleTestAsync))]
     public static async Task PassingNode_Should_CarryStartAndEnd()
     {
       DiagnosticCollectingSink sink = new();

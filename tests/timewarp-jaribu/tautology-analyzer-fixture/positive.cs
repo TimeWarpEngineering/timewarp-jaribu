@@ -28,4 +28,11 @@ public static class Positive_
     value.ShouldBe(1);
     await Task.CompletedTask;
   }
+
+  public static async Task Contains_Should_FlagNoAssertion()
+  {
+    List<int> values = [1];
+    values.Contains(1);
+    await Task.CompletedTask;
+  }
 }

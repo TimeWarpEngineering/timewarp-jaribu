@@ -29,6 +29,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Cancellation_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MidRun_Should_CancelTheCurrentTestAndSkipTheRest()
     {
       CancellationCollectingSink sink = new();
@@ -57,6 +58,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task MidRun_Should_ExitNonZero()
     {
       (CancellationTokenSource cts, TaskCompletionSource release) = Hold.Reset();
@@ -76,6 +78,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task AlreadyCancelled_Should_StartNothingAndExitNonZero()
     {
       using CancellationTokenSource cts = new();
@@ -88,6 +91,7 @@ namespace TestRunner_
       QuickFixture.Entered.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Timeout_Should_StayTimeoutWhenTheTokenIsNotCancelled()
     {
       CancellationCollectingSink sink = new();
@@ -107,6 +111,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Cancel_Should_WinOverTimeout()
     {
       CancellationCollectingSink sink = new();
@@ -132,6 +137,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Setup_Should_StopBeforeTheBody()
     {
       CancellationCollectingSink sink = new();
@@ -157,6 +163,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task SetupOnce_Should_SkipBodiesAndStillCleanUpOnce()
     {
       (CancellationTokenSource cts, TaskCompletionSource release) = Hold.Reset();
@@ -177,6 +184,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CleanUp_Should_CancelAPassingBody()
     {
       CancellationCollectingSink sink = new();
@@ -201,6 +209,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task CleanUpOnce_Should_ReturnOneWhenItThrowsBeforeATaskAfterCancel()
     {
       using CancellationTokenSource cts = new();
@@ -214,6 +223,7 @@ namespace TestRunner_
       SyncThrowCleanUpOnceFixture.CleanUpOnceEntered.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task RunAllTests_Should_NotStartTheNextClass()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];
@@ -247,6 +257,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
     public static async Task CreateAsync_Should_StopWhenTheTokenFires()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -273,6 +284,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
     public static async Task DisposeAsync_Should_StopWhenTheTokenFires()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -299,6 +311,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
     public static async Task EndSession_Should_StartDisposeOnEveryFixtureWhenAlreadyCancelled()
     {
       TestRunner.ClearRegisteredSessionFixtures();

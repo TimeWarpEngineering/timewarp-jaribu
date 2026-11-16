@@ -11,10 +11,11 @@ using System.Reflection;
 // The baseline attempt is the result a normal run would report. Prove mode then
 // breaks one claim at a time. A kill is a failing attempt. The following restore
 // attempt must pass. A test that still passes while the member throws is unproven.
-// No [Proves] uses the last distinct production method the baseline entered.
+// No [Proves] uses the last production method the test called directly.
+// Property and event accessors are skipped when any other method was entered.
 // KnownTautology skips the break and is not a strict failure.
-// An assembly with no instrumentation marker and no hits is reported as missing
-// instrumentation, not as zero coverage.
+// An assembly with no instrumentation marker and no hits is a warning, and strict
+// mode fails the run. It is not reported as zero coverage.
 #endregion
 
 /// <summary>Coverage collection and prove-mode attempts for one test case.</summary>
@@ -38,12 +39,13 @@ internal static class TautologyExecutor
       return await runOnce(cancellationToken).ConfigureAwait(false);
     }
 
-    (TestNodeInfo baseline, IReadOnlyList<string> hits) = await AttemptAsync(
+    (TestNodeInfo baseline, IReadOnlyList<TautologyProbe.Hit> hits) = await AttemptAsync(
       runOnce,
       method,
-      brokenPrefix: null,
+      brokenPrefixes: null,
       cancellationToken).ConfigureAwait(false);
-    List<string> production = ProductionHits(hits, method);
+    List<TautologyProbe.Hit> production = ProductionHits(hits, method);
+    int covered = DistinctCount(production);
     string location = TautologyLocation.Format(method);
     double seconds = Seconds(baseline);
     TestRunner.MethodMetadata metadata = TestRunner.GetMethodMetadata(method);
@@ -58,7 +60,7 @@ internal static class TautologyExecutor
         "known",
         known.Reason,
         location,
-        production.Count,
+        covered,
         proven: 0,
         seconds,
         violation: false,
@@ -66,7 +68,7 @@ internal static class TautologyExecutor
       return baseline with { Tautology = knownFinding };
     }
 
-    if (!instrumented && production.Count == 0)
+    if (!instrumented && covered == 0)
     {
       TautologyFinding missing = Score(
         baseline,
@@ -76,9 +78,9 @@ internal static class TautologyExecutor
         covered: 0,
         proven: 0,
         seconds,
-        violation: false,
+        violation: true,
         known: false);
-      return baseline with { Tautology = missing };
+      return Finish(baseline, missing, options);
     }
 
     if (baseline.State != TestNodeState.Passed)
@@ -88,7 +90,7 @@ internal static class TautologyExecutor
         "failed",
         "The test failed before a claim was broken.",
         location,
-        production.Count,
+        covered,
         proven: 0,
         seconds,
         violation: false,
@@ -97,7 +99,7 @@ internal static class TautologyExecutor
     }
 
     bool missingClaim = options.RequireClaims && explicitClaims.Length == 0;
-    if (production.Count == 0)
+    if (covered == 0)
     {
       string reason = missingClaim
         ? "Missing [Proves] claim. Zero production methods covered."
@@ -111,38 +113,50 @@ internal static class TautologyExecutor
     if (!options.Prove)
     {
       string reason = missingClaim
-        ? "Missing [Proves] claim. Covered " + production.Count.ToString(CultureInfo.InvariantCulture) + " production methods."
-        : "Covered " + production.Count.ToString(CultureInfo.InvariantCulture) + " production methods.";
+        ? "Missing [Proves] claim. Covered " + covered.ToString(CultureInfo.InvariantCulture) + " production methods."
+        : "Covered " + covered.ToString(CultureInfo.InvariantCulture) + " production methods.";
       string rule = missingClaim ? "claim" : "coverage";
       return Finish(
         baseline,
-        Score(baseline, rule, reason, location, production.Count, 0, seconds, missingClaim, known: false),
+        Score(baseline, rule, reason, location, covered, 0, seconds, missingClaim, known: false),
         options);
     }
 
     List<TautologyClaim> claims = [];
+    List<string> unresolved = [];
     if (explicitClaims.Length > 0)
     {
       foreach (ProvesAttribute proves in explicitClaims)
       {
-        claims.Add(TautologyClaim.From(proves.Type, proves.MethodName));
+        if (TautologyClaim.TryFrom(proves.Type, proves.MethodName, out TautologyClaim claim, out string error))
+        {
+          claims.Add(claim);
+        }
+        else
+        {
+          unresolved.Add(error);
+        }
       }
     }
-    else if (!missingClaim && TautologyClaim.FromToken(production[^1]) is TautologyClaim inferred)
+    else if (!missingClaim && InferToken(production) is string inferredToken &&
+             TautologyClaim.FromToken(inferredToken) is TautologyClaim inferred)
     {
       claims.Add(inferred);
     }
 
     if (claims.Count == 0)
     {
+      string reason = unresolved.Count > 0
+        ? string.Join(" ", unresolved)
+        : "Missing [Proves] claim.";
       return Finish(
         baseline,
         Score(
           baseline,
           "claim",
-          "Missing [Proves] claim.",
+          reason,
           location,
-          production.Count,
+          covered,
           0,
           seconds,
           violation: true,
@@ -151,7 +165,7 @@ internal static class TautologyExecutor
     }
 
     int proven = 0;
-    List<string> unproven = [];
+    List<string> unproven = [.. unresolved];
     TestNodeInfo reported = baseline;
     foreach (TautologyClaim claim in claims)
     {
@@ -163,7 +177,7 @@ internal static class TautologyExecutor
       (TestNodeInfo broken, _) = await AttemptAsync(
         runOnce,
         method,
-        claim.Prefix,
+        claim.Prefixes,
         cancellationToken).ConfigureAwait(false);
       seconds += Seconds(broken);
       if (!TestRunStats.IsFailingState(broken.State))
@@ -175,7 +189,7 @@ internal static class TautologyExecutor
       (TestNodeInfo restored, _) = await AttemptAsync(
         runOnce,
         method,
-        brokenPrefix: null,
+        brokenPrefixes: null,
         cancellationToken).ConfigureAwait(false);
       seconds += Seconds(restored);
       if (restored.State != TestNodeState.Passed)
@@ -200,7 +214,7 @@ internal static class TautologyExecutor
 
       return Finish(
         reported,
-        Score(reported, claimRule, reason, location, production.Count, proven, seconds, violation: true, known: false),
+        Score(reported, claimRule, reason, location, covered, proven, seconds, violation: true, known: false),
         options);
     }
 
@@ -214,7 +228,7 @@ internal static class TautologyExecutor
           "claim",
           "Missing [Proves] claim. " + proved,
           location,
-          production.Count,
+          covered,
           proven,
           seconds,
           violation: true,
@@ -224,17 +238,17 @@ internal static class TautologyExecutor
 
     return Finish(
       reported,
-      Score(reported, claimRule, proved, location, production.Count, proven, seconds, violation: false, known: false),
+      Score(reported, claimRule, proved, location, covered, proven, seconds, violation: false, known: false),
       options);
   }
 
-  private static async Task<(TestNodeInfo Node, IReadOnlyList<string> Hits)> AttemptAsync(
+  private static async Task<(TestNodeInfo Node, IReadOnlyList<TautologyProbe.Hit> Hits)> AttemptAsync(
     Func<CancellationToken, Task<TestNodeInfo>> runOnce,
     MethodInfo method,
-    string? brokenPrefix,
+    IReadOnlyList<string>? brokenPrefixes,
     CancellationToken cancellationToken)
   {
-    TautologyProbe.Scope scope = TautologyProbe.Push(brokenPrefix);
+    TautologyProbe.Scope scope = TautologyProbe.Push(brokenPrefixes);
     try
     {
       try
@@ -264,24 +278,26 @@ internal static class TautologyExecutor
     }
   }
 
-  private static List<string> ProductionHits(IReadOnlyList<string> hits, MethodInfo method)
+  private static List<TautologyProbe.Hit> ProductionHits(IReadOnlyList<TautologyProbe.Hit> hits, MethodInfo method)
   {
     string testAssembly = method.DeclaringType?.Assembly.GetName().Name ?? string.Empty;
-    List<string> production = [];
-    foreach (string hit in hits)
+    List<TautologyProbe.Hit> production = [];
+    foreach (TautologyProbe.Hit hit in hits)
     {
-      int bar = hit.IndexOf('|', StringComparison.Ordinal);
+      int bar = hit.Token.IndexOf('|', StringComparison.Ordinal);
       if (bar <= 0)
       {
         continue;
       }
 
-      if (string.Equals(hit[..bar], testAssembly, StringComparison.Ordinal))
+      if (string.Equals(hit.Token[..bar], testAssembly, StringComparison.Ordinal))
       {
         continue;
       }
 
-      if (hit.Contains('<', StringComparison.Ordinal))
+      int paren = hit.Token.IndexOf('(', StringComparison.Ordinal);
+      string head = paren >= 0 ? hit.Token[..paren] : hit.Token;
+      if (head.Contains('<', StringComparison.Ordinal))
       {
         continue;
       }
@@ -290,6 +306,60 @@ internal static class TautologyExecutor
     }
 
     return production;
+  }
+
+  private static int DistinctCount(List<TautologyProbe.Hit> hits)
+  {
+    HashSet<string> seen = [];
+    foreach (TautologyProbe.Hit hit in hits)
+    {
+      seen.Add(hit.Token);
+    }
+
+    return seen.Count;
+  }
+
+  private static string? InferToken(List<TautologyProbe.Hit> production)
+  {
+    bool anyMethod = false;
+    foreach (TautologyProbe.Hit hit in production)
+    {
+      if (!IsAccessor(hit.Token))
+      {
+        anyMethod = true;
+        break;
+      }
+    }
+
+    int min = int.MaxValue;
+    string? chosen = null;
+    foreach (TautologyProbe.Hit hit in production)
+    {
+      if (anyMethod && IsAccessor(hit.Token))
+      {
+        continue;
+      }
+
+      if (hit.Depth < min || hit.Depth == min)
+      {
+        min = hit.Depth;
+        chosen = hit.Token;
+      }
+    }
+
+    return chosen;
+  }
+
+  private static bool IsAccessor(string token)
+  {
+    int paren = token.IndexOf('(', StringComparison.Ordinal);
+    string head = paren >= 0 ? token[..paren] : token;
+    int dot = head.LastIndexOf('.', StringComparison.Ordinal);
+    string name = dot < 0 ? head : head[(dot + 1)..];
+    return name.StartsWith("get_", StringComparison.Ordinal)
+      || name.StartsWith("set_", StringComparison.Ordinal)
+      || name.StartsWith("add_", StringComparison.Ordinal)
+      || name.StartsWith("remove_", StringComparison.Ordinal);
   }
 
   private static TautologyFinding Score(

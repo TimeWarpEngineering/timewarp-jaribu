@@ -28,6 +28,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<CaseDisplay_Given_>();
 
+    [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.FormatReportedName))]
     public static async Task Overloads_Should_KeepDistinctUids()
     {
       Type overloaded = typeof(OverloadFixture);
@@ -57,6 +58,7 @@ namespace TestRunner_
       TestCaseIdentity.FormatReportedName(single, method, parameters: null).ShouldBe(nameof(SingleSumFixture.Sum));
     }
 
+    [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.MethodUid))]
     public static async Task GenericOverloads_Should_UseParameterTypeNames()
     {
       Type type = typeof(GenericOverloadFixture);
@@ -70,6 +72,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Arguments_Should_FormatInvariantlyUnderGermanCulture()
     {
       CultureInfo original = CultureInfo.CurrentCulture;
@@ -114,6 +117,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.Dispose))]
     public static async Task FormatTestName_Should_TouchTheMethodNameOnly()
     {
       TestHelpers.FormatTestName("CatchAllInOptionShouldFail").ShouldBe("Catch All In Option Should Fail");
@@ -130,6 +134,7 @@ namespace TestRunner_
       terminal.Output.ShouldNotContain("Adds Numbers( Foo");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task NullInput_Should_BindOneNullArgument()
     {
       Type fixture = typeof(NullInputFixture);
@@ -149,6 +154,7 @@ namespace TestRunner_
       NullInputFixture.SawNull.ShouldBeTrue();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task InputOrder_Should_FollowSourceOrder()
     {
       Type fixture = typeof(OrderFixture);

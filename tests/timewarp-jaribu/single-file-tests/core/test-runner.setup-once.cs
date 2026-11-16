@@ -58,6 +58,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<SetupOnce_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task OnceOnly_Should_InvokeHooksOnceAndCleanupOnPass()
     {
       OnceOnlyFixture.Reset();
@@ -71,6 +72,7 @@ namespace TestRunner_
       OnceOnlyFixture.BodyCount.ShouldBe(2);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CleanupAfterFailures_Should_StillRunCleanUpOnce()
     {
       CleanupAfterFailFixture.Reset();
@@ -85,6 +87,7 @@ namespace TestRunner_
       CleanupAfterFailFixture.BodyCount.ShouldBe(2);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task LazyAllSkip_Should_NotInvokeHooks()
     {
       AllSkipFixture.Reset();
@@ -99,6 +102,7 @@ namespace TestRunner_
       AllSkipFixture.BodyCount.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task LazyAllTagFiltered_Should_NotInvokeHooks()
     {
       AllTagFilteredFixture.Reset();
@@ -112,6 +116,7 @@ namespace TestRunner_
       AllTagFilteredFixture.BodyCount.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SetupOnceFailure_Should_FanOutFailedAndSkipBodies()
     {
       SetupOnceFailureFixture.Reset();
@@ -133,6 +138,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CleanUpOnceFailure_Should_EmitSyntheticNodeAndFailGreenRun()
     {
       CleanUpOnceFailureFixture.Reset();
@@ -154,6 +160,7 @@ namespace TestRunner_
       synthetic.Exception.Message.ShouldContain("CleanUpOnce boom");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BadSignatureVoid_Should_FailClassWithoutCleanUpOnce()
     {
       BadSignatureVoidFixture.Reset();
@@ -169,6 +176,7 @@ namespace TestRunner_
       sink.Results[0].Exception!.Message.ShouldContain("public static Task");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BadSignaturePrivate_Should_FailClassWithoutCleanUpOnce()
     {
       BadSignaturePrivateFixture.Reset();
@@ -184,6 +192,7 @@ namespace TestRunner_
       sink.Results[0].Exception!.Message.ShouldContain("public static Task");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.DiscoverTests))]
     public static async Task Discovery_Should_ExcludeOnceHookNames()
     {
       List<string> names = [.. TestRunner.DiscoverTests(typeof(DiscoveryExclusionFixture)).Select(m => m.Name)];
@@ -197,6 +206,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CoexistWithPerTestHooks_Should_CallBothLifetimes()
     {
       CoexistFixture.Reset();
@@ -212,6 +222,7 @@ namespace TestRunner_
       CoexistFixture.BodyCount.ShouldBe(2);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task ParameterizedInputs_Should_InvokeSetupOnceOnce()
     {
       ParameterizedOnceFixture.Reset();
@@ -225,6 +236,7 @@ namespace TestRunner_
       ParameterizedOnceFixture.BodyCount.ShouldBe(2);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunSingleTestAsync))]
     public static async Task RunSingleTestAsync_Should_BypassClassHooks()
     {
       BypassFixture.Reset();
@@ -239,6 +251,7 @@ namespace TestRunner_
       BypassFixture.CleanUpCount.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Inheritance_DerivedHook_Should_PreferMostDerived()
     {
       DerivedPreferFixture.Reset();
@@ -253,6 +266,7 @@ namespace TestRunner_
       DerivedPreferFixture.BodyCount.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Inheritance_BaseOnlyHook_Should_InvokeOnDerived()
     {
       BaseOnlyHookFixture.Reset();
@@ -265,6 +279,7 @@ namespace TestRunner_
       BaseOnlyHookFixture.BodyCount.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Inheritance_OverloadsOnSameType_Should_FailClass()
     {
       OverloadOnceFixture.Reset();

@@ -2,6 +2,7 @@
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 #:project $(SourceDirectory)timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj
 #:project $(TestsDirectory)timewarp-jaribu/tautology-fixture/tautology-fixture.csproj
+#:include test-runner.tautology.fixtures.cs
 #:property IsTestingPlatformApplication=false
 #:property GenerateTestingPlatformEntryPoint=false
 #:property GenerateTestingPlatformConfigurationFile=false
@@ -12,8 +13,8 @@
 #endregion
 
 #region Design
-// The fixture assembly is woven. Add calls Scale, so the implied claim is Scale,
-// the last distinct production method entered.
+// The fixture assembly is woven. Add calls Scale. The implied claim is Add,
+// the production method the test called directly. A later getter is not the claim.
 // A test that catches the break and then asserts a constant still passes, so the
 // claim is unproven while coverage is non-zero.
 // The analyzer fixture builds with warnings as errors off. The build log is the assertion.
@@ -42,6 +43,7 @@ namespace Tautology_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Detector_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Add_Should_ProveTheExplicitClaim()
     {
       TautologyCollectingSink sink = new();
@@ -58,7 +60,8 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
-    public static async Task Add_Should_ImplyTheLastProductionMethod()
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Add_Should_ImplyTheDirectCall()
     {
       TestRunStats stats = await RunTestsAsync<Inferred_Given_>(
         new TautologyCollectingSink(),
@@ -66,10 +69,93 @@ namespace Tautology_
 
       TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
       finding.Violation.ShouldBeFalse();
-      finding.Rule.ShouldContain(nameof(TautologySubject.Scale));
+      finding.Rule.ShouldContain("TautologySubject.Add");
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Add_Should_IgnoreATrailingGetter()
+    {
+      TestRunStats stats = await RunTestsAsync<TrailingGetter_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Rule.ShouldContain("TautologySubject.Add");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Sum_Should_CoverAGenericParameter()
+    {
+      TestRunStats stats = await RunTestsAsync<Generic_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Covered.ShouldBeGreaterThan(0);
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain(nameof(TautologySubject.Sum));
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Value_Should_ProveTheProperty()
+    {
+      TestRunStats stats = await RunTestsAsync<Property_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain(nameof(Reading.Value));
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Item_Should_ProveTheClosedGeneric()
+    {
+      TestRunStats stats = await RunTestsAsync<ClosedGeneric_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain("Slot`1.Item");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Missing_Should_NameTheUnknownClaim()
+    {
+      TestRunStats stats = await RunTestsAsync<Unknown_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeTrue();
+      finding.Reason.ShouldContain("matches no method");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Scale_Should_StayRecordedAfterANestedRun()
+    {
+      TestRunStats stats = await RunTestsAsync<Nested_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Covered.ShouldBeGreaterThan(0);
+      finding.Rule.ShouldContain(nameof(TautologySubject.Scale));
+      finding.Proven.ShouldBe(1);
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Add_Should_StayUnprovenWhenTheResultIsDiscarded()
     {
       TestRunStats stats = await RunTestsAsync<Discarded_Given_>(
@@ -84,6 +170,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Constant_Should_BeZeroCoverage()
     {
       _ = TautologySubject.Scale(0);
@@ -99,6 +186,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task StrictZeroCoverage_Should_FailTheRun()
     {
       _ = TautologySubject.Scale(0);
@@ -113,6 +201,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task KnownTautology_Should_StayPassingUnderStrict()
     {
       TestRunStats stats = await RunTestsAsync<Known_Given_>(
@@ -127,6 +216,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MissingClaim_Should_ViolateWhenRequired()
     {
       _ = TautologySubject.Scale(0);
@@ -140,6 +230,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task Report_Should_RankTheUnprovenTestFirst()
     {
       using TestTerminal terminal = new();
@@ -160,6 +251,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TautologyReport), nameof(TautologyReport.Rank))]
     public static async Task Rank_Should_PutViolationsAheadOfSlowerProofs()
     {
       TautologyFinding slowProof = new(
@@ -173,6 +265,7 @@ namespace Tautology_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TautologyFinding), nameof(TautologyFinding.Rule))]
     public static async Task Mtp_Should_PublishTheScore()
     {
       RecordingBus bus = new();
@@ -235,9 +328,17 @@ namespace Tautology_
       text.ShouldContain("JARIBU1002");
       text.ShouldContain("JARIBU1003");
       text.ShouldContain("JARIBU1004");
+      text.ShouldContain("Contains_Should_FlagNoAssertion");
+      text.ShouldContain("NamespacedEmpty_Should_Flag");
       text.ShouldNotContain("Negative_.Compute_Should_NotFlag");
       text.ShouldNotContain("Negative_.DifferentSymbols_Should_NotFlag");
       text.ShouldNotContain("Negative_.Known_Should_NotFlag");
+      text.ShouldNotContain("Negative_.Reassigned_Should_NotFlag");
+      text.ShouldNotContain("Negative_.Throw_Should_NotFlag");
+      text.ShouldNotContain("Negative_.QualifiedKnown_Should_NotFlag");
+      text.ShouldNotContain("Negative_.Generic_Should_NotFlag");
+      text.ShouldNotContain("Test asserts -42");
+      text.ShouldNotContain("Test asserts 17");
       await Task.CompletedTask;
     }
 
@@ -319,87 +420,5 @@ namespace Tautology_
     public Task OnRunStartedAsync(string className, string? filterTag = null) => Task.CompletedTask;
 
     public Task OnRunCompletedAsync(TestRunStats stats, IReadOnlyList<TestNodeInfo> results) => Task.CompletedTask;
-  }
-
-  public class Explicit_Given_
-  {
-    [Proves(typeof(TautologySubject), nameof(TautologySubject.Add))]
-    public static async Task Add_Should_ReturnTheSum()
-    {
-      TautologySubject.Add(2, 3).ShouldBe(5);
-      await Task.CompletedTask;
-    }
-  }
-
-  public class Inferred_Given_
-  {
-    public static async Task Add_Should_ImplyScale()
-    {
-      TautologySubject.Add(2, 3).ShouldBe(5);
-      await Task.CompletedTask;
-    }
-  }
-
-  public class Discarded_Given_
-  {
-    [Proves(typeof(TautologySubject), nameof(TautologySubject.Add))]
-    public static async Task Add_Should_DiscardTheResult()
-    {
-      try
-      {
-        _ = TautologySubject.Add(2, 3);
-      }
-      catch (ProbeBrokenException broken)
-      {
-        _ = broken.Token;
-      }
-
-      true.ShouldBeTrue();
-      await Task.CompletedTask;
-    }
-  }
-
-  public class Constant_Given_
-  {
-    public static async Task Value_Should_EqualTheSameLiteral()
-    {
-      1.ShouldBe(1);
-      await Task.CompletedTask;
-    }
-  }
-
-  public class Known_Given_
-  {
-    [KnownTautology("compile-only smoke")]
-    public static async Task Smoke_Should_StayListed()
-    {
-      await Task.CompletedTask;
-    }
-  }
-
-  public class Rank_Given_
-  {
-    [Proves(typeof(TautologySubject), nameof(TautologySubject.Add))]
-    public static async Task Keep_Should_ReturnTheSum()
-    {
-      TautologySubject.Add(2, 3).ShouldBe(5);
-      await Task.CompletedTask;
-    }
-
-    [Proves(typeof(TautologySubject), nameof(TautologySubject.Add))]
-    public static async Task Discard_Should_IgnoreTheThrow()
-    {
-      try
-      {
-        _ = TautologySubject.Add(2, 3);
-      }
-      catch (ProbeBrokenException broken)
-      {
-        _ = broken.Token;
-      }
-
-      true.ShouldBeTrue();
-      await Task.CompletedTask;
-    }
   }
 }

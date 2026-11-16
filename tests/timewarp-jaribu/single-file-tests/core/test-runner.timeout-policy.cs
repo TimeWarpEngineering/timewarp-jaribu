@@ -26,6 +26,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<TimeoutPolicy_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.DefaultHookTimeout))]
     public static async Task Attribute_Should_RejectNonPositiveMilliseconds()
     {
       Should.Throw<ArgumentOutOfRangeException>(() => new TimeoutAttribute(0));
@@ -40,6 +41,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task FastBody_Should_DisposeTheTimer()
     {
       using ClockScope clock = new();
@@ -51,6 +53,7 @@ namespace TestRunner_
       clock.Provider.TimerAt(0).Disposed.ShouldBeTrue();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task NoBudget_Should_NotCreateATimer()
     {
       using ClockScope clock = new();
@@ -61,6 +64,7 @@ namespace TestRunner_
       clock.Provider.TimerCount.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task ThrownTimeoutException_Should_StayFailed()
     {
       TimeoutPolicyCollectingSink sink = new();
@@ -73,6 +77,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldBe("body timeout");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task LateFault_Should_BeTraced()
     {
       LateFaultFixture.Reset();
@@ -99,6 +104,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Setup_Should_TimeoutBeforeTheBody()
     {
       SetupHangFixture.Reset();
@@ -127,6 +133,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task DefaultHookTimeout_Should_TimeOutCleanUp()
     {
       CleanUpHangFixture.Reset();
@@ -153,6 +160,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SetupOnce_Should_TimeoutEveryCase()
     {
       SetupOnceHangFixture.Reset();
@@ -177,6 +185,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CleanUpOnce_Should_EmitTimeoutNode()
     {
       CleanUpOnceHangFixture.Reset();
@@ -201,6 +210,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task AlreadyFaultedAtFire_Should_ReportTheStoredFault()
     {
       FaultAtFireFixture.Reset();
@@ -227,6 +237,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
     public static async Task CreateTimeout_Should_LetTheNextClassRetry()
     {
       RetryAfterTimeoutFixture.Reset();
@@ -264,6 +275,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
     public static async Task CreateAsync_Should_TimeoutAndDisposeTheLateInstance()
     {
       CreateHangFixture.Reset();

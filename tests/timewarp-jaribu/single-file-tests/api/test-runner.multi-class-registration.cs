@@ -74,6 +74,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<MultiClassRegistration_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterTests))]
     public static async Task SingleClass_Should_RegisterOne()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -87,6 +88,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task MultipleClasses_Should_RegisterAll()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -100,6 +102,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task DuplicateRegistration_Should_BeIgnored()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -113,6 +116,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task ClearRegistered_Should_RemoveAll()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -128,6 +132,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task AllPassing_Should_ReturnExitCodeZero()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -140,6 +145,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task MultipleClasses_Should_AggregateStatsCorrectly()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -158,6 +164,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task EmptyRegistration_Should_HandleGracefully()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -169,6 +176,7 @@ namespace TestRunner_
       });
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
     public static async Task FilterTag_Should_IncludeMatchingClasses()
     {
       await WithIsolatedRegistryAsync(async () =>

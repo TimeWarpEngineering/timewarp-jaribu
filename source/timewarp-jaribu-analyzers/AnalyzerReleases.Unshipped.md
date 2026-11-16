@@ -4,3 +4,7 @@
 ### New Rules
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+JARIBU1001 | Tautology | Warning | EmptyBody
+JARIBU1002 | Tautology | Warning | NoAssertion
+JARIBU1003 | Tautology | Warning | SelfComparison
+JARIBU1004 | Tautology | Warning | AssignedLiteral

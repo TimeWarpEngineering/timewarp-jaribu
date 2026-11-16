@@ -10,7 +10,8 @@ namespace TimeWarp.Jaribu;
 /// </summary>
 /// <param name="type">Declaring type of the production member. Null is rejected.</param>
 /// <param name="methodName">
-/// Member name, as <c>nameof</c> returns it. Null and blank are rejected.
+/// Member name, as <c>nameof</c> returns it. A property or event names its accessors.
+/// A closed generic type is read as its generic type definition. Null and blank are rejected.
 /// Every overload of that name is one claim.
 /// </param>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]

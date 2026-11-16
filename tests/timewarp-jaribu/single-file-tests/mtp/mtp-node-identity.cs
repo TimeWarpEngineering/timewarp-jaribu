@@ -49,6 +49,7 @@ namespace Mtp_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task StartedFailure_Should_PublishInProgressAndParameters()
     {
       MethodInfo method = typeof(Probe).GetMethod(nameof(Probe.Sample))!;
@@ -99,6 +100,7 @@ namespace Mtp_
       }
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task CleanupMessage_Should_ReachFailedTimeoutAndErrorExplanations()
     {
       RecordingBus bus = new();
@@ -150,6 +152,7 @@ namespace Mtp_
       errorException.Message.ShouldBe("body boom");
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task Cancelled_Should_MapToCancelledStateProperty()
     {
       RecordingBus bus = new();

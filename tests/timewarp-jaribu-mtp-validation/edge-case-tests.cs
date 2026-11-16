@@ -16,6 +16,7 @@ public class EdgeCaseTests
   /// <summary>
   /// Test with null reference exception.
   /// </summary>
+  [KnownTautology("MTP null-reference failure fixture")]
   public static async Task NullReferenceExceptionTest()
   {
     await Task.CompletedTask;
@@ -65,6 +66,7 @@ public class EdgeCaseTests
   /// <summary>
   /// Test with very short timeout that should still pass.
   /// </summary>
+  [KnownTautology("MTP short timeout path")]
   [Timeout(1000)]
   public static async Task QuickOperationWithTimeoutTest()
   {

@@ -15,6 +15,7 @@ namespace TestRunner_;
 
 public partial class SilentNoOps_Given_
 {
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task OverloadedNearMiss_Should_ReportEachError()
   {
     System.Reflection.MethodInfo taskOfInt = typeof(OverloadedNearMissFixture).GetMethod(
@@ -60,6 +61,7 @@ public partial class SilentNoOps_Given_
     await Task.CompletedTask;
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SelectionFilter_Should_SkipEmptyRunNodes()
   {
     SilentNoOpsCollectingSink byName = new();
@@ -101,6 +103,7 @@ public partial class SilentNoOps_Given_
     await Task.CompletedTask;
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task StrictPredicate_Should_SkipUnselectedNearMiss()
   {
     SilentNoOpsCollectingSink byCase = new();

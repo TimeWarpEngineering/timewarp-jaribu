@@ -209,6 +209,8 @@ public static partial class TestRunner
 
     TestNodeInfo? outcome = null;
     Task? testTask = null;
+    // A nested runner shares this scope. Restoring the previous flag keeps the outer body recording.
+    bool wasRecording = TautologyProbe.IsRecording;
     TautologyProbe.SetRecording(true);
     try
     {
@@ -237,10 +239,21 @@ public static partial class TestRunner
             TautologyProbe.SetRecording(false);
             TimeoutAttribute? timeoutAttr = GetMethodMetadata(method).Timeout;
             TautologyProbe.SetRecording(true);
-            WaitKind kind = await WaitForCompletionAsync(
-              testTask,
-              timeoutAttr?.Milliseconds,
-              cancellationToken).ConfigureAwait(false);
+            // This await is the runner, not the test. Ignore that one frame.
+            int ignoredFrame = TautologyProbe.PushIgnoredFrame();
+            WaitKind kind;
+            try
+            {
+              kind = await WaitForCompletionAsync(
+                testTask,
+                timeoutAttr?.Milliseconds,
+                cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+              TautologyProbe.PopIgnoredFrame(ignoredFrame);
+            }
+
             stopwatch.Stop();
             if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
             {
@@ -280,7 +293,7 @@ public static partial class TestRunner
     }
     finally
     {
-      TautologyProbe.SetRecording(false);
+      TautologyProbe.SetRecording(wasRecording);
     }
 
     if (outcome is null)

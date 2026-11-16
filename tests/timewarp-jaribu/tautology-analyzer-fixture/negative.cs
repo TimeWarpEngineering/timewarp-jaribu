@@ -31,4 +31,39 @@ public static class Negative_
   {
     await Task.CompletedTask;
   }
+
+  public static async Task Reassigned_Should_NotFlag()
+  {
+    int value = -42;
+    value = NegativeSubject.Compute(-42);
+    value.ShouldBe(-42);
+    await Task.CompletedTask;
+  }
+
+  public static async Task Incremented_Should_NotFlag()
+  {
+    int value = 17;
+    value++;
+    value.ShouldBe(17);
+    await Task.CompletedTask;
+  }
+
+  public static async Task Throw_Should_NotFlag()
+  {
+    if (NegativeSubject.Compute(1) != 1)
+    {
+      throw new InvalidOperationException("missed");
+    }
+  }
+
+  [TimeWarp.Jaribu.KnownTautology("qualified form")]
+  public static async Task QualifiedKnown_Should_NotFlag()
+  {
+    await Task.CompletedTask;
+  }
+
+  public static async Task Generic_Should_NotFlag<T>()
+  {
+    await Task.CompletedTask;
+  }
 }

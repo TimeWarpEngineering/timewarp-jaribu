@@ -78,6 +78,7 @@ namespace Mtp_
     internal static void Register() => RegisterTests<ValidationHarness_Given_>();
 
     [Timeout(OneChildTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task FilterTag_Should_MatchTheExpectedTable()
     {
       CommandOutput output = await RunValidationAsync(detailed: true, "--", "--filter-tag", "EdgeCases");
@@ -86,6 +87,7 @@ namespace Mtp_
     }
 
     [Timeout(OneChildTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task FilterClass_Should_MatchTheExpectedTable()
     {
       CommandOutput output = await RunValidationAsync(detailed: true, "--", "--filter-class", "Basic");
@@ -94,6 +96,7 @@ namespace Mtp_
     }
 
     [Timeout(OneChildTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task FilterMethod_Should_MatchTheExpectedTable()
     {
       ExpectedNode[] expected =
@@ -107,6 +110,7 @@ namespace Mtp_
     }
 
     [Timeout(OneChildTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task TreeNodeFilter_Should_MatchTheExpectedTable()
     {
       ExpectedNode[] expected = [new("passed", "PassingTest")];
@@ -116,6 +120,7 @@ namespace Mtp_
     }
 
     [Timeout(TwoChildTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task ListTests_Should_MatchTheExpectedTable()
     {
       CommandOutput basic = await RunValidationAsync(detailed: false, "--list-tests", "--", "--filter-class", "Basic");

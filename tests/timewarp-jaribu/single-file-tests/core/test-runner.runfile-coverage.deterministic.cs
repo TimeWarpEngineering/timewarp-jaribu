@@ -16,6 +16,7 @@ using System.Xml.Linq;
 public partial class RunfileCoverage_Given_
 {
     [Timeout(ProbeTimeoutMilliseconds)]
+    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
     public static async Task DeterministicPathMap_Should_KeepTheProductAndOmitDependencies()
     {
       using ConsumerWorkspace workspace = ConsumerWorkspace.Create(FindRepoRoot());

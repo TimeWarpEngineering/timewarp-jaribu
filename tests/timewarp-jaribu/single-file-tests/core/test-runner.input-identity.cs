@@ -24,6 +24,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<InputIdentity_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SeveralShapes_Should_MatchDiscoveryToRun()
     {
       List<string> discovered = [.. TestRunner.DiscoverTestCases(typeof(ShapeFixture)).Select(testCase => testCase.Uid)];
@@ -58,6 +59,7 @@ namespace TestRunner_
       first.Uid.ShouldNotBe(second.Uid);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SelectedOrdinal_Should_RunOnlyThatRow()
     {
       CollectingSink sink = new();
@@ -73,6 +75,7 @@ namespace TestRunner_
       sink.Results.Single().State.ShouldBe(TestNodeState.Failed);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BadSetupOnce_Should_FailEachInputRow()
     {
       CollectingSink sink = new();
@@ -88,6 +91,7 @@ namespace TestRunner_
       sink.Results[0].Uid.ShouldNotBe(sink.Results[1].Uid);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BadHook_Should_MatchDiscoveryForSkippedAndTaggedInputs()
     {
       const string filterTag = "Wanted";

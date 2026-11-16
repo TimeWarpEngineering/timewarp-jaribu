@@ -2,7 +2,7 @@
 
 ## Goal (implementer restatement)
 
-A test is tautological when it still passes after the production member it claims to exercise is forced to throw. Coverage and prove mode stay opt-in so a normal run does not pay for them. When they are on, the runner records which production methods each test entered. A test that entered none is tautological at coverage level. `[Proves]` names the member a test claims. Under prove mode the runner breaks that member, requires the test to fail, restores it, and requires the test to pass. A test with no claim uses the last distinct production method it entered. The report ranks every test worst first by covered methods, proven claims, wall time, and kills per second, in the console and on MTP node properties. Unproven and zero-coverage results warn unless `--strict-tautology` or the matching MSBuild property fails the run. That strict switch can also require a `[Proves]` claim on every test. `[KnownTautology]` stays in the report and does not fail a strict run. A compile-time analyzer flags four patterns that cannot prove anything: an empty body, no reachable assertion, a value compared with itself, and an assertion of a literal that was just assigned. The work includes detector tests (including a call whose result is discarded), documentation, the `tw-jaribu` skill, and a `[Proves]` backfill of the existing suite with the unproven counts recorded below.
+A test is tautological when it still passes after the production member it claims to exercise is forced to throw. Coverage and prove mode stay opt-in so a normal run does not pay for them. When they are on, the runner records which production methods each test enters, including methods that take a closed generic parameter, and a nested runner call must not stop that recording. A test that entered none is tautological at coverage level. `[Proves]` names a method, property, or event. A property matches its accessors, a closed generic type matches the generic type definition, and an unknown name is a finding. Under prove mode the runner breaks that member, requires the test to fail, restores it, and requires the test to pass. A test with no claim uses the last production method the test called directly, skipping property and event accessors. The runner's own wait for the test task is not a candidate. The report ranks every test worst first by covered methods, proven claims, wall time, and kills per second, in the console and on MTP node properties. Unproven and zero-coverage results warn unless `--strict-tautology` or the matching MSBuild property fails the run. Strict mode also fails when no instrumented assembly is loaded, and it can require a `[Proves]` claim on every test. `[KnownTautology]` stays in the report and does not fail a strict run. The NuGet package carries the MSBuild targets and the instrumenter, and turning `JaribuInstrument` off rebuilds a clean assembly. A compile-time analyzer flags four patterns that cannot prove anything: an empty body, no reachable assertion, a value compared with itself, and an assertion of a literal that was just assigned and not overwritten. A throw counts as an assertion. The work includes detector tests (including a call whose result is discarded), documentation, the `tw-jaribu` skill, and a `[Proves]` backfill of the existing suite with a real before and after unproven count.
 
 ## Description
 
@@ -50,6 +50,10 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 - [x] Detector tests, positive and negative, including covered-but-unasserted fixture
 - [x] Documentation and `tw-jaribu` skill update
 
+## Review
+
+- Round 1: findings M1–M12 addressed in the fix pass. Round 2 has not run.
+
 ## Notes
 
 - Rewritten 2026-11-09 after discussion: the original draft led with a rule catalog. The objective test (survives a broken system under test) is now the primary deliverable, and the catalog is the cheap pre-filter.
@@ -64,28 +68,48 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 - Rewritten: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-09)
 - Audit: removed an unused CA1849 pragma and a CA1515 SuppressMessage. `ganda repo audit --fix` wrote the local VS Code window icon settings (gitignored).
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-16T04:01:13Z
+- Review oracle round 1: claude-opus-5-5 (Claude Code, print mode), effort 3, roster general (plus one read-only helper sub-agent for the analyzer and instrumenter), turn cap 200, session id not exposed. Outcome: 6 open bugs, so a fix pass is needed — 2026-11-16
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 33b719fb-8d50-476d-82bb-0a0659003713, max-turns 200, artifacts general.md, merged.md — 2026-11-16T04:06:52Z
+- Fix pass (implement-fix-2): implementer-cursor, round-1 findings M1–M12 — 2026-11-16
 
 ## Results
 
-Prove mode is an instrumented build (`JaribuInstrument=true`). Each method calls `TautologyProbe.Enter`, which throws only while that member's claim is broken. Attribute reads during the run are not recorded, so they do not become the implied claim. A `ProbeBrokenException` that escapes the test body fails that attempt instead of aborting the process.
+Prove mode is an instrumented build (`JaribuInstrument=true`). Each method calls `TautologyProbe.Enter`, which throws only while that member's claim is broken. The implied claim is the last production method the test called directly. Accessors are skipped when any other method was entered, and the runner's wait for the test task is not a candidate. A `ProbeBrokenException` that escapes the test body fails that attempt instead of aborting the process.
 
-Backfill on the CI-safe suite (232 tests), with the library woven and `JARIBU_PROVE=1`, before any new `[Proves]` on those tests:
+Backfill on the CI-safe suite (238 tests), library woven, `JARIBU_PROVE=1`, before the new `[Proves]` attributes:
 
-- 144 proved by the inferred claim
-- 19 unproven
-- 37 zero-coverage
-- 32 failed before a claim was broken (session-fixture state left by an earlier break, and coverage relaunches)
+- 203 proved by the inferred claim
+- 1 unproven (`ClearRegisteredTests` on `RegisteredClasses_Should_ReturnASnapshot`; the restore failed, so it was not promoted)
+- 28 zero-coverage
+- 6 failed before a claim was broken
 
-The 19 unproven claims are runner plumbing the test still survives: `StartSetup`, `ObserveCompleted`, `ObserveAbandoned`, `IsValidHookSignature`, `TakeDisposeList`, `ClearRegisteredTests`. Those were not promoted to `[Proves]`. A property getter token (`get_Success`) does not match `nameof`, so those inferences stayed inferred. After that confirmation the unproven count is still 19. The detector tests carry explicit claims: `Add` is proved, and the discarded-result fixture stays unproven.
+After adding `[Proves]` for those 203 confirmed claims and running the same prove command again:
+
+- 203 proved by the explicit claim
+- 1 unproven (the same restore failure)
+- 28 zero-coverage
+- 6 failed before a claim was broken
+
+The six prove-mode failures are five coverage launches that inherit `JaribuInstrument` into a sandboxed build, plus `RegisteredSuites_Should_IncludeCiSafeMetaTests`, whose registration list is empty after an earlier break. A normal `./bin/dev test` does not set that variable or `JARIBU_PROVE`, and those six pass. Packing now restores the instrumenter before publish, so a build that redirects `artifacts` can still pack.
 
 ### How to validate
 
-Smoke: `JaribuInstrument=true JARIBU_PROVE=1 dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs`
+Smoke: `JaribuInstrument=true dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs`
 
-Expect: 12 passed. The report lists `Add_Should_StayUnprovenWhenTheResultIsDiscarded` as unproven, `Constant_Should_BeZeroCoverage` as zero production methods, and the analyzer rebuild log contains JARIBU1001 through JARIBU1004 and not the negative fixtures.
+Expect: 18 passed. Explicit and inferred claims prove `Add`, `Sum` covers a closed generic parameter, `Reading.Value` and `Slot<int>.Item` prove the property, and an unknown member is a finding. `Add_Should_StayUnprovenWhenTheResultIsDiscarded` stays unproven. `Constant_Should_BeZeroCoverage` covers zero production methods. The analyzer rebuild log contains JARIBU1001 through JARIBU1004 and not the negative fixtures.
 
 Gates:
 
 - `./bin/dev build` — succeeded
-- `./bin/dev test` — succeeded (runfile 232 passed, MTP 232 passed)
-- `ganda repo audit` — passed (45 passed, 0 failed, 1 skipped) after the suppression removal and `ganda repo audit --fix`
+- `./bin/dev test` — succeeded (runfile 238 passed, MTP 238 passed)
+- `ganda repo audit` — passed (45 passed, 0 failed, 1 skipped)
+
+### Review
+
+- Round 1 findings M1–M12 are addressed in this fix pass. Round 2 has not run.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md` (the live status ledger).
+
+## Learnings
+
+- The implied claim is the last direct production call, not the last method entered and not the runner's `WaitForCompletionAsync` frame. A trailing getter is skipped. An init-only setter is `void modreq(IsExternalInit)`, and a branch that targeted `ret` has to store the value before `leave`, or the woven method is invalid IL. (why: prove run crashed on `get_Enabled` and inferred `WaitForCompletionAsync` for 202 tests, 2026-11-16)
+- `[Proves]` backfill counts come from two prove runs. The unproven test was not promoted because restore failed. (why: review M1, 2026-11-16)

@@ -6,6 +6,7 @@ namespace TestRunner_;
 
 public partial class SessionFixture_Given_
 {
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task CreatedOrder_Should_DisposeNewestFirst()
   {
     DisposeOrderLog.Reset();
@@ -32,6 +33,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task EndWithoutBegin_Should_Throw()
   {
     TestRunner.ClearRegisteredSessionFixtures();
@@ -47,6 +49,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task SecondEnd_Should_Throw()
   {
     TestRunner.ClearRegisteredSessionFixtures();
@@ -64,6 +67,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task ConcurrentRuns_Should_KeepTheFixtureUntilEveryRunEnds()
   {
     LeaseOverlap.Reset();
@@ -100,6 +104,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task CapturedEpoch_Should_EndQuietlyAfterClear()
   {
     HostStressFixture.Reset();
@@ -130,6 +135,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task ConcurrentBeginEnd_Should_DisposeEachCreatedInstance()
   {
     HostStressFixture.Reset();
@@ -161,6 +167,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
   public static async Task ConcurrentLoneRuns_Should_NotDisposeUnderALiveRun()
   {
     LoneStressFixture.Reset();

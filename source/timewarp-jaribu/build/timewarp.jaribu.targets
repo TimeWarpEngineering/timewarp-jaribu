@@ -4,11 +4,22 @@
     JaribuInstrument=true rewrites the assembly after compile.
     JaribuStrictTautology, JaribuRequireClaims, and JaribuPerTestCoverage
     stamp the test assembly. The runner reads those markers.
+    In this repo the instrumenter project is built beside the targets file.
+    In the NuGet package the same targets find the published tool under tools/jaribu-instrument.
+    The stamp file is a CoreCompile input so turning JaribuInstrument off rebuilds a clean assembly.
   -->
   <PropertyGroup>
-    <_JaribuInstrumenterProject>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\timewarp-jaribu-instrument.csproj</_JaribuInstrumenterProject>
-    <_JaribuInstrumenterDll>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\bin\$(Configuration)\net11.0\timewarp-jaribu-instrument.dll</_JaribuInstrumenterDll>
+    <_JaribuToolsDirectory>$(MSBuildThisFileDirectory)..\tools\jaribu-instrument\</_JaribuToolsDirectory>
+    <_JaribuRepoInstrumenterProject>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\timewarp-jaribu-instrument.csproj</_JaribuRepoInstrumenterProject>
+    <_JaribuRepoInstrumenterDll>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\bin\$(Configuration)\$(TargetFramework)\timewarp-jaribu-instrument.dll</_JaribuRepoInstrumenterDll>
+    <_JaribuInstrumenterDll Condition="Exists('$(_JaribuToolsDirectory)timewarp-jaribu-instrument.dll')">$(_JaribuToolsDirectory)timewarp-jaribu-instrument.dll</_JaribuInstrumenterDll>
+    <_JaribuInstrumenterDll Condition="'$(_JaribuInstrumenterDll)' == ''">$(_JaribuRepoInstrumenterDll)</_JaribuInstrumenterDll>
+    <_JaribuInstrumenterProject Condition="Exists('$(_JaribuRepoInstrumenterProject)')">$(_JaribuRepoInstrumenterProject)</_JaribuInstrumenterProject>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(DesignTimeBuild)' != 'true'">
+    <CustomAdditionalCompileInputs Include="$(IntermediateOutputPath)jaribu-instrument.input" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(JaribuStrictTautology)' == 'true'">
     <AssemblyAttribute Include="TimeWarp.Jaribu.StrictTautologyAttribute" />
@@ -20,6 +31,14 @@
     <AssemblyAttribute Include="TimeWarp.Jaribu.PerTestCoverageAttribute" />
   </ItemGroup>
 
+  <Target Name="JaribuWriteInstrumentInput" AfterTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <WriteLinesToFile
+      File="$(IntermediateOutputPath)jaribu-instrument.input"
+      Lines="JaribuInstrument=$(JaribuInstrument)"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
+
   <Target
     Name="JaribuInstrumentAssembly"
     AfterTargets="Compile"
@@ -27,7 +46,11 @@
     <MSBuild
       Projects="$(_JaribuInstrumenterProject)"
       Targets="Build"
+      Condition="'$(_JaribuInstrumenterProject)' != ''"
       Properties="Configuration=$(Configuration)" />
+    <Error
+      Condition="!Exists('$(_JaribuInstrumenterDll)')"
+      Text="JaribuInstrument could not find the instrumenter at '$(_JaribuInstrumenterDll)'." />
     <PropertyGroup>
       <_JaribuProbeAssembly Condition="'$(JaribuProbeAssembly)' != ''">$(JaribuProbeAssembly)</_JaribuProbeAssembly>
       <_JaribuCompiledAssembly>$(IntermediateOutputPath)$(TargetFileName)</_JaribuCompiledAssembly>

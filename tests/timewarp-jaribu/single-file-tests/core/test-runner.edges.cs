@@ -48,6 +48,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Edges_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Discovery_Should_OmitNonQualifyingMethods()
     {
       List<string> names =
@@ -77,6 +78,7 @@ namespace TestRunner_
         .ShouldBeFalse();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MismatchedParamCount_Should_FailWithoutRunningBody()
     {
       EdgesMismatchFixture.BodyRuns = 0;
@@ -94,6 +96,7 @@ namespace TestRunner_
       node.Exception.ShouldBeOfType<TargetParameterCountException>();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MultiTagNoMatch_Should_SkipWhenUnmatched()
     {
       EdgesTagFixture.Runs = 0;
@@ -108,6 +111,7 @@ namespace TestRunner_
       sink.Results.Single().Message.ShouldBe("No matching tag 'unrelated'");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MultiTag_Should_RunWhenAnyTagMatches()
     {
       EdgesTagFixture.Runs = 0;
@@ -120,6 +124,7 @@ namespace TestRunner_
       EdgesTagFixture.Runs.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task HangingTest_Should_Timeout()
     {
       EdgesCollectingSink sink = new();
@@ -137,6 +142,7 @@ namespace TestRunner_
       node.Duration.Value.ShouldBeLessThan(TimeSpan.FromSeconds(1.5));
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CancellationToken_Should_FailParameterCount()
     {
       EdgesCollectingSink sink = new();
@@ -150,6 +156,7 @@ namespace TestRunner_
       node.Exception.ShouldBeOfType<TargetParameterCountException>();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task AmbiguousSetup_Should_BeError()
     {
       EdgesAmbiguousSetupFixture.BodyRuns = 0;
@@ -166,6 +173,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldContain(typeof(EdgesAmbiguousSetupFixture).FullName!);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task ParameterisedSetup_Should_BeError()
     {
       EdgesSetupParameterFixture.BodyRuns = 0;
@@ -182,6 +190,7 @@ namespace TestRunner_
       node.Exception.Message.ShouldContain(typeof(EdgesSetupParameterFixture).FullName!);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task SetupThrow_Should_StayFailed()
     {
       EdgesCollectingSink sink = new();
@@ -201,6 +210,7 @@ namespace TestRunner_
       asyncNode.Exception.Message.ShouldBe("setup async");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task EmptyClass_Should_FailUnlessAllowEmpty()
     {
       EdgesEmptyFixture.CleanUpCount = 0;
