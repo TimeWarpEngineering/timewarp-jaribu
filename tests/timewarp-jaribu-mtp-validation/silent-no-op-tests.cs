@@ -13,6 +13,7 @@ public class SignatureWarningTests
   [ModuleInitializer]
   internal static void Register() => RegisterTests<SignatureWarningTests>();
 
+  [KnownTautology("signature-warning companion")]
   public static async Task Real()
   {
     await Task.CompletedTask;

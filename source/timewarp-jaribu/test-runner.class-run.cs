@@ -38,123 +38,7 @@ using System.Reflection;
 
 public static partial class TestRunner
 {
-  /// <summary>
-  /// Runs all tests in the specified test class using the provided sink.
-  /// </summary>
-  /// <typeparam name="T">The test class containing test methods.</typeparam>
-  /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">
-  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
-  /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
-  /// </param>
-  /// <param name="methodNameContains">
-  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// </param>
-  /// <param name="methodPredicate">
-  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
-  /// </param>
-  /// <param name="casePredicate">
-  /// Optional per-node predicate. A method is omitted when none of its reported cases match.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
-  /// </param>
-  /// <param name="strictSignatures">
-  /// When true, each near-miss test signature is an Error node. The default stores a warning.
-  /// A method predicate or case predicate that selects no nodes omits those Error nodes.
-  /// </param>
-  /// <param name="allowEmpty">
-  /// When true, a class with no discoverable tests succeeds. The default fails that run.
-  /// </param>
-  /// <param name="cancellationToken">
-  /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
-  /// </param>
-  /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync<T>(
-    ITestResultSink sink,
-    string? filterTag = null,
-    string? methodNameContains = null,
-    Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null,
-    bool strictSignatures = false,
-    bool allowEmpty = false,
-    CancellationToken cancellationToken = default) where T : class
-  {
-    ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(
-      typeof(T),
-      sink,
-      filterTag,
-      methodNameContains,
-      methodPredicate,
-      casePredicate,
-      strictSignatures,
-      allowEmpty,
-      cancellationToken);
-  }
-
-  /// <summary>
-  /// Runs all tests in the specified test class using the provided sink.
-  /// </summary>
-  /// <param name="testClass">The test class type.</param>
-  /// <param name="sink">The sink to receive test execution events.</param>
-  /// <param name="filterTag">
-  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
-  /// A blank value is not a filter. A class or method whose tags exist and none match
-  /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
-  /// </param>
-  /// <param name="methodNameContains">
-  /// Optional substring filter on method name (ordinal ignore-case). Selection: non-matches are omitted, not Skipped.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// </param>
-  /// <param name="methodPredicate">
-  /// Optional additional selection predicate (e.g. MTP uid/tree filter). Non-matches are omitted.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
-  /// </param>
-  /// <param name="casePredicate">
-  /// Optional per-node predicate. A method is omitted when none of its reported cases match.
-  /// When set, an empty class does not emit a NoTests or HookSignature node.
-  /// When it selects no nodes, strict mode also omits near-miss Error nodes.
-  /// </param>
-  /// <param name="strictSignatures">
-  /// When true, each near-miss test signature is an Error node. The default stores a warning.
-  /// A method predicate or case predicate that selects no nodes omits those Error nodes.
-  /// </param>
-  /// <param name="allowEmpty">
-  /// When true, a class with no discoverable tests succeeds. The default fails that run.
-  /// </param>
-  /// <param name="cancellationToken">
-  /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
-  /// </param>
-  /// <returns>TestRunStats containing aggregated results.</returns>
-  public static Task<TestRunStats> RunTestsAsync(
-    Type testClass,
-    ITestResultSink sink,
-    string? filterTag = null,
-    string? methodNameContains = null,
-    Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null,
-    bool strictSignatures = false,
-    bool allowEmpty = false,
-    CancellationToken cancellationToken = default)
-  {
-    ArgumentNullException.ThrowIfNull(testClass);
-    ArgumentNullException.ThrowIfNull(sink);
-    return RunTestsAsyncCore(
-      testClass,
-      sink,
-      filterTag,
-      methodNameContains,
-      methodPredicate,
-      casePredicate,
-      strictSignatures,
-      allowEmpty,
-      cancellationToken);
-  }
+  private static readonly AsyncLocal<int> TautologyDepth = new();
 
   /// <summary>
   /// Core implementation for running tests with a sink.
@@ -169,8 +53,10 @@ public static partial class TestRunner
     Func<ReportedTestCase, bool>? casePredicate = null,
     bool strictSignatures = false,
     bool allowEmpty = false,
+    TautologyOptions? tautology = null,
     CancellationToken cancellationToken = default)
   {
+    TautologyOptions tautologyOptions = TautologyOptions.ForRun(tautology, TautologyDepth.Value);
     using CancellationScope scope = new(cancellationToken);
     bool classAttributeRejected = JaribuAttributeRead.TryRejectClass(
       testClass,
@@ -180,8 +66,11 @@ public static partial class TestRunner
       : new HookTimeoutScope(testClass);
     bool ownsSession = SessionFixture.TryBeginRunLease(out long runEpoch);
 
+    bool countedDepth = false;
     try
     {
+      TautologyDepth.Value++;
+      countedDepth = true;
       DateTimeOffset startTime = DateTimeOffset.Now;
       Stopwatch overallStopwatch = Stopwatch.StartNew();
       List<TestNodeInfo> results = [];
@@ -403,6 +292,7 @@ public static partial class TestRunner
               casePredicate,
               setupResolve.Method,
               cleanUpResolve.Method,
+              tautologyOptions,
               cancellationToken);
             results.AddRange(methodResults);
             if (cancellationToken.IsCancellationRequested ||
@@ -476,7 +366,8 @@ public static partial class TestRunner
         skippedCount
       )
       {
-        SignatureWarnings = [.. nearMisses.Select(nearMiss => nearMiss.Message)]
+        SignatureWarnings = [.. nearMisses.Select(nearMiss => nearMiss.Message)],
+        TautologyFindings = Findings(results)
       };
 
       // Notify sink that run is completed
@@ -486,6 +377,11 @@ public static partial class TestRunner
     }
     finally
     {
+      if (countedDepth)
+      {
+        TautologyDepth.Value--;
+      }
+
       if (ownsSession)
       {
         await EndOwnedSessionWithoutMaskingAsync(runEpoch, sink, cancellationToken).ConfigureAwait(false);
@@ -493,5 +389,19 @@ public static partial class TestRunner
 
       hookTimeout?.Dispose();
     }
+  }
+
+  private static TautologyFinding[] Findings(List<TestNodeInfo> results)
+  {
+    List<TautologyFinding> findings = [];
+    foreach (TestNodeInfo node in results)
+    {
+      if (node.Tautology is TautologyFinding finding)
+      {
+        findings.Add(finding);
+      }
+    }
+
+    return [.. findings];
   }
 }

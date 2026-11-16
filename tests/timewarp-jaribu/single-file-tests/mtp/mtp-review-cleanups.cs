@@ -52,6 +52,7 @@ namespace Mtp_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task MissingException_Should_SayTheCoreSuppliedNone()
     {
       await AssertMissingAsync(TestNodeState.Failed);
@@ -59,6 +60,7 @@ namespace Mtp_
       await AssertMissingAsync(TestNodeState.Error);
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task Timing_Should_UseNodeTimestamps()
     {
       DateTimeOffset start = new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
@@ -80,6 +82,7 @@ namespace Mtp_
       timing.Duration.ShouldBe(TimeSpan.FromMilliseconds(12));
     }
 
+    [Proves(typeof(TestNodeInfo), nameof(TestNodeInfo.DisplayName))]
     public static async Task DurationWithoutTimestamps_Should_PublishNoTiming()
     {
       RecordingBus bus = new();

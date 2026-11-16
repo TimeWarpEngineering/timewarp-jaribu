@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors>false</CodeAnalysisTreatWarningsAsErrors>
+    <Description>Compile-time tautology samples. Warnings are the assertion.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference
+      Include="$(MSBuildThisFileDirectory)../../../source/timewarp-jaribu-analyzers/timewarp-jaribu-analyzers.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Analyzer" />
+  </ItemGroup>
+</Project>

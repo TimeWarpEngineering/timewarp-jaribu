@@ -5,7 +5,8 @@ using Microsoft.Testing.Platform.Extensions.CommandLine;
 
 #region Purpose
 // MTP command-line options for Jaribu selection filters and run policy:
-// --filter-tag, --filter-class, --filter-method, --strict-signatures, --allow-empty.
+// --filter-tag, --filter-class, --filter-method, --strict-signatures, --allow-empty,
+// --per-test-coverage, --prove, --strict-tautology, --require-claims.
 #endregion
 
 #region Design
@@ -37,6 +38,18 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
 
   /// <summary>Option name: allow a class with no discoverable tests.</summary>
   public const string AllowEmptyOption = "allow-empty";
+
+  /// <summary>Option name: record the production methods each test enters.</summary>
+  public const string PerTestCoverageOption = "per-test-coverage";
+
+  /// <summary>Option name: break each claim and require the test to fail, then pass.</summary>
+  public const string ProveOption = "prove";
+
+  /// <summary>Option name: fail the run on an unproven or zero-coverage test.</summary>
+  public const string StrictTautologyOption = "strict-tautology";
+
+  /// <summary>Option name: require a [Proves] claim on every test.</summary>
+  public const string RequireClaimsOption = "require-claims";
 
   public string Uid => "TimeWarp.Jaribu.CommandLine";
   public string Version => ExtensionVersion.Current;
@@ -73,6 +86,26 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
         AllowEmptyOption,
         "Allow a class with no discoverable tests to succeed.",
         ArgumentArity.Zero,
+        isHidden: false),
+      new CommandLineOption(
+        PerTestCoverageOption,
+        "Record which production methods each test enters. Zero production methods is a tautology warning.",
+        ArgumentArity.Zero,
+        isHidden: false),
+      new CommandLineOption(
+        ProveOption,
+        "Break each [Proves] claim, or the implied claim, and require the test to fail and then pass.",
+        ArgumentArity.Zero,
+        isHidden: false),
+      new CommandLineOption(
+        StrictTautologyOption,
+        "Fail the run when a test is unproven or covers no production method.",
+        ArgumentArity.Zero,
+        isHidden: false),
+      new CommandLineOption(
+        RequireClaimsOption,
+        "Require a [Proves] claim on every test.",
+        ArgumentArity.Zero,
         isHidden: false)
     ];
   }
@@ -82,7 +115,12 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
     ArgumentNullException.ThrowIfNull(commandOption);
     ArgumentNullException.ThrowIfNull(arguments);
 
-    if (commandOption.Name is StrictSignaturesOption or AllowEmptyOption)
+    if (commandOption.Name is StrictSignaturesOption
+      or AllowEmptyOption
+      or PerTestCoverageOption
+      or ProveOption
+      or StrictTautologyOption
+      or RequireClaimsOption)
     {
       if (arguments.Length == 0)
       {

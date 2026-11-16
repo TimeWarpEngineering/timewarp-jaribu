@@ -46,6 +46,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Discovery_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.DiscoverTests))]
     public static async Task QualifyingMethods_Should_ExcludeNonTests()
     {
       List<string> names =
@@ -64,6 +65,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Lifecycle_Should_CallSetupAndCleanUpAroundEachTest()
     {
       DiscoveryLifecycleFixture.Reset();
@@ -79,6 +81,7 @@ namespace TestRunner_
       sink.Results.Count.ShouldBe(4);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Failure_Should_RecordExceptionAndContinue()
     {
       DiscoveryLifecycleFixture.Reset();

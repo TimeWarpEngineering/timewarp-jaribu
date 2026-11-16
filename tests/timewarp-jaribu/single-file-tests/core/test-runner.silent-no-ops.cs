@@ -45,6 +45,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<SilentNoOps_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task NearMiss_Should_WarnAndStillPass()
     {
       SilentNoOpsCollectingSink sink = new();
@@ -63,6 +64,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task NearMiss_Should_FailWhenStrict()
     {
       SilentNoOpsCollectingSink sink = new();
@@ -77,6 +79,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task OnlyNearMiss_Should_FailAsEmptyUnlessAllowEmpty()
     {
       SilentNoOpsCollectingSink sink = new();
@@ -105,6 +108,7 @@ namespace TestRunner_
       strict.Results.Single().DisplayName.ShouldBe(nameof(OnlyNearMissFixture.ReturnsTaskOfInt));
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunSingleTestAsync))]
     public static async Task BadSetup_Should_FailClassWithoutRunningBody()
     {
       BadSetupFixture.Reset();
@@ -125,6 +129,7 @@ namespace TestRunner_
       BadSetupFixture.BodyRuns.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task EmptyClassBadHook_Should_FailEvenWhenAllowEmpty()
     {
       SilentNoOpsCollectingSink sink = new();
@@ -137,6 +142,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task BadCleanUp_Should_FailClassWithoutRunningBody()
     {
       BadCleanUpFixture.BodyRuns = 0;
@@ -149,6 +155,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task InheritedHook_Should_NameTheDeclaringType()
     {
       SignatureDerivedHooks.BodyRuns = 0;
@@ -163,6 +170,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MethodFilter_Should_NotTreatAFilteredClassAsEmpty()
     {
       SilentNoOpsCollectingSink sink = new();
@@ -176,6 +184,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task ClassName_Should_StripOnlyATrailingTestsSuffix()
     {
       SilentNoOpsCollectingSink widget = new();
@@ -214,6 +223,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterTests))]
     public static async Task RunAllTests_Should_FailWhenNothingIsRegistered()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];

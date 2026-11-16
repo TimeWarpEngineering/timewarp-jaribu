@@ -34,28 +34,47 @@ public static partial class TestRunner
   /// <param name="terminal">
   /// Terminal that receives this class's output. A null value creates one for the call.
   /// </param>
+  /// <param name="tautology">
+  /// Coverage and prove mode. Null reads the environment on this outer run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// Named use keeps a new optional parameter from shifting this token.
   /// </param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
+  /// Strict tautology failures count as test failures.
   /// </returns>
   public static async Task<int> RunTests<T>(
     string? filterTag = null,
     bool strictSignatures = false,
     bool allowEmpty = false,
     ITerminal? terminal = null,
+    TautologyOptions? tautology = null,
     CancellationToken cancellationToken = default) where T : class
   {
-    using TerminalSink sink = terminal is null ? new TerminalSink() : new TerminalSink(terminal);
-    TestRunStats stats = await RunTestsAsync<T>(
-      sink,
-      filterTag,
-      cancellationToken: cancellationToken,
-      strictSignatures: strictSignatures,
-      allowEmpty: allowEmpty);
-    return ExitCodeFor(stats, cancellationToken);
+    bool ownsTerminal = terminal is null;
+    ITerminal output = terminal ?? new TimeWarpTerminal();
+    try
+    {
+      using TerminalSink sink = new(output);
+      TestRunStats stats = await RunTestsAsync<T>(
+        sink,
+        filterTag,
+        cancellationToken: cancellationToken,
+        strictSignatures: strictSignatures,
+        allowEmpty: allowEmpty,
+        tautology: tautology).ConfigureAwait(false);
+      TautologyReport.Write(output, stats.TautologyFindings);
+      return ExitCodeFor(stats, cancellationToken);
+    }
+    finally
+    {
+      if (ownsTerminal && output is IDisposable disposable)
+      {
+        disposable.Dispose();
+      }
+    }
   }
 
   /// <summary>
@@ -94,7 +113,7 @@ public static partial class TestRunner
       allowEmpty,
       terminal,
       coverage: null,
-      cancellationToken);
+      cancellationToken: cancellationToken);
   }
 
   /// <summary>
@@ -120,6 +139,9 @@ public static partial class TestRunner
   /// unless this process is already the coverage child.
   /// <see cref="RunfileCoverageOptions.VariableName"/> is the opt-in when this argument is omitted.
   /// </param>
+  /// <param name="tautology">
+  /// Coverage and prove mode. Null reads the environment on this outer run.
+  /// </param>
   /// <param name="cancellationToken">
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// The 1.0.0-beta.15 overload keeps a positional token on that signature.
@@ -134,6 +156,7 @@ public static partial class TestRunner
     bool allowEmpty = false,
     ITerminal? terminal = null,
     RunfileCoverageOptions? coverage = null,
+    TautologyOptions? tautology = null,
     CancellationToken cancellationToken = default)
   {
     int? relaunched = await RunfileCoverage.TryRelaunchAsync(
@@ -160,6 +183,7 @@ public static partial class TestRunner
           strictSignatures,
           allowEmpty,
           output,
+          tautology,
           cancellationToken);
       }
       finally
@@ -209,6 +233,7 @@ public static partial class TestRunner
     bool strictSignatures,
     bool allowEmpty,
     ITerminal terminal,
+    TautologyOptions? tautology,
     CancellationToken cancellationToken)
   {
     // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
@@ -229,6 +254,7 @@ public static partial class TestRunner
     }
 
     List<TestRunStats> allStats = [];
+    List<TautologyFinding> findings = [];
 
     foreach (Type testClass in registeredClasses)
     {
@@ -243,8 +269,10 @@ public static partial class TestRunner
         strictSignatures,
         allowEmpty,
         terminal,
+        tautology,
         cancellationToken).ConfigureAwait(false);
       allStats.Add(stats);
+      findings.AddRange(stats.TautologyFindings);
     }
 
     // Print grand total summary when multiple classes were run
@@ -300,6 +328,7 @@ public static partial class TestRunner
 #pragma warning restore CA1849
     }
 
+    TautologyReport.Write(terminal, findings);
     return allStats.Any(s => !s.Success) ? 1 : 0;
   }
 
@@ -313,6 +342,7 @@ public static partial class TestRunner
     bool strictSignatures,
     bool allowEmpty,
     ITerminal terminal,
+    TautologyOptions? tautology,
     CancellationToken cancellationToken)
   {
     using TerminalSink sink = new(terminal);
@@ -322,6 +352,7 @@ public static partial class TestRunner
       filterTag,
       cancellationToken: cancellationToken,
       strictSignatures: strictSignatures,
-      allowEmpty: allowEmpty).ConfigureAwait(false);
+      allowEmpty: allowEmpty,
+      tautology: tautology).ConfigureAwait(false);
   }
 }

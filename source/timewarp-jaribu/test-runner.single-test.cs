@@ -209,56 +209,14 @@ public static partial class TestRunner
 
     TestNodeInfo? outcome = null;
     Task? testTask = null;
+    // A nested runner shares this scope. Restoring the previous flag keeps the outer body recording.
+    bool wasRecording = TautologyProbe.IsRecording;
+    TautologyProbe.SetRecording(true);
     try
-    {
-      testTask = method.Invoke(null, parameters) as Task;
-    }
-    catch (Exception ex) when (cancellationToken.IsCancellationRequested)
-    {
-      stopwatch.Stop();
-      outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
-    }
-    catch (Exception ex)
-    {
-      stopwatch.Stop();
-      outcome = InvokeFault(Complete, stopwatch.Elapsed, ex);
-    }
-
-    if (outcome is null)
     {
       try
       {
-        if (testTask is not null)
-        {
-          TimeoutAttribute? timeoutAttr = GetMethodMetadata(method).Timeout;
-          WaitKind kind = await WaitForCompletionAsync(
-            testTask,
-            timeoutAttr?.Milliseconds,
-            cancellationToken).ConfigureAwait(false);
-          stopwatch.Stop();
-          if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
-          {
-            outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
-          }
-          else if (kind == WaitKind.TimedOut)
-          {
-            int milliseconds = timeoutAttr?.Milliseconds ?? 0;
-            outcome = Complete(
-              TestNodeState.Timeout,
-              stopwatch.Elapsed,
-              new TimeoutException($"Test exceeded timeout of {milliseconds}ms"),
-              $"Timeout after {milliseconds}ms");
-          }
-          else
-          {
-            outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-          }
-        }
-        else
-        {
-          stopwatch.Stop();
-          outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
-        }
+        testTask = method.Invoke(null, parameters) as Task;
       }
       catch (Exception ex) when (cancellationToken.IsCancellationRequested)
       {
@@ -268,8 +226,74 @@ public static partial class TestRunner
       catch (Exception ex)
       {
         stopwatch.Stop();
-        outcome = BodyFault(Complete, stopwatch.Elapsed, ex);
+        outcome = InvokeFault(Complete, stopwatch.Elapsed, ex);
       }
+
+      if (outcome is null)
+      {
+        try
+        {
+          if (testTask is not null)
+          {
+            // Attribute reads are runner bookkeeping. They must not become the implied claim.
+            TautologyProbe.SetRecording(false);
+            TimeoutAttribute? timeoutAttr = GetMethodMetadata(method).Timeout;
+            TautologyProbe.SetRecording(true);
+            // This await is the runner, not the test. Ignore that one frame.
+            int ignoredFrame = TautologyProbe.PushIgnoredFrame();
+            WaitKind kind;
+            try
+            {
+              kind = await WaitForCompletionAsync(
+                testTask,
+                timeoutAttr?.Milliseconds,
+                cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+              TautologyProbe.PopIgnoredFrame(ignoredFrame);
+            }
+
+            stopwatch.Stop();
+            if (kind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+            {
+              outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+            }
+            else if (kind == WaitKind.TimedOut)
+            {
+              int milliseconds = timeoutAttr?.Milliseconds ?? 0;
+              outcome = Complete(
+                TestNodeState.Timeout,
+                stopwatch.Elapsed,
+                new TimeoutException($"Test exceeded timeout of {milliseconds}ms"),
+                $"Timeout after {milliseconds}ms");
+            }
+            else
+            {
+              outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+            }
+          }
+          else
+          {
+            stopwatch.Stop();
+            outcome = Complete(TestNodeState.Passed, stopwatch.Elapsed, exception: null, message: null);
+          }
+        }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+        {
+          stopwatch.Stop();
+          outcome = CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
+        }
+        catch (Exception ex)
+        {
+          stopwatch.Stop();
+          outcome = BodyFault(Complete, stopwatch.Elapsed, ex);
+        }
+      }
+    }
+    finally
+    {
+      TautologyProbe.SetRecording(wasRecording);
     }
 
     if (outcome is null)

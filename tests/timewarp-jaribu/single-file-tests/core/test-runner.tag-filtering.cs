@@ -89,6 +89,7 @@ namespace TestRunner_
     /// <summary>
     /// methodNameContains selection omits non-matching methods (not Skipped).
     /// </summary>
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MethodNameContains_Should_OmitNonMatches()
     {
       MethodFilterFixture.Reset();
@@ -109,6 +110,7 @@ namespace TestRunner_
     /// <summary>
     /// methodNameContains is case-insensitive substring match.
     /// </summary>
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MethodNameContains_Should_MatchCaseInsensitiveSubstring()
     {
       MethodFilterFixture.Reset();
@@ -127,6 +129,7 @@ namespace TestRunner_
     /// methodPredicate omits non-matching methods (selection; no Skipped nodes).
     /// Used by MTP uid/tree filter on the run path.
     /// </summary>
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MethodPredicate_Should_OmitNonMatchesWithoutSkippedNodes()
     {
       MethodFilterFixture.Reset();

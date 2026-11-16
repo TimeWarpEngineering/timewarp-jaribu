@@ -42,6 +42,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<RunnerGuards_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task OpenGenericMethod_Should_BeSkippedByDiscovery()
     {
       List<string> names =
@@ -59,6 +60,7 @@ namespace TestRunner_
       stats.TotalTests.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
     public static async Task RunAllTests_Should_IgnoreRegistrationEditsDuringRun()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];
@@ -88,6 +90,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunStats), nameof(TestRunStats.IsFailingState))]
     public static async Task Cancelled_Should_CountAsFailure()
     {
       TestRunStats.IsFailingState(TestNodeState.Cancelled).ShouldBeTrue();
@@ -118,6 +121,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task NullArguments_Should_Throw()
     {
       Should.Throw<ArgumentNullException>(() => new SkipAttribute(null!));
@@ -146,6 +150,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task RejectedAttribute_Should_FailTheRun()
     {
       RejectedAttributeFixture.GoodRuns = 0;
@@ -198,6 +203,7 @@ namespace TestRunner_
       classError.Message.ShouldContain("the class");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task RejectedAttribute_OnTagMiss_Should_FailTheRun()
     {
       ClassTagMissRejectionFixture.Runs = 0;

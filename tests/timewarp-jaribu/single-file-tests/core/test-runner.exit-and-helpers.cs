@@ -25,6 +25,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<ExitAndHelpers_Given_>();
 
+    [Proves(typeof(TestHelpers), nameof(TestHelpers.FormatTestName))]
     public static async Task FormatTestName_Should_InsertSpacesAtCapitals()
     {
       TestHelpers.FormatTestName("CatchAllInOptionShouldFail")
@@ -33,6 +34,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestHelpers), nameof(TestHelpers.TestSkipped))]
     public static async Task StatusLines_Should_NameTheOutcome()
     {
       using TestTerminal terminal = new();
@@ -47,6 +49,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task NullSink_Should_DiscardEventsAndKeepStats()
     {
       NullSink.Instance.ShouldBeSameAs(NullSink.Instance);
@@ -72,6 +75,7 @@ namespace TestRunner_
       failed.FailedCount.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task RunTests_Should_MapOutcomesToExitCodes()
     {
       (await RunQuietAsync(() => TestRunner.RunTests<PassingExitFixture>())).ShouldBe(0);
@@ -88,6 +92,7 @@ namespace TestRunner_
       cancelled.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task InputNull_Should_RunOneRowWhoseArgumentIsNull()
     {
       NullInputFixture.Seen = "unset";

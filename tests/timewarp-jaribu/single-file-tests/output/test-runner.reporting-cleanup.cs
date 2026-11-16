@@ -47,6 +47,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Reporting_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MixedResults_Should_CountPassesAndFailure()
     {
       ReportingMixedFixture.Reset();
@@ -69,6 +70,7 @@ namespace TestRunner_
       failed.Exception.Message.ShouldContain("REPORT-01");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MultipleRuns_Should_NotAccumulateCounters()
     {
       ReportingMixedFixture.Reset();
@@ -85,6 +87,7 @@ namespace TestRunner_
       ReportingMixedFixture.PassCount.ShouldBe(4);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task FilteredContext_Should_RunUntaggedAndSkipTagged()
     {
       ReportingFilterFixture.Reset();
@@ -102,6 +105,7 @@ namespace TestRunner_
       skipped.Message.ShouldBe("No matching tag 'feature'");
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task EmptyClass_Should_FailUnlessAllowEmpty()
     {
       ReportingEmptyClassFixture.CleanUpCount = 0;

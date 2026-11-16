@@ -13,6 +13,7 @@
        #:include, and listing them there duplicates the Compile item. This project ignores #:include. -->
   <ItemGroup>
     <Compile Include="../../../../tools/dev-cli/endpoints/release-gate.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.tautology.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.cancellation.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.silent-no-ops.filters.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.timeout-policy.fixtures.cs" />
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
+    <ProjectReference Include="../../tautology-fixture/tautology-fixture.csproj" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>
 

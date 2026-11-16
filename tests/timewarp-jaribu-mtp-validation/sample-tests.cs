@@ -19,6 +19,7 @@ public class BasicTests
   /// <summary>
   /// Simple passing test - validates basic test execution.
   /// </summary>
+  [KnownTautology("MTP pass path")]
   public static async Task PassingTest()
   {
     await Task.CompletedTask;
@@ -37,6 +38,7 @@ public class BasicTests
   /// <summary>
   /// Async test with small delay to verify async execution works.
   /// </summary>
+  [KnownTautology("MTP async delay path")]
   public static async Task AsyncWithDelayTest()
   {
     await Task.Delay(10);
@@ -82,6 +84,7 @@ public class BasicTests
   /// <summary>
   /// Another skipped test with different reason.
   /// </summary>
+  [KnownTautology("MTP skip path")]
   [Skip("Feature not yet implemented")]
   public static async Task SkippedFeatureTest()
   {
@@ -113,6 +116,7 @@ public class BasicTests
   /// <summary>
   /// Test that completes within timeout - should pass.
   /// </summary>
+  [KnownTautology("MTP timeout budget path")]
   [Timeout(5000)]
   public static async Task TimeoutNotExceededTest()
   {

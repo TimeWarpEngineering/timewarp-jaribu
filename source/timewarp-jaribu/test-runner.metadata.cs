@@ -179,7 +179,7 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Skip, tag, input, and timeout values for one method.
+  /// Skip, tag, input, timeout, claim, and known-tautology values for one method.
   /// </summary>
   internal sealed class MethodMetadata
   {
@@ -190,7 +190,11 @@ public static partial class TestRunner
       Exception? tagError,
       Exception? inputError,
       TimeoutAttribute? timeout,
-      Exception? timeoutError)
+      Exception? timeoutError,
+      ProvesAttribute[] proves,
+      Exception? provesError,
+      KnownTautologyAttribute? knownTautology,
+      Exception? knownTautologyError)
     {
       SkipValue = skip;
       SkipError = skipError;
@@ -199,6 +203,10 @@ public static partial class TestRunner
       InputError = inputError;
       TimeoutValue = timeout;
       TimeoutError = timeoutError;
+      ProvesValues = proves;
+      ProvesError = provesError;
+      KnownTautologyValue = knownTautology;
+      KnownTautologyError = knownTautologyError;
     }
 
     private SkipAttribute? SkipValue { get; }
@@ -208,6 +216,10 @@ public static partial class TestRunner
     private Exception? InputError { get; }
     private TimeoutAttribute? TimeoutValue { get; }
     private Exception? TimeoutError { get; }
+    private ProvesAttribute[] ProvesValues { get; }
+    private Exception? ProvesError { get; }
+    private KnownTautologyAttribute? KnownTautologyValue { get; }
+    private Exception? KnownTautologyError { get; }
 
     public SkipAttribute? Skip
     {
@@ -231,6 +243,23 @@ public static partial class TestRunner
     {
       Rethrow(TagError);
       return TagValues;
+    }
+
+    /// <summary>Claims on this method. A constructor rejection throws the cached exception.</summary>
+    public ProvesAttribute[] Proves()
+    {
+      Rethrow(ProvesError);
+      return ProvesValues;
+    }
+
+    /// <summary>Known-tautology opt-out. A constructor rejection throws the cached exception.</summary>
+    public KnownTautologyAttribute? KnownTautology
+    {
+      get
+      {
+        Rethrow(KnownTautologyError);
+        return KnownTautologyValue;
+      }
     }
 
     public bool TryReject(out JaribuAttributeRead.Rejection rejection)
@@ -259,6 +288,18 @@ public static partial class TestRunner
         return true;
       }
 
+      if (ProvesError is not null)
+      {
+        rejection = new(nameof(ProvesAttribute), "the method", ProvesError);
+        return true;
+      }
+
+      if (KnownTautologyError is not null)
+      {
+        rejection = new(nameof(KnownTautologyAttribute), "the method", KnownTautologyError);
+        return true;
+      }
+
       rejection = default;
       return false;
     }
@@ -275,7 +316,38 @@ public static partial class TestRunner
         () => method.GetCustomAttribute<TimeoutAttribute>(inherit: false),
         out TimeoutAttribute? timeout,
         out Exception? timeoutError);
-      return new MethodMetadata(skip, skipError, tags, tagError, inputError, timeout, timeoutError);
+      ProvesAttribute[] proves = ReadProves(method, out Exception? provesError);
+      ReadAttribute(
+        () => method.GetCustomAttribute<KnownTautologyAttribute>(inherit: false),
+        out KnownTautologyAttribute? known,
+        out Exception? knownError);
+      return new MethodMetadata(
+        skip,
+        skipError,
+        tags,
+        tagError,
+        inputError,
+        timeout,
+        timeoutError,
+        proves,
+        provesError,
+        known,
+        knownError);
+    }
+  }
+
+  private static ProvesAttribute[] ReadProves(MethodInfo method, out Exception? error)
+  {
+    try
+    {
+      ProvesAttribute[] claims = [.. method.GetCustomAttributes<ProvesAttribute>(inherit: false)];
+      error = null;
+      return claims;
+    }
+    catch (Exception exception) when (exception is ArgumentException or CustomAttributeFormatException)
+    {
+      error = exception;
+      return [];
     }
   }
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
+#:project $(TestsDirectory)timewarp-jaribu/tautology-fixture/tautology-fixture.csproj
 #:project $(SourceDirectory)timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj
 #:property IsTestingPlatformApplication=false
 #:property GenerateTestingPlatformEntryPoint=false

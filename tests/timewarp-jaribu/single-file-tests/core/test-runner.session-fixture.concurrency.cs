@@ -6,10 +6,11 @@ namespace TestRunner_;
 
 public partial class SessionFixture_Given_
 {
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task CreatedOrder_Should_DisposeNewestFirst()
   {
+    await ClearLiveSessionFixturesAsync();
     DisposeOrderLog.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<FirstOrderFixture>();
     TestRunner.RegisterSessionFixture<SecondOrderFixture>();
     TestRunner.RegisterSessionFixture<ThirdOrderFixture>();
@@ -32,9 +33,10 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task EndWithoutBegin_Should_Throw()
   {
-    TestRunner.ClearRegisteredSessionFixtures();
+    await ClearLiveSessionFixturesAsync();
     try
     {
       InvalidOperationException ex = await Should.ThrowAsync<InvalidOperationException>(
@@ -47,9 +49,10 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task SecondEnd_Should_Throw()
   {
-    TestRunner.ClearRegisteredSessionFixtures();
+    await ClearLiveSessionFixturesAsync();
     TestRunner.BeginTestSession();
     await TestRunner.EndTestSessionAsync();
     try
@@ -64,6 +67,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task ConcurrentRuns_Should_KeepTheFixtureUntilEveryRunEnds()
   {
     LeaseOverlap.Reset();
@@ -100,10 +104,11 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task CapturedEpoch_Should_EndQuietlyAfterClear()
   {
+    await ClearLiveSessionFixturesAsync();
     HostStressFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<HostStressFixture>();
     long clearEpoch = TestRunner.BeginTestSession();
     try
@@ -130,10 +135,11 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task ConcurrentBeginEnd_Should_DisposeEachCreatedInstance()
   {
+    await ClearLiveSessionFixturesAsync();
     HostStressFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<HostStressFixture>();
     try
     {
@@ -161,6 +167,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task ConcurrentLoneRuns_Should_NotDisposeUnderALiveRun()
   {
     LoneStressFixture.Reset();
@@ -227,6 +234,36 @@ public partial class SessionFixture_Given_
       StringComparison.Ordinal))
     {
     }
+  }
+
+  private static async Task ClearLiveSessionFixturesAsync()
+  {
+    // Eight workers can nest a begin per iteration before a broken end returns.
+    for (int attempt = 0; attempt < 512; attempt++)
+    {
+      try
+      {
+        TestRunner.ClearRegisteredSessionFixtures();
+        return;
+      }
+      catch (InvalidOperationException exception) when (exception.Message.Contains(
+        "live instance",
+        StringComparison.Ordinal))
+      {
+        // A broken EndTestSessionAsync leaves the instance live and the host depth nested.
+        // Dispose can throw after the instance is dropped; the next clear then succeeds.
+        try
+        {
+          await TestRunner.EndTestSessionAsync();
+        }
+        catch (InvalidOperationException)
+        {
+          // The instance is already dropped. The next clear finishes the reset.
+        }
+      }
+    }
+
+    TestRunner.ClearRegisteredSessionFixtures();
   }
 }
 

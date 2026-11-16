@@ -7,6 +7,7 @@ namespace TestRunner_;
 
 public partial class SessionFixture_Given_
 {
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task CreateFailure_Should_SurfaceAsTestFailure()
   {
     FailingCreateSessionFixture.Reset();
@@ -34,6 +35,7 @@ public partial class SessionFixture_Given_
   /// <summary>
   /// Failed CreateAsync must not be retried on a later GetAsync in the same session.
   /// </summary>
+  [Proves(typeof(TestRunner), nameof(TestRunner.BeginTestSession))]
   public static async Task CreateFailure_Should_BeStickyAcrossClassesInSession()
   {
     FailingCreateSessionFixture.Reset();
@@ -64,10 +66,11 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task DisposeFailure_Should_FailEndSession()
   {
+    await ClearLiveSessionFixturesAsync();
     FailingDisposeSessionFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<FailingDisposeSessionFixture>();
     try
     {
@@ -111,10 +114,11 @@ public partial class SessionFixture_Given_
   /// A CreateAsync completing after the session fully ended must not cache the
   /// instance for a later session — the orphan is disposed and GetAsync throws.
   /// </summary>
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task SessionEndDuringCreate_Should_DisposeOrphanAndThrow()
   {
+    await ClearLiveSessionFixturesAsync();
     BlockedCreateSessionFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<BlockedCreateSessionFixture>();
     try
     {
@@ -136,6 +140,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SessionEndDuringCreate_Should_ReportErrorFromTheBody()
   {
     BlockedCreateSessionFixture.Reset();
@@ -167,6 +172,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SessionOfOneDisposeFailure_Should_FailRunWithoutThrowing()
   {
     FailingDisposeSessionFixture.Reset();
@@ -198,6 +204,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
   public static async Task SessionOfOneDisposeFailure_Should_ReturnExitCodeOne()
   {
     FailingDisposeSessionFixture.Reset();
@@ -217,6 +224,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SessionOfOneDisposeFailure_Should_KeepBodyException()
   {
     FailingDisposeSessionFixture.Reset();
@@ -243,6 +251,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SessionOfOneDisposeFailure_Should_NotMaskInFlightException()
   {
     FailingDisposeSessionFixture.Reset();
@@ -263,6 +272,7 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(SessionFixture), nameof(SessionFixture.GetAsync))]
   public static async Task ConcurrentGet_Should_ShareOneInstance()
   {
     CountingSessionFixture.Reset();
@@ -293,10 +303,11 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task ConcurrentEndDuringCreate_Should_DisposeAndLeaveNoLiveInstance()
   {
+    await ClearLiveSessionFixturesAsync();
     BlockedCreateSessionFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<BlockedCreateSessionFixture>();
     try
     {
@@ -329,10 +340,11 @@ public partial class SessionFixture_Given_
     }
   }
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
   public static async Task ConcurrentBeginEnd_Should_ReturnNestingToZero()
   {
+    await ClearLiveSessionFixturesAsync();
     CountingSessionFixture.Reset();
-    TestRunner.ClearRegisteredSessionFixtures();
     TestRunner.RegisterSessionFixture<CountingSessionFixture>();
     try
     {

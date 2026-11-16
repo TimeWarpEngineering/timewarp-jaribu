@@ -47,6 +47,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Parameterized_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Inputs_Should_BindAndRejectMismatches()
     {
       ParameterizedBehaviorFixture.Reset();

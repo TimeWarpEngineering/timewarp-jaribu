@@ -1,10 +1,14 @@
 <Solution>
   <Folder Name="/source/">
     <Project Path="source/timewarp-jaribu/timewarp-jaribu.csproj" />
+    <Project Path="source/timewarp-jaribu-analyzers/timewarp-jaribu-analyzers.csproj" />
+    <Project Path="source/timewarp-jaribu-instrument/timewarp-jaribu-instrument.csproj" />
     <Project Path="source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/timewarp-jaribu/multi-file-runners/mtp-runner/timewarp-jaribu-tests-mtp.csproj" />
+    <Project Path="tests/timewarp-jaribu/tautology-fixture/tautology-fixture.csproj" />
+    <Project Path="tests/timewarp-jaribu/tautology-analyzer-fixture/tautology-analyzer-fixture.csproj" />
     <Project Path="tests/timewarp-jaribu-mtp-validation/timewarp-jaribu-mtp-validation.csproj" />
   </Folder>
 </Solution>

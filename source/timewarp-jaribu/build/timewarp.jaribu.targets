@@ -1,0 +1,81 @@
+<Project>
+  <!--
+    Opt-in instrumentation and strict-tautology assembly markers.
+    JaribuInstrument=true rewrites the assembly after compile.
+    JaribuStrictTautology, JaribuRequireClaims, and JaribuPerTestCoverage
+    stamp the test assembly. The runner reads those markers.
+    In this repo the instrumenter project is built beside the targets file.
+    In the NuGet package the same targets find the published tool under tools/jaribu-instrument.
+    The stamp file is a CoreCompile input so turning JaribuInstrument off rebuilds a clean assembly.
+  -->
+  <PropertyGroup>
+    <_JaribuToolsDirectory>$(MSBuildThisFileDirectory)..\tools\jaribu-instrument\</_JaribuToolsDirectory>
+    <_JaribuRepoInstrumenterProject>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\timewarp-jaribu-instrument.csproj</_JaribuRepoInstrumenterProject>
+    <_JaribuRepoInstrumenterDll>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\bin\$(Configuration)\$(TargetFramework)\timewarp-jaribu-instrument.dll</_JaribuRepoInstrumenterDll>
+    <_JaribuInstrumenterDll Condition="Exists('$(_JaribuToolsDirectory)timewarp-jaribu-instrument.dll')">$(_JaribuToolsDirectory)timewarp-jaribu-instrument.dll</_JaribuInstrumenterDll>
+    <_JaribuInstrumenterDll Condition="'$(_JaribuInstrumenterDll)' == ''">$(_JaribuRepoInstrumenterDll)</_JaribuInstrumenterDll>
+    <_JaribuInstrumenterProject Condition="Exists('$(_JaribuRepoInstrumenterProject)')">$(_JaribuRepoInstrumenterProject)</_JaribuInstrumenterProject>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(DesignTimeBuild)' != 'true'">
+    <CustomAdditionalCompileInputs Include="$(IntermediateOutputPath)jaribu-instrument.input" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JaribuStrictTautology)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.StrictTautologyAttribute" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(JaribuRequireClaims)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.RequireClaimsAttribute" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(JaribuPerTestCoverage)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.PerTestCoverageAttribute" />
+  </ItemGroup>
+
+  <Target Name="JaribuWriteInstrumentInput" AfterTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <WriteLinesToFile
+      File="$(IntermediateOutputPath)jaribu-instrument.input"
+      Lines="JaribuInstrument=$(JaribuInstrument)"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target
+    Name="JaribuInstrumentAssembly"
+    AfterTargets="Compile"
+    Condition="'$(JaribuInstrument)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(_JaribuInstrumenterProject)"
+      Targets="Build"
+      Condition="'$(_JaribuInstrumenterProject)' != ''"
+      Properties="Configuration=$(Configuration)" />
+    <Error
+      Condition="!Exists('$(_JaribuInstrumenterDll)')"
+      Text="JaribuInstrument could not find the instrumenter at '$(_JaribuInstrumenterDll)'." />
+    <PropertyGroup>
+      <_JaribuProbeAssembly Condition="'$(JaribuProbeAssembly)' != ''">$(JaribuProbeAssembly)</_JaribuProbeAssembly>
+      <_JaribuCompiledAssembly>$(IntermediateOutputPath)$(TargetFileName)</_JaribuCompiledAssembly>
+      <_JaribuProbeAssembly Condition="'$(_JaribuProbeAssembly)' == '' and ('$(AssemblyName)' == 'timewarp-jaribu' or '$(AssemblyName)' == 'TimeWarp.Jaribu')">$(_JaribuCompiledAssembly)</_JaribuProbeAssembly>
+    </PropertyGroup>
+    <ItemGroup>
+      <_JaribuProbeCandidate Include="@(ReferencePath)" Condition="'%(Filename)' == 'timewarp-jaribu' or '%(Filename)' == 'TimeWarp.Jaribu'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_JaribuProbeAssembly Condition="'$(_JaribuProbeAssembly)' == ''">@(_JaribuProbeCandidate)</_JaribuProbeAssembly>
+    </PropertyGroup>
+    <Error
+      Condition="'$(_JaribuProbeAssembly)' == ''"
+      Text="JaribuInstrument needs JaribuProbeAssembly or a reference to TimeWarp.Jaribu." />
+    <Exec Command="dotnet &quot;$(_JaribuInstrumenterDll)&quot; &quot;$(_JaribuCompiledAssembly)&quot; &quot;$(_JaribuProbeAssembly)&quot;" />
+    <!--
+      The instrumenter writes this marker when it had to drop an unreadable PDB.
+      CopyFilesToOutputDirectory still believes the compile produced that PDB.
+      Clearing the flag avoids MSB3030 on the missing file.
+    -->
+    <PropertyGroup Condition="Exists('$(IntermediateOutputPath)jaribu-dropped-symbols')">
+      <_DebugSymbolsProduced>false</_DebugSymbolsProduced>
+    </PropertyGroup>
+    <Delete
+      Files="$(IntermediateOutputPath)jaribu-dropped-symbols"
+      Condition="Exists('$(IntermediateOutputPath)jaribu-dropped-symbols')" />
+  </Target>
+</Project>

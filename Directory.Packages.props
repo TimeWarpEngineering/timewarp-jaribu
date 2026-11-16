@@ -28,6 +28,8 @@
     <PackageVersion Include="TimeWarp.Build.Tasks" Version="2.0.1-beta.1" />
     <PackageVersion Include="TimeWarp.Amuru.Tools" Version="3.0.0-beta.5" />
     <PackageVersion Include="TimeWarp.SourceGenerators" Version="1.0.0-beta.16" />
+    <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
 
     <!-- Benchmark hosts (task 040). Results headers copy these versions. -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />

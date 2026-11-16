@@ -28,6 +28,7 @@ namespace TerminalSink_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<TabularOutput_Given_>();
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task MixedResults_Should_RenderTableStructure()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -80,6 +81,7 @@ namespace TerminalSink_
       output.ShouldContain("Skipped:");
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task LongMessage_Should_Truncate()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -112,6 +114,7 @@ namespace TerminalSink_
       output.ShouldNotContain("maximum width limit");
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task MixedResults_Should_ContainAnsiColorCodes()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -143,6 +146,7 @@ namespace TerminalSink_
       (output.Contains("\u001b[33m") || output.Contains("[33m")).ShouldBeTrue();
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task VariousDurations_Should_FormatCorrectly()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -172,6 +176,7 @@ namespace TerminalSink_
       output.ShouldContain("2.50s");
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task EmptyResults_Should_RenderTableStructure()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -199,6 +204,7 @@ namespace TerminalSink_
       output.ShouldContain("0");
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task NarrowWidth_Should_ClampInsteadOfThrowing()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();
@@ -229,6 +235,7 @@ namespace TerminalSink_
       zeroTerminal.Output.ShouldContain("...");
     }
 
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunStartedAsync))]
     public static async Task InjectedTerminal_Should_RemainUsableAfterDispose()
     {
       using TimeWarp.Terminal.TestTerminal terminal = new();

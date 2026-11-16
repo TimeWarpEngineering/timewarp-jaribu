@@ -29,6 +29,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<Cancellation_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MidRun_Should_CancelTheCurrentTestAndSkipTheRest()
     {
       CancellationCollectingSink sink = new();
@@ -57,6 +58,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task MidRun_Should_ExitNonZero()
     {
       (CancellationTokenSource cts, TaskCompletionSource release) = Hold.Reset();
@@ -76,6 +78,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task AlreadyCancelled_Should_StartNothingAndExitNonZero()
     {
       using CancellationTokenSource cts = new();
@@ -88,6 +91,7 @@ namespace TestRunner_
       QuickFixture.Entered.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Timeout_Should_StayTimeoutWhenTheTokenIsNotCancelled()
     {
       CancellationCollectingSink sink = new();
@@ -107,6 +111,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Cancel_Should_WinOverTimeout()
     {
       CancellationCollectingSink sink = new();
@@ -132,6 +137,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task Setup_Should_StopBeforeTheBody()
     {
       CancellationCollectingSink sink = new();
@@ -157,6 +163,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task SetupOnce_Should_SkipBodiesAndStillCleanUpOnce()
     {
       (CancellationTokenSource cts, TaskCompletionSource release) = Hold.Reset();
@@ -177,6 +184,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CleanUp_Should_CancelAPassingBody()
     {
       CancellationCollectingSink sink = new();
@@ -201,6 +209,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTests))]
     public static async Task CleanUpOnce_Should_ReturnOneWhenItThrowsBeforeATaskAfterCancel()
     {
       using CancellationTokenSource cts = new();
@@ -214,6 +223,7 @@ namespace TestRunner_
       SyncThrowCleanUpOnceFixture.CleanUpOnceEntered.ShouldBe(1);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
     public static async Task RunAllTests_Should_NotStartTheNextClass()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];
@@ -247,6 +257,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(SessionFixture), nameof(SessionFixture.GetAsync))]
     public static async Task CreateAsync_Should_StopWhenTheTokenFires()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -273,9 +284,40 @@ namespace TestRunner_
       }
     }
 
+    private static async Task ClearLiveSessionFixturesAsync()
+    {
+      // A broken end can leave host depth nested once per in-flight begin.
+      for (int attempt = 0; attempt < 512; attempt++)
+      {
+        try
+        {
+          TestRunner.ClearRegisteredSessionFixtures();
+          return;
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains(
+          "live instance",
+          StringComparison.Ordinal))
+        {
+          // A broken EndTestSessionAsync leaves the instance live and the host depth nested.
+          // Dispose can throw after the instance is dropped; the next clear then succeeds.
+          try
+          {
+            await TestRunner.EndTestSessionAsync();
+          }
+          catch (InvalidOperationException)
+          {
+            // The instance is already dropped. The next clear finishes the reset.
+          }
+        }
+      }
+
+      TestRunner.ClearRegisteredSessionFixtures();
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
     public static async Task DisposeAsync_Should_StopWhenTheTokenFires()
     {
-      TestRunner.ClearRegisteredSessionFixtures();
+      await ClearLiveSessionFixturesAsync();
       TestRunner.RegisterSessionFixture<SlowDisposeFixture>();
       using CancellationTokenSource cts = new();
       TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -299,9 +341,10 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
     public static async Task EndSession_Should_StartDisposeOnEveryFixtureWhenAlreadyCancelled()
     {
-      TestRunner.ClearRegisteredSessionFixtures();
+      await ClearLiveSessionFixturesAsync();
       TestRunner.RegisterSessionFixture<FirstCancelledDisposeFixture>();
       TestRunner.RegisterSessionFixture<SecondCancelledDisposeFixture>();
       using CancellationTokenSource cts = new();

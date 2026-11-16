@@ -31,6 +31,7 @@ public static partial class TestRunner
     Func<ReportedTestCase, bool>? casePredicate,
     MethodInfo? setupMethod,
     MethodInfo? cleanUpMethod,
+    TautologyOptions tautology,
     CancellationToken cancellationToken)
   {
     List<TestNodeInfo> results = [];
@@ -102,7 +103,7 @@ public static partial class TestRunner
 
       await sink.OnTestStartedAsync(inProgressNode);
 
-      TestNodeInfo result = await RunPreparedTestAsync(
+      TestNodeInfo result = await RunObservedTestAsync(
         testClass,
         method,
         testCase.ToParameterArray(),
@@ -110,6 +111,7 @@ public static partial class TestRunner
         setupMethod,
         cleanUpMethod,
         startedAt,
+        tautology,
         cancellationToken);
 
       await sink.OnTestCompletedAsync(result);
@@ -164,6 +166,36 @@ public static partial class TestRunner
     await sink.OnTestStartedAsync(node);
     await sink.OnTestCompletedAsync(node);
     return [node];
+  }
+
+  /// <summary>
+  /// Runs one case. Coverage and prove mode may attempt it more than once and attach a score.
+  /// </summary>
+  private static Task<TestNodeInfo> RunObservedTestAsync(
+    Type testClass,
+    MethodInfo method,
+    object?[]? parameters,
+    int? inputOrdinal,
+    MethodInfo? setupMethod,
+    MethodInfo? cleanUpMethod,
+    DateTimeOffset startedAt,
+    TautologyOptions tautology,
+    CancellationToken cancellationToken)
+  {
+    Task<TestNodeInfo> RunOnce(CancellationToken token)
+    {
+      return RunPreparedTestAsync(
+        testClass,
+        method,
+        parameters,
+        inputOrdinal,
+        setupMethod,
+        cleanUpMethod,
+        startedAt,
+        token);
+    }
+
+    return TautologyExecutor.RunAsync(RunOnce, method, tautology, cancellationToken);
   }
 
   /// <summary>Error node for a rejected Jaribu attribute. The message names the attribute.</summary>

@@ -12,6 +12,61 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
     <PackageReference Include="TimeWarp.Terminal" />
+    <ProjectReference
+      Include="..\timewarp-jaribu-analyzers\timewarp-jaribu-analyzers.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Analyzer" />
   </ItemGroup>
+
+  <Import Project="build\timewarp.jaribu.targets" />
+
+  <Target Name="PackJaribuInstrumenter" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_JaribuInstrumenterPublishDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)obj\$(Configuration)\$(TargetFramework)\jaribu-instrument\'))</_JaribuInstrumenterPublishDir>
+      <_JaribuPackLayout>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)obj\$(Configuration)\$(TargetFramework)\jaribu-pack\'))</_JaribuPackLayout>
+    </PropertyGroup>
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\timewarp-jaribu-instrument\timewarp-jaribu-instrument.csproj"
+      Targets="Restore;Publish"
+      Properties="Configuration=$(Configuration);UseAppHost=false;SelfContained=false;PublishDir=$(_JaribuInstrumenterPublishDir)" />
+    <Copy
+      SourceFiles="$(MSBuildThisFileDirectory)build\timewarp.jaribu.targets"
+      DestinationFiles="$(_JaribuPackLayout)build\TimeWarp.Jaribu.targets" />
+    <Copy
+      SourceFiles="$(MSBuildThisFileDirectory)build\timewarp.jaribu.targets"
+      DestinationFiles="$(_JaribuPackLayout)buildTransitive\TimeWarp.Jaribu.targets" />
+    <ItemGroup>
+      <_JaribuPackedTool Include="$(_JaribuInstrumenterPublishDir)*.dll" />
+      <_JaribuPackedTool Include="$(_JaribuInstrumenterPublishDir)*.json" />
+      <_JaribuPackedTool Include="$(_JaribuInstrumenterPublishDir)*.pdb" />
+    </ItemGroup>
+    <ItemGroup>
+      <None Include="@(_JaribuPackedTool)" Pack="true" PackagePath="tools/jaribu-instrument/" Visible="false" />
+      <None
+        Include="$(_JaribuPackLayout)build\TimeWarp.Jaribu.targets"
+        Pack="true"
+        PackagePath="build/TimeWarp.Jaribu.targets"
+        Visible="false" />
+      <None
+        Include="$(_JaribuPackLayout)buildTransitive\TimeWarp.Jaribu.targets"
+        Pack="true"
+        PackagePath="buildTransitive/TimeWarp.Jaribu.targets"
+        Visible="false" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="PackJaribuAnalyzer" BeforeTargets="_GetPackageFiles">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\timewarp-jaribu-analyzers\timewarp-jaribu-analyzers.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <None
+        Include="$(MSBuildThisFileDirectory)..\timewarp-jaribu-analyzers\bin\$(Configuration)\netstandard2.0\timewarp-jaribu-analyzers.dll"
+        Pack="true"
+        PackagePath="analyzers/dotnet/cs"
+        Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>

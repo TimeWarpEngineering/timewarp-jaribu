@@ -26,6 +26,7 @@ public class FilterParity_Given_
   [ModuleInitializer]
   internal static void Register() => RegisterTests<FilterParity_Given_>();
 
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task Combinations_Should_ListTheSameUidsAsTheRun()
   {
     string? previous = Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
@@ -42,6 +43,7 @@ public class FilterParity_Given_
     }
   }
 
+  [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.EnumerateReportedCases))]
   public static async Task ClassTagMiss_Should_SkipEveryMethodWithoutHooks()
   {
     ClassFilterParityFixture.Reset();
@@ -65,6 +67,7 @@ public class FilterParity_Given_
     discovered.ShouldBe(CompletedUids(sink));
   }
 
+  [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.EnumerateReportedCases))]
   public static async Task MethodTagMiss_Should_SkipThatMethodAndRunTheRest()
   {
     MethodFilterParityFixture.Reset();
@@ -85,6 +88,7 @@ public class FilterParity_Given_
     discovered.ShouldBe(CompletedUids(sink));
   }
 
+  [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.EnumerateReportedCases))]
   public static async Task EnvironmentTag_Should_IgnoreBlankTrimAndLoseToExplicit()
   {
     string? previous = Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
@@ -144,6 +148,7 @@ public class FilterParity_Given_
     }
   }
 
+  [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.EnumerateReportedCases))]
   public static async Task InheritedClassTag_Should_SkipWhenTheBaseTagMisses()
   {
     FilterParitySink matched = new();

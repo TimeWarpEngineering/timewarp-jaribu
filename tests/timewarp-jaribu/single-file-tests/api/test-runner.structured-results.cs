@@ -49,6 +49,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<StructuredResults_Given_>();
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MixedPassFailSkip_Should_ReturnCorrectStats()
     {
       CollectingSink sink = new();
@@ -64,6 +65,7 @@ namespace TestRunner_
       stats.Duration.ShouldBeGreaterThan(TimeSpan.Zero);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MixedPassFailSkip_Should_ReturnIndividualDetails()
     {
       CollectingSink sink = new();
@@ -88,6 +90,7 @@ namespace TestRunner_
       skippedResult.Message.ShouldNotBeNullOrEmpty();
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task ParameterizedTests_Should_ReturnParameterDetails()
     {
       CollectingSink sink = new();
@@ -102,6 +105,7 @@ namespace TestRunner_
       }
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task AllPassing_Should_SetSuccessTrue()
     {
       CollectingSink sink = new();
@@ -111,6 +115,7 @@ namespace TestRunner_
       stats.FailedCount.ShouldBe(0);
     }
 
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task AllPassing_Should_RecordValidStartTime()
     {
       DateTimeOffset beforeTest = DateTimeOffset.Now;

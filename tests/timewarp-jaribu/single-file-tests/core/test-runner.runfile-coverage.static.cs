@@ -73,6 +73,7 @@ public partial class RunfileCoverage_Given_
   }
 
   [Timeout(ProbeTimeoutMilliseconds)]
+  [KnownTautology("child-process test")]
   public static async Task StaticMuxerHost_Should_InstrumentACopyInsteadOfTheLoadedOutput()
   {
     using ProbeRun run = ProbeRun.Create();
@@ -134,6 +135,7 @@ public partial class RunfileCoverage_Given_
   }
 
   [Timeout(300_000)]
+  [KnownTautology("child-process test")]
   public static async Task StaticMuxerHost_Should_CollectFromACopyWithTheRealTool()
   {
     using ProbeRun run = ProbeRun.Create();
