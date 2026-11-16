@@ -40,6 +40,10 @@ Every pull request must report `CI`, and `dev workflow` must decide whether that
 
 `workflow.yml` has no `paths` or `paths-ignore` on `pull_request`. The `push` trigger keeps a paths filter, with a comment that a kanban-only merge must not rebuild and upload packages. Task 051 had removed that filter from both triggers so a docs-only pull request would still report a status; this task puts it back on `push` only, including the packed `readme.md` and `assets/logo.png`. The test job checks out with `fetch-depth: 0` so the classifier can diff `base...head`. `readme.md` and `assets/logo.png` are also declared in `.timewarp/dev.jsonc` under `pullRequestBuild.buildPaths`, because the default rule treats both as non-build. The CI solution builds `source/` and `tests/`; `tools/` and `msbuild/` are already protected roots. There is no `samples/` or `scripts/` tree, and `benchmarks/` stays on `benchmark.yml`. No local copy of the rule exists under `tools/dev-cli/`. `ganda repo audit` passes, including the workflow-file and dev-workflow-classifier checks.
 
+## Review
+
+- Round 1: Done
+
 ## Notes
 
 Leave `benchmark.yml` as it is.
@@ -52,6 +56,8 @@ plain `ganda pr merge` (no `--allow-no-ci`).
 - `ganda repo audit --fix` wrote gitignored `.vscode/settings.json` (`window.title` includes `timewarp-jaribu`) and changed no tracked file. The only failure was `dev-workflow-classifier`, which this task fixes. `package-pin-currency` already passed on `4.0.0-beta.14` (current as of the last meaningful commit). The pin still moves to `4.0.0-beta.15` because that release is what ships `PullRequestBuildClassifier`.
 - Task 051 removed the paths filter from both `push` and `pull_request` so a docs-only pull request would report a status. This task puts the filter back on `push` only.
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-16T15:43:43Z
+- Review oracle: claude (claude-opus-5-5), effort 1, roster general, turn cap 80, session id not exposed in print mode. Round 1 found 0 issues. Disposition is clean (2026-11-16).
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-16T15:45:22Z
 
 ## Results
 
@@ -60,6 +66,13 @@ plain `ganda pr merge` (no `--allow-no-ci`).
 A kanban-only diff (`cc982ff^`...`cc982ff`, one path under `kanban/`) printed `Pull request changes only declared non-build paths. Skipping build and test. The rule is PullRequestBuildClassifier (TimeWarp.Nuru.DevCli). (1 changed paths)` and exited 0. A diff that includes `readme.md` (`16c486e9ed96559369ae15c1b57b9b5c31fdf04d^`...`16c486e9ed96559369ae15c1b57b9b5c31fdf04d`) printed `Build path changed: readme.md. Full build.` and entered the pipeline.
 
 CI run URL: none yet. Host `open-pr` creates the pull request. This oracle does not run `gh pr create`.
+
+### Review
+
+- Rounds: 1. Effort 1, roster `general`.
+- Final counts: bug 0, suggestion 0, nit 0 (open 0, fixed 0, wontfix 0).
+- Disposition: **clean**. There is no wontfix and no escalation.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
 
 ### How to validate
 
