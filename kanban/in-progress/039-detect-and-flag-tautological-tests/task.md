@@ -82,6 +82,7 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 - Review oracle round 3: claude-opus-5-5 (Claude Code, print mode), effort 3, roster general (orchestrator only, no helper), turn cap 200, session id not exposed. Scope `811fd64..50f08ae`. Outcome: 2 open (M17 bug, M18 suggestion), so a fix pass is needed — 2026-11-16
 - Fix pass (implement-fix-4): implementer-cursor, round-3 findings M17, M18 — 2026-11-16
 - Review oracle round 4: claude-opus-5-5 (Claude Code, print mode), effort 1, roster general (orchestrator only, no helper), turn cap 80, session id not exposed. Scope `50f08ae..ce6d12e`. Outcome: 0 open, disposition clean — 2026-11-16
+- Installed ganda changed during this walk: was 54392760 bytes 123a912e5bab64ba9c5dd342e5523077bdf4d196696557e0c9de0a56029e2772; now 54434216 bytes 7f54ea928a81c2d90f2bf901f6cbed609398a1c46b1da3f0e94c9d34cfb134aa
 
 ## Results
 
