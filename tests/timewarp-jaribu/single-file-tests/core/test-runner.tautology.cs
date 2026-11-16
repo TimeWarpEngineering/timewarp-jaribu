@@ -388,8 +388,8 @@ namespace Tautology_
       text.ShouldContain("Contains_Should_FlagNoAssertion");
       text.ShouldContain("NamespacedEmpty_Should_Flag");
       text.ShouldContain("'Empty_Should_Flag'");
+      text.ShouldNotContain("negative.cs(");
       text.ShouldNotContain("'Compute_Should_NotFlag'");
-      text.ShouldNotContain("'DifferentSymbols_Should_NotFlag'");
       text.ShouldNotContain("'Known_Should_NotFlag'");
       text.ShouldNotContain("'Reassigned_Should_NotFlag'");
       text.ShouldNotContain("'Incremented_Should_NotFlag'");
