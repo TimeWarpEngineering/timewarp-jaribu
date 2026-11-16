@@ -3,7 +3,12 @@
 #endregion
 
 #region Design
-// PR/merge: clean -> build -> test
+// PR/merge: classify -> clean -> build -> test
+// Classify is PullRequestBuildClassifier (TimeWarp.Nuru.DevCli). On a pull
+// request that changes only declared non-build paths it prints its message
+// and the run exits 0. Push and release do not take that skip. readme.md and
+// assets/logo.png are packed, so .timewarp/dev.jsonc lists them under
+// pullRequestBuild.buildPaths. There is no local copy of the rule.
 // Release: clean -> build -> test -> tag guard -> NuGet index -> check-version -> pack -> push
 // Test runs ci-runner and the CI-safe MTP project on both pipelines.
 // The root is RepoRoot.Find when that directory contains timewarp-jaribu.slnx.
@@ -90,6 +95,15 @@ internal sealed class WorkflowCommand : ICommand<Unit>
     private async Task RunPrWorkflowAsync(string repoRoot, CancellationToken cancellationToken)
     {
       cancellationToken.ThrowIfCancellationRequested();
+
+      PullRequestBuildDecision decision = await PullRequestBuildClassifier.DecideAsync(repoRoot, cancellationToken)
+        .ConfigureAwait(false);
+      Terminal.WriteLine(decision.Message);
+      if (!decision.RequiresBuild)
+      {
+        return;
+      }
+
       Terminal.WriteLine("CI Pipeline: clean -> build -> test");
       Terminal.WriteLine("");
 
