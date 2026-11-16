@@ -9,6 +9,8 @@ using System.Reflection;
 #region Design
 // The instrumenter inserts Enter at the start of each production method and Leave
 // in a finally, so depth tracks the call the test made directly.
+// The runner ignores its wait and every method that wait calls. A timeout read
+// of TimeProvider is not coverage for the test.
 // Enter returns immediately when no scope is active, so an instrumented build
 // stays quiet during a normal run. The runner pushes a scope only for coverage
 // or prove mode, and it records only while the test body is running.
@@ -53,9 +55,11 @@ public static class TautologyProbe
       return;
     }
 
-    // The runner awaits the test through one helper. That frame sits at the
-    // same depth as the test's own call, so it must not become the claim.
-    if (depth == IgnoredDepth.Value)
+    // The runner awaits the test through one helper. That frame and everything
+    // it calls sit on the runner flow, so they must not become the claim.
+    // The test's continuations captured IgnoredDepth 0 before the push.
+    int ignored = IgnoredDepth.Value;
+    if (ignored != 0 && depth >= ignored)
     {
       return;
     }

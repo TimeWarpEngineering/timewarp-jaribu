@@ -237,7 +237,7 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CreateTimeout_Should_LetTheNextClassRetry()
     {
       RetryAfterTimeoutFixture.Reset();
@@ -275,7 +275,7 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task CreateAsync_Should_TimeoutAndDisposeTheLateInstance()
     {
       CreateHangFixture.Reset();

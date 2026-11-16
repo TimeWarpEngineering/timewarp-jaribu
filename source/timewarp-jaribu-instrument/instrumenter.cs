@@ -94,13 +94,26 @@ internal static class Instrumenter
     File.Move(tempPath, assemblyPath, overwrite: true);
     string tempPdb = Path.ChangeExtension(tempPath, ".pdb");
     string pdb = Path.ChangeExtension(assemblyPath, ".pdb");
+    string marker = Path.Combine(directory, "jaribu-dropped-symbols");
     if (symbols && File.Exists(tempPdb))
     {
       File.Move(tempPdb, pdb, overwrite: true);
+      if (File.Exists(marker))
+      {
+        File.Delete(marker);
+      }
     }
     else if (File.Exists(pdb))
     {
+      // The rewritten assembly has no symbols. Deleting the stale PDB would make
+      // CopyFilesToOutputDirectory fail with MSB3030, so the marker tells the
+      // targets to skip that copy.
       File.Delete(pdb);
+      File.WriteAllText(marker, "symbols dropped");
+    }
+    else if (File.Exists(marker))
+    {
+      File.Delete(marker);
     }
 
     Directory.Delete(tempDirectory, recursive: true);

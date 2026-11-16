@@ -6,7 +6,7 @@ namespace TestRunner_;
 
 public partial class SessionFixture_Given_
 {
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SingleClass_Should_CreateOnceAndDispose()
   {
     CountingSessionFixture.Reset();
@@ -30,7 +30,7 @@ public partial class SessionFixture_Given_
     }
   }
 
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.BeginTestSession))]
   public static async Task MultiClassSharedSession_Should_CreateOnce()
   {
     CountingSessionFixture.Reset();
@@ -67,7 +67,7 @@ public partial class SessionFixture_Given_
     }
   }
 
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SeparateRunTestsAsync_Should_CreatePerCall()
   {
     CountingSessionFixture.Reset();
@@ -93,7 +93,7 @@ public partial class SessionFixture_Given_
     }
   }
 
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task NeverGetAsync_Should_NotCreate()
   {
     CountingSessionFixture.Reset();
@@ -116,7 +116,7 @@ public partial class SessionFixture_Given_
     }
   }
 
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task AllSkip_Should_NotCreate()
   {
     CountingSessionFixture.Reset();
@@ -142,7 +142,7 @@ public partial class SessionFixture_Given_
     }
   }
 
-  [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+  [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
   public static async Task SecondType_Should_BeIndependent()
   {
     CountingSessionFixture.Reset();

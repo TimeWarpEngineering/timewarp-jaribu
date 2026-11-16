@@ -117,7 +117,7 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TerminalSink), nameof(TerminalSink.Dispose))]
+    [Proves(typeof(TestHelpers), nameof(TestHelpers.FormatTestName))]
     public static async Task FormatTestName_Should_TouchTheMethodNameOnly()
     {
       TestHelpers.FormatTestName("CatchAllInOptionShouldFail").ShouldBe("Catch All In Option Should Fail");

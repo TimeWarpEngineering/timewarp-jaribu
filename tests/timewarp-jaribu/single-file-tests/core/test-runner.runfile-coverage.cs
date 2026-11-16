@@ -47,7 +47,7 @@ namespace TestRunner_
     internal static void Register() => RegisterTests<RunfileCoverage_Given_>();
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task MissingTool_Should_NameTheInstallCommand()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -61,7 +61,7 @@ namespace TestRunner_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task InvalidModuleFilter_Should_FailBeforeLaunch()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -119,7 +119,7 @@ namespace TestRunner_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task ApiOptions_Should_OverrideResultsDirectoryAndModuleFilter()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -141,7 +141,7 @@ namespace TestRunner_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task Environment_Should_OptInAndPropagateTheChildExitCode()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -166,7 +166,7 @@ namespace TestRunner_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task UnsetVariable_Should_RunInProcess()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -179,7 +179,7 @@ namespace TestRunner_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task EmptyReport_Should_FailTheRun()
     {
       using ProbeRun run = ProbeRun.Create();

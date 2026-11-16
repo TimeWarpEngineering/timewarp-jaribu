@@ -184,7 +184,10 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
       {
         string name = target.Identifier.ValueText;
         Forget(assigned, name);
-        if (assignment.Kind() == SyntaxKind.SimpleAssignmentExpression &&
+        // A literal inside if, foreach, or a lambda did not necessarily run.
+        // Only the statement's own assignment is remembered. Nested writes forget.
+        if (assignment.Parent == statement &&
+            assignment.Kind() == SyntaxKind.SimpleAssignmentExpression &&
             assignment.Right is LiteralExpressionSyntax literal)
         {
           assigned.Add(new AssignedLiteral(name, literal.Token.Text));

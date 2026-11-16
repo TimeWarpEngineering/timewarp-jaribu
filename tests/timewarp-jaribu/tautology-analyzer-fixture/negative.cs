@@ -66,4 +66,20 @@ public static class Negative_
   {
     await Task.CompletedTask;
   }
+
+  public static async Task LoopAssigned_Should_NotFlag()
+  {
+    bool saw = false;
+    int[] results = [-1, 1];
+    foreach (int result in results)
+    {
+      if (result < 0)
+      {
+        saw = true;
+      }
+    }
+
+    saw.ShouldBe(true);
+    await Task.CompletedTask;
+  }
 }

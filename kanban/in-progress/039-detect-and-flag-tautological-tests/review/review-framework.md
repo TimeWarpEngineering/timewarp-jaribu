@@ -2,21 +2,21 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 3102
+- Lines changed: 1850
 - Effort: 3
 - TCB hits: none
 - Roster axes: general
 - Turn cap: 200 (--max-turns; cursor uncapped)
 
-# Review framework — task 039
+## Scope by round
 
-**Date:** 2026-11-16
 **Host task:** kanban/in-progress/039-detect-and-flag-tautological-tests/
-**Diff scope:** branch `task/039-detect-and-flag-tautological-tests` vs `master` (merge base), commits 5a1ec00..4882270
-**Plan / brief:** task.md `## Goal (implementer restatement)` and the original Description/Requirements: per-test coverage, `[Proves]` + `--prove` via an instrumented build, inference fallback, scoring/report (console + MTP), strict flag + `[KnownTautology]`, four-rule analyzer, detector tests, docs + skill, `[Proves]` backfill with before/after unproven counts.
-**Effort:** 3 (by-diff budget)
-**Reviewer roster:** general (orchestrator read of runner, executor, probe, options, MTP, packaging, docs, tests) plus one read-only helper sub-agent for the analyzer and the Cecil instrumenter; findings merged into `round-1/general.md`
-**Session IDs:** review oracle claude-opus-5-5 (Claude Code, print mode), session id not exposed to the oracle
+**Plan / brief:** task.md `## Goal (implementer restatement)` and the original Description and Requirements.
+
+| Round | Date | Diff scope | Roster | Session |
+|-------|------|-----------|--------|---------|
+| 1 | 2026-11-16 | branch vs `master` merge base, 5a1ec00..4882270 | general (orchestrator) plus one read-only helper for the analyzer and instrumenter | review oracle claude-opus-5-5, session 33b719fb-8d50-476d-82bb-0a0659003713 |
+| 2 | 2026-11-16 | fix delta 4882270..567d259 (`review/round-1/base.sha` to the fix commit), 59 files, plus a re-check of M1–M12 | general (orchestrator) plus one read-only helper for the analyzer, instrumenter, targets, and packaging | review oracle claude-opus-5-5, print mode, session id not exposed to the oracle |
 
 ## Ground rules
 

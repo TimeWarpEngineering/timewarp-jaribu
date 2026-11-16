@@ -1,0 +1,81 @@
+# Round 2 — general
+**Date:** 2026-11-16
+**Scope reviewed:** fix delta `4882270..567d259` (59 files), plus a re-check of round-1 M1–M12 against that delta and the updated `## Results`. The orchestrator read the probe, claim, executor, runner, instrumenter weave, docs, skill, detector tests and fixtures, and the `[Proves]` backfill. A read-only helper sub-agent was launched for the analyzer, the instrumenter skip rules, the targets, and the packaging (M4, M6, M9, M10, M11, M12). The orchestrator also read those diffs directly. The verdicts below come from that direct read. The helper agreed on every verdict and raised two more defects, M16 and M17. The orchestrator confirmed both against the source before recording them.
+
+No command was run except read-only `git diff` / `git log` / `rg` / `sed`. No build, test, audit, or hook was run.
+
+## Summary
+
+The fix pass resolves most of round 1. The executor now filters `<` only in the type and method part of a token, so closed-generic parameters count. A nested runner restores the outer recording flag. Claims resolve by reflection to accessors and open generic definitions, and an unknown name is a finding. The probe locks its scope, and the weave adds a `Leave` in a `finally` so the probe tracks call depth. The backfill is now in the source: 187 `[Proves]` outside the detector files, from two recorded prove runs. What remains is the quality of those claims. The new inference rule ("the last production method the test called directly") picks cleanup and runner plumbing. 72 of the 187 backfilled claims name `ClearRegisteredSessionFixtures`, `ClearRegisteredTests`, `TerminalSink.Dispose`, or `TestRunner.TimeProvider` instead of the member each test asserts. A claim on cleanup is proven trivially, so prove mode cannot catch a tautology in those tests. Part of this comes from the runner-wait ignore covering only one frame (M13).
+
+## Re-check of round-1 findings
+
+| ID | Verdict | Evidence |
+|----|---------|----------|
+| M1 | still open (narrowed) | Claims are now in the source and Results records two prove runs with reasons for the six failures. But the requirement says to "propose the most specific covered method as each test's claim, have a sub-agent confirm". Many promoted claims are cleanup calls; see the updated M1 below. |
+| M2 | fixed | `tautology-executor.cs:296-300` checks `<` only before `(`. `Generic_Given_.Sum_Should_AddTheValues` and `Sum_Should_CoverAGenericParameter` cover `Sum(IEnumerable<int>)`. |
+| M3 | fixed | `test-runner.single-test.cs:213,296` saves `IsRecording` and restores it. `Nested_Given_` and `Scale_Should_StayRecordedAfterANestedRun` assert that `Scale` is recorded and proved after an inner `RunTestsAsync`. |
+| M4 | fixed | `timewarp-jaribu.csproj` `PackJaribuInstrumenter` publishes the instrumenter to `tools/jaribu-instrument/` and packs the targets as `build/TimeWarp.Jaribu.targets` and `buildTransitive/TimeWarp.Jaribu.targets` (PackageId `TimeWarp.Jaribu`, so NuGet auto-imports it). The targets prefer `..\tools\jaribu-instrument\` and fall back to the repo project. `tautology-executor.cs:71-84` makes "no instrumented assembly" a violation, so strict fails. The consumer doc gap is M15. |
+| M5 | fixed | `tautology-claim.cs:24-53` resolves methods, then properties, then events, to accessor prefixes on the open generic definition. An unknown name returns an error, and the executor reports it (`tautology-executor.cs:125-160`). `instrumenter.cs` `SkipMethod` keeps `[CompilerGenerated]` accessors, so auto-properties are woven. Fixtures `Reading.Value` and `Slot<int>.Item` prove the property, and `Unknown_Given_` gets "matches no method". |
+| M6 | fixed | `tautology-analyzer.cs` `RememberLiterals` forgets a local on any simple, compound, or increment assignment, and `ClearsLiterals` treats a member read as a production touch. Fixtures `Reassigned_Should_NotFlag` and `Incremented_Should_NotFlag`. The fix adds a new false positive for a literal assigned inside a nested block (M16). |
+| M7 | still open, raised to bug | See the updated M7 below. |
+| M8 | fixed | `tautology-probe.cs` takes `scope.Gate` around `Entries`, `Seen`, `Recording`, and `Snapshot`. |
+| M9 | fixed | `throw` statements and expressions count as assertions. `True`/`Null`/`Contains`/`Empty`/`Single` count only on `Assert`. `[KnownTautology]` resolves through the semantic model (`TimeWarp.Jaribu.KnownTautologyAttribute`). `IsTest` now matches `DiscoverTests` (public, static, non-generic, returns `System.Threading.Tasks.Task`, hook names excluded). Fixtures cover throw, qualified known, generic, namespaced, and `Contains`. The fixture assertions for these negatives cannot fail (M17). |
+| M10 | fixed | `instrumenter.cs` `SkipType` skips `<`-named and `[CompilerGenerated]` types in every namespace. `SkipMethod` keeps compiler-generated accessors only. Async and iterator stubs are woven, and their state machines are not. |
+| M11 | fixed | `jaribu-instrument.input` is written with `WriteOnlyWhenDifferent` and is a `CustomAdditionalCompileInputs` item, so toggling `JaribuInstrument` re-runs CoreCompile. On the no-symbols path the instrumenter deletes the old PDB. That deletion has its own follow-on (M14). |
+| M12 | fixed | The four rules moved from `AnalyzerReleases.Shipped.md` to `AnalyzerReleases.Unshipped.md`. |
+
+## Issues
+
+### Issue M1 — Severity: bug (carried, narrowed)
+- File: tests/timewarp-jaribu/single-file-tests/core/test-runner.session-fixture.cs:77; tests/timewarp-jaribu/single-file-tests/api/test-runner.multi-class-registration.cs:91,105; tests/timewarp-jaribu/single-file-tests/output/terminal-sink.tabular-output.cs:31,84; tests/timewarp-jaribu/single-file-tests/mtp/mtp-validation-harness.cs:81-123
+- Description: The backfill promoted every inferred claim to `[Proves]` mechanically. The requirement asks for "the most specific covered method", confirmed by a sub-agent. The source shows that step did not happen. Tally of the 187 backfilled claims: `RunTestsAsync` 84, `ClearRegisteredSessionFixtures` 36, `TimeProvider` 15, `ClearRegisteredTests` 12, `TerminalSink.Dispose` 9, and others. Examples:
+  - `DoubleRegister_Should_Throw` asserts that a second `RegisterSessionFixture` throws. It claims `ClearRegisteredSessionFixtures`, the reset in its `finally`.
+  - `DuplicateRegistration_Should_BeIgnored` asserts `RegisterTests` deduplication. It claims `ClearRegisteredTests`, the reset that `WithIsolatedRegistryAsync` calls.
+  - `MixedResults_Should_RenderTableStructure` and `LongMessage_Should_Truncate` assert the rendered table. They claim `TerminalSink.Dispose`, the end of the `using`.
+  - `FilterTag_Should_MatchTheExpectedTable` and four sibling tests spawn a child process and make no in-process production call. They claim `TestRunner.TimeProvider` (see M13).
+- Failure scenario: someone edits `DoubleRegister_Should_Throw` so it no longer asserts the throw (for example, the `Should.Throw` becomes a bare call inside a try/catch). The test still calls `ClearRegisteredSessionFixtures` in `finally`. Breaking that member still fails the test, so prove mode reports the test "Proved" and misses the exact tautology the task exists to catch. These claims are also the examples agents copy, because the skill tells them to write claims by convention.
+- Suggestion: Re-derive each backfilled claim from the member the test asserts. Use the M7 fix to propose it, then have a confirming pass reject cleanup, reset, dispose, and harness members. A test whose only in-process production touch is incidental, such as the subprocess harness tests, should get `[KnownTautology("child-process test")]` or no claim, not a cleanup claim. Re-run prove mode and record the after count again.
+- Status: open
+
+### Issue M7 — Severity: bug (carried; raised from suggestion)
+- File: source/timewarp-jaribu/tautology-executor.cs:322-349 (`InferToken`); documentation/tautology.md:27; skills/tw-jaribu/SKILL.md:77
+- Description: The task says a test with no `[Proves]` uses "the most specific covered production method". `InferToken` picks the last hit at the minimum depth, skipping accessors. For any test that ends with a `finally` reset or a `using` declaration, the last direct call is `Clear…()` or `Dispose()`. Round 1 raised this as a suggestion because there was no evidence of harm yet. The backfill (M1) is that evidence: the same rule produced 57 cleanup claims in this repo's own suite, plus 15 runner claims through M13. The restatement drift is recorded under `## Learnings`.
+- Failure scenario: a consumer test `using var sut = new Parser(); sut.Parse("x"); /* no assertion */` gets the implied claim `Parser.Dispose`. Breaking `Dispose` makes the `using` throw, so the test fails, and prove mode reports a test with no assertion as "Proved".
+- Suggestion: Do not use `Dispose`/`DisposeAsync` as an implied claim, or a member that is called both before and after the other direct calls (the reset pattern). Among the remaining direct calls, prefer the most specific candidate, for example the direct call whose subtree is smallest, or the first one that is not a reset. Add a fixture for each case: a trailing `using` and a `finally` reset. Each one must infer the asserted member.
+- Status: open
+
+### Issue M13 — Severity: bug (new)
+- File: source/timewarp-jaribu/tautology-probe.cs:57-61; source/timewarp-jaribu/test-runner.single-test.cs:243-255; source/timewarp-jaribu/test-runner.cancellation.cs:84-114
+- Description: `PushIgnoredFrame` ignores only the instrumented frame at exactly `IgnoredDepth` (`depth == IgnoredDepth.Value`). Everything that `WaitForCompletionAsync` calls sits deeper, and it is still recorded, because the runner flow is recording. When the library is woven (this repo's backfill run), `WaitForCompletionAsync` reads `TestRunner.TimeProvider` for any `[Timeout]` test (`test-runner.cancellation.cs:114`). That getter becomes a covered production method for the test, and because the test made no shallower call, it is also the implied claim.
+- Failure scenario: `FilterTag_Should_MatchTheExpectedTable` (mtp-validation-harness.cs:81) only spawns a child process. It should be a zero-coverage finding. Instead it reports one covered method, `TestRunner.TimeProvider`, and "Proved", because breaking the getter breaks the runner's own timeout wait. Results' "28 zero-coverage" therefore undercounts. The same applies to the runfile-coverage tests that claim `TimeProvider`.
+- Suggestion: Ignore the whole subtree on the runner flow: return from `Enter` when `IgnoredDepth.Value != 0 && depth >= IgnoredDepth.Value`. The test's own continuations captured their execution context before the push, so their `IgnoredDepth` is 0 and they keep recording. Add a fixture: a `[Timeout]` test with no production call must report zero coverage when the runner is woven.
+- Status: open
+
+### Issue M14 — Severity: suggestion (new)
+- File: source/timewarp-jaribu-instrument/instrumenter.cs:98-105; source/timewarp-jaribu/build/timewarp.jaribu.targets:42
+- Description: When the symbol read falls back to `ReadSymbols = false`, the rewrite now deletes `obj/<name>.pdb`. `JaribuInstrumentAssembly` runs after `Compile`, but the standard `CopyFilesToOutputDirectory` still copies `@(_DebugSymbolsIntermediatePath)` to `bin/`, because `_DebugSymbolsProduced` is still true. MSBuild's `Copy` task fails with MSB3030 when the source file is missing. So the fallback path changes a stale PDB into a build error. This was reasoned from the common targets and was not run; the fallback needs an unreadable or mismatched PDB to trigger.
+- Failure scenario: a production project's PDB cannot be read by Cecil (for example, an unusual `DebugType`). The instrumenter falls back and deletes the PDB, and the build then fails with "MSB3030: Could not copy the file … because it was not found."
+- Suggestion: On the fallback path, write a matching PDB with `WriteSymbols = true` and an empty portable symbol writer, or keep the PDB and log a warning. Or have the target set `_DebugSymbolsProduced=false` when the instrumenter reports that it dropped symbols.
+- Status: open
+
+### Issue M15 — Severity: suggestion (new)
+- File: documentation/tautology.md:7; skills/tw-jaribu/SKILL.md:77
+- Description: The doc says "a consumer sets the property on the project that references the package". The weave has to run on the production project, and the packaged `build/` targets are imported only into a project that references `TimeWarp.Jaribu` itself (`buildTransitive` flows to the test project's dependents, not its dependencies). An org repo's production library normally does not reference the test framework, so setting `JaribuInstrument=true` there imports nothing and weaves nothing. The run then reports "no instrumented assembly", which tells the user to set the property they already set.
+- Failure scenario: an org repo sets `JaribuInstrument=true` in CI for its `src/` project, as the doc suggests. Nothing is woven, every test is "rebuild with JaribuInstrument=true", and strict mode fails the run with no hint about the missing reference.
+- Suggestion: State that the production project needs `<PackageReference Include="TimeWarp.Jaribu" PrivateAssets="all" />` (or `JaribuProbeAssembly`) when `JaribuInstrument=true`, for example in a CI-only `Condition`. Add the same line to the skill. Optionally, have the "no instrumented assembly" message name that reference.
+- Status: open
+
+### Issue M16 — Severity: bug (new; regression from the M6 fix)
+- File: source/timewarp-jaribu-analyzers/tautology-analyzer.cs:181-191 (with :147-162)
+- Description: `RememberLiterals` now walks `statement.DescendantNodesAndSelf()` and records a literal for any simple assignment it finds, including one nested inside an `if`, a `foreach`, or a lambda body. A statement clears the list only when it contains a call or a member access. So a conditional assignment inside a loop is remembered as if it ran unconditionally right before the assertion. Before the fix, only top-level local declarations were remembered.
+- Failure scenario: `bool saw = false; foreach (int r in results) { if (r < 0) saw = true; } saw.ShouldBe(true);` is a real test, but it gets JARIBU1004 "Test asserts true, which was just assigned". Under `TreatWarningsAsErrors`, the org default and this repo's Directory.Build.props setting, the build fails. The task requires negative cases that must not be flagged.
+- Suggestion: Record a literal only from a top-level `ExpressionStatement` whose expression is a simple assignment, or from a local declaration. A nested assignment, compound assignment, or increment only forgets the entry. Add this loop case as a negative fixture and assert on its method name (see M17).
+- Status: open
+
+### Issue M17 — Severity: bug (new; the negative analyzer assertions are vacuous)
+- File: tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs:333-339
+- Description: `Analyzer_Should_FlagOnlyThePositiveRules` checks negatives with `text.ShouldNotContain("Negative_.Throw_Should_NotFlag")` and the same pattern for Compute, DifferentSymbols, Known, Reassigned, QualifiedKnown, and Generic. The diagnostics print only the method name (`"Test '{0}' has an empty body"`, `"Test '{0}' reaches no assertion"` with `method.Identifier.Text`, lines 37, 42, 118, 124). The build log line is `negative.cs(…): warning JARIBU1002: Test 'Throw_Should_NotFlag' reaches no assertion`. The class-qualified string never appears, so these seven assertions pass whether or not the analyzer flags the negatives. The pattern existed before this delta, but the delta adds three more vacuous checks (Throw, QualifiedKnown, Generic) as the evidence that M9 is fixed. The literal checks ("Test asserts -42", "Test asserts 17") do work.
+- Failure scenario: a later change breaks the throw-counts-as-assertion rule, so `Throw_Should_NotFlag` gets JARIBU1002. The detector test still passes, so the false positive ships. This is a tautological test in the tautology detector's own suite.
+- Suggestion: Assert `ShouldNotContain("'Throw_Should_NotFlag'")` (quoted method name, as the message prints it) for every negative. Add a positive control, as the positives already do, so the matching pattern is shown to work.
+- Status: open

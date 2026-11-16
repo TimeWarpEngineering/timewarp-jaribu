@@ -106,6 +106,60 @@ public class Discarded_Given_
   }
 }
 
+public class Using_Given_
+{
+  public static async Task Parse_Should_ReturnTheText()
+  {
+    using Parser parser = new();
+    parser.Parse("x").ShouldBe("x");
+    await Task.CompletedTask;
+  }
+}
+
+public class FinallyReset_Given_
+{
+  public static async Task Add_Should_ReturnTheSum()
+  {
+    try
+    {
+      TautologySubject.Add(2, 3).ShouldBe(5);
+    }
+    finally
+    {
+      TautologySubject.Reset();
+    }
+
+    await Task.CompletedTask;
+  }
+}
+
+public class BracketReset_Given_
+{
+  public static async Task Add_Should_ReturnTheSum()
+  {
+    TautologySubject.Note();
+    try
+    {
+      TautologySubject.Add(2, 3).ShouldBe(5);
+    }
+    finally
+    {
+      TautologySubject.Note();
+    }
+
+    await Task.CompletedTask;
+  }
+}
+
+public class Timeout_Given_
+{
+  [Timeout(5_000)]
+  public static async Task Idle_Should_CoverNothing()
+  {
+    await Task.CompletedTask;
+  }
+}
+
 public class Constant_Given_
 {
   public static async Task Value_Should_EqualTheSameLiteral()

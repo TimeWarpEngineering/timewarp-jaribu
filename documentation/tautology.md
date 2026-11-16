@@ -4,9 +4,15 @@ A test is **tautological** when it still passes after the production member it c
 
 ## Per-test coverage
 
-Build the production assembly with `JaribuInstrument=true`. The `TimeWarp.Jaribu` package carries that target and the instrumenter, so a consumer sets the property on the project that references the package. The build inserts `TautologyProbe.Enter` at the start of each eligible method and `TautologyProbe.Leave` when it returns. Constructors are left alone. Compiler-generated types are left alone. Auto-property accessors are instrumented so a property claim can break them. A normal run never calls the probe. With coverage on, the runner records the production methods entered during the test body. Turning `JaribuInstrument` off rebuilds the assembly so a previous weave does not stay in `obj/`.
+Build the production assembly with `JaribuInstrument=true`. The `TimeWarp.Jaribu` package carries that target and the instrumenter. NuGet imports the target only into a project that references the package, and `buildTransitive` does not flow into the production projects a test project depends on. The production project takes the reference itself and keeps it private:
 
-A production method lives in a different assembly from the test. A method whose parameters are closed generics still counts. A test that enters none is a coverage tautology. If no instrumented assembly is loaded, the finding says to rebuild with `JaribuInstrument=true`. That finding is a warning, and strict mode fails the run.
+```xml
+<PackageReference Include="TimeWarp.Jaribu" PrivateAssets="all" Condition="'$(JaribuInstrument)' == 'true'" />
+```
+
+`JaribuProbeAssembly` points at an already built `TimeWarp.Jaribu` assembly when a package reference is not the right shape. The build inserts `TautologyProbe.Enter` at the start of each eligible method and `TautologyProbe.Leave` when it returns. Constructors are left alone. Compiler-generated types are left alone. Auto-property accessors are instrumented so a property claim can break them. A normal run never calls the probe. With coverage on, the runner records the production methods entered during the test body. The runner's wait for the test task, and the methods that wait calls, are not part of that record. Turning `JaribuInstrument` off rebuilds the assembly so a previous weave does not stay in `obj/`. When the instrumenter cannot read the PDB, it drops those symbols and the targets skip the symbol copy, so the build does not fail looking for a file the rewrite removed.
+
+A production method lives in a different assembly from the test. A method whose parameters are closed generics still counts. A test that enters none is a coverage tautology. If no instrumented assembly is loaded, the finding says to rebuild the production project with `JaribuInstrument=true` and a `PrivateAssets="all"` reference to `TimeWarp.Jaribu`, or to set `JaribuProbeAssembly`. That finding is a warning, and strict mode fails the run.
 
 Turn coverage on with `--per-test-coverage`, `JARIBU_PER_TEST_COVERAGE=1`, or the MSBuild property `JaribuPerTestCoverage=true` on the test assembly.
 
@@ -24,7 +30,7 @@ A normal run ignores the attribute. `--prove` or `JARIBU_PROVE=1` breaks each cl
 
 `nameof` on a property or event claims that member's accessors. A closed generic type is matched as its generic type definition. A name that matches nothing is reported as a finding.
 
-A test with no `[Proves]` uses the last production method the test called directly. Property and event accessors are skipped when any other production method was entered, so a trailing getter does not become the claim. The runner's own wait for the test task is not a candidate. The report marks that rule `inferred:`. A nested runner call does not turn recording off for the rest of the outer test.
+A test with no `[Proves]` uses the most specific production method the test called directly. That is the direct call whose callees form the smallest set. `Dispose` and `DisposeAsync` are set aside when any other direct call remains, and so is a reset: a `Reset` or `Clear…` member, or any member called both before and after the other direct calls. Property and event accessors are skipped when any other production method was entered, so a trailing getter does not become the claim. The runner's own wait for the test task is not a candidate, and neither is anything that wait calls. The report marks that rule `inferred:`. A nested runner call does not turn recording off for the rest of the outer test.
 
 `[KnownTautology("reason")]` skips the break. Strict mode does not fail the run for it. The report still lists it.
 
@@ -56,4 +62,4 @@ The package analyzer reports four warnings. Each one is enough to say the test c
 | JARIBU1003 | The test compares a value with itself (`value.ShouldBe(value)`). |
 | JARIBU1004 | The test asserts a literal it just assigned, with no production call between. |
 
-`[KnownTautology]` suppresses them, including the qualified `[TimeWarp.Jaribu.KnownTautology]` form. A `throw` counts as an assertion. `Contains`, `Empty`, `Single`, `True`, and `Null` count only on `Assert`. Hooks named `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are skipped, and so are open generic methods. Discovery matches the runner: public static non-generic `Task`, in any namespace. An unknown call is not "no assertion", so a helper the analyzer does not recognize stays quiet. Assigning over a local, or reading a member into it, drops the literal that local used to hold.
+`[KnownTautology]` suppresses them, including the qualified `[TimeWarp.Jaribu.KnownTautology]` form. A `throw` counts as an assertion. `Contains`, `Empty`, `Single`, `True`, and `Null` count only on `Assert`. Hooks named `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are skipped, and so are open generic methods. Discovery matches the runner: public static non-generic `Task`, in any namespace. An unknown call is not "no assertion", so a helper the analyzer does not recognize stays quiet. Assigning over a local, or reading a member into it, drops the literal that local used to hold. A literal assigned inside `if`, `foreach`, or a lambda is not "just assigned": only a top-level declaration or a top-level assignment is remembered.

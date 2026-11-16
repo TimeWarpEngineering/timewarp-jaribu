@@ -74,7 +74,7 @@ namespace TestRunner_
     [ModuleInitializer]
     internal static void Register() => RegisterTests<SessionFixture_Given_>();
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterSessionFixture))]
     public static async Task DoubleRegister_Should_Throw()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -93,7 +93,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterSessionFixture))]
     public static async Task MissingCreateAsync_Should_FailRegistration()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -111,7 +111,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterSessionFixture))]
     public static async Task BadCreateAsyncSignature_Should_FailRegistration()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -129,7 +129,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(SessionFixture), nameof(SessionFixture.GetAsync))]
     public static async Task UnregisteredGetAsync_Should_ThrowTeachingError()
     {
       TestRunner.ClearRegisteredSessionFixtures();

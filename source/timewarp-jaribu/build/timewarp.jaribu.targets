@@ -66,5 +66,16 @@
       Condition="'$(_JaribuProbeAssembly)' == ''"
       Text="JaribuInstrument needs JaribuProbeAssembly or a reference to TimeWarp.Jaribu." />
     <Exec Command="dotnet &quot;$(_JaribuInstrumenterDll)&quot; &quot;$(_JaribuCompiledAssembly)&quot; &quot;$(_JaribuProbeAssembly)&quot;" />
+    <!--
+      The instrumenter writes this marker when it had to drop an unreadable PDB.
+      CopyFilesToOutputDirectory still believes the compile produced that PDB.
+      Clearing the flag avoids MSB3030 on the missing file.
+    -->
+    <PropertyGroup Condition="Exists('$(IntermediateOutputPath)jaribu-dropped-symbols')">
+      <_DebugSymbolsProduced>false</_DebugSymbolsProduced>
+    </PropertyGroup>
+    <Delete
+      Files="$(IntermediateOutputPath)jaribu-dropped-symbols"
+      Condition="Exists('$(IntermediateOutputPath)jaribu-dropped-symbols')" />
   </Target>
 </Project>

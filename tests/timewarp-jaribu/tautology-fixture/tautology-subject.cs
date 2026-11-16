@@ -25,6 +25,16 @@ public static class TautologySubject
 
     return total;
   }
+
+  /// <summary>Resets subject state. A trailing call is not the implied claim.</summary>
+  public static void Reset()
+  {
+  }
+
+  /// <summary>Brackets a test body. A call before and after the other work is a reset.</summary>
+  public static void Note()
+  {
+  }
 }
 
 /// <summary>Auto-property the detector claims with <c>nameof</c>.</summary>

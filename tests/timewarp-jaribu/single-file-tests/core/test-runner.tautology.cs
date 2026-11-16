@@ -13,8 +13,9 @@
 #endregion
 
 #region Design
-// The fixture assembly is woven. Add calls Scale. The implied claim is Add,
-// the production method the test called directly. A later getter is not the claim.
+// The fixture assembly is woven. Add calls Scale. The implied claim is the
+// most specific direct call. A later getter, a trailing Dispose, and a reset
+// are not the claim. A [Timeout] test that calls nothing covers nothing.
 // A test that catches the break and then asserts a constant still passes, so the
 // claim is unproven while coverage is non-zero.
 // The analyzer fixture builds with warnings as errors off. The build log is the assertion.
@@ -167,6 +168,62 @@ namespace Tautology_
       finding.Proven.ShouldBe(0);
       finding.Violation.ShouldBeTrue();
       finding.Reason.ShouldContain("Unproven");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Parse_Should_IgnoreATrailingUsing()
+    {
+      TestRunStats stats = await RunTestsAsync<Using_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain("Parser.Parse");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Add_Should_IgnoreAFinallyReset()
+    {
+      TestRunStats stats = await RunTestsAsync<FinallyReset_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain("TautologySubject.Add");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Add_Should_IgnoreABracketingReset()
+    {
+      TestRunStats stats = await RunTestsAsync<BracketReset_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true, Prove: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Violation.ShouldBeFalse();
+      finding.Proven.ShouldBe(1);
+      finding.Rule.ShouldContain("TautologySubject.Add");
+      await Task.CompletedTask;
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task Timeout_Should_CoverNothing()
+    {
+      _ = TautologySubject.Scale(0);
+      TestRunStats stats = await RunTestsAsync<Timeout_Given_>(
+        new TautologyCollectingSink(),
+        tautology: new TautologyOptions(CollectCoverage: true));
+
+      TautologyFinding finding = stats.TautologyFindings.ShouldHaveSingleItem();
+      finding.Covered.ShouldBe(0);
+      finding.Rule.ShouldBe("coverage");
       await Task.CompletedTask;
     }
 
@@ -330,15 +387,19 @@ namespace Tautology_
       text.ShouldContain("JARIBU1004");
       text.ShouldContain("Contains_Should_FlagNoAssertion");
       text.ShouldContain("NamespacedEmpty_Should_Flag");
-      text.ShouldNotContain("Negative_.Compute_Should_NotFlag");
-      text.ShouldNotContain("Negative_.DifferentSymbols_Should_NotFlag");
-      text.ShouldNotContain("Negative_.Known_Should_NotFlag");
-      text.ShouldNotContain("Negative_.Reassigned_Should_NotFlag");
-      text.ShouldNotContain("Negative_.Throw_Should_NotFlag");
-      text.ShouldNotContain("Negative_.QualifiedKnown_Should_NotFlag");
-      text.ShouldNotContain("Negative_.Generic_Should_NotFlag");
+      text.ShouldContain("'Empty_Should_Flag'");
+      text.ShouldNotContain("'Compute_Should_NotFlag'");
+      text.ShouldNotContain("'DifferentSymbols_Should_NotFlag'");
+      text.ShouldNotContain("'Known_Should_NotFlag'");
+      text.ShouldNotContain("'Reassigned_Should_NotFlag'");
+      text.ShouldNotContain("'Incremented_Should_NotFlag'");
+      text.ShouldNotContain("'Throw_Should_NotFlag'");
+      text.ShouldNotContain("'QualifiedKnown_Should_NotFlag'");
+      text.ShouldNotContain("'Generic_Should_NotFlag'");
+      text.ShouldNotContain("'LoopAssigned_Should_NotFlag'");
       text.ShouldNotContain("Test asserts -42");
       text.ShouldNotContain("Test asserts 17");
+      text.ShouldNotContain("Test asserts true");
       await Task.CompletedTask;
     }
 

@@ -74,7 +74,13 @@ public static async Task Add_Should_ReturnTheSum()
 }
 ```
 
-Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI or pre-PR gate. It needs `JaribuInstrument=true` on the production build. The package ships that MSBuild target and the instrumenter. A test with no claim uses the last production method the test called directly, skipping a trailing getter. The runner's wait for the test task is not that call. `[KnownTautology("reason")]` is the escape hatch for a smoke or compile-only test. Do not use it to hide a test that should assert a production result. The model is `documentation/tautology.md`.
+Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI or pre-PR gate. It needs `JaribuInstrument=true` on the production project. That project references the package so the targets are imported:
+
+```xml
+<PackageReference Include="TimeWarp.Jaribu" PrivateAssets="all" Condition="'$(JaribuInstrument)' == 'true'" />
+```
+
+`JaribuProbeAssembly` is the alternative when the reference is already satisfied another way. A test with no claim uses the most specific production method the test called directly: the direct call with the smallest set of callees, after `Dispose`/`DisposeAsync` and after a reset (`Reset`, `Clear…`, or a member called both before and after the other direct calls). A trailing getter is not that call when any other method was entered. The runner's wait for the test task, and the methods that wait calls, are not that call. `[KnownTautology("reason")]` is the escape hatch for a smoke, compile-only, or child-process test. Do not use it to hide a test that should assert a production result. The model is `documentation/tautology.md`.
 
 ## Test Methods
 

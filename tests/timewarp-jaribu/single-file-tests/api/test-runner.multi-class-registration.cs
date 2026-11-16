@@ -88,7 +88,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterTests))]
     public static async Task MultipleClasses_Should_RegisterAll()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -102,7 +102,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisterTests))]
     public static async Task DuplicateRegistration_Should_BeIgnored()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -132,7 +132,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
     public static async Task AllPassing_Should_ReturnExitCodeZero()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -145,7 +145,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task MultipleClasses_Should_AggregateStatsCorrectly()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -164,7 +164,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RegisteredTestClasses))]
     public static async Task EmptyRegistration_Should_HandleGracefully()
     {
       await WithIsolatedRegistryAsync(async () =>
@@ -176,7 +176,7 @@ namespace TestRunner_
       });
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
     public static async Task FilterTag_Should_IncludeMatchingClasses()
     {
       await WithIsolatedRegistryAsync(async () =>

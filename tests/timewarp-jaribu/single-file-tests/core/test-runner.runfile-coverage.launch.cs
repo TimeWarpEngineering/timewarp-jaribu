@@ -13,7 +13,7 @@ namespace TestRunner_;
 public partial class RunfileCoverage_Given_
 {
     [Timeout(ProbeTimeoutMilliseconds)]
-    [Proves(typeof(TestRunner), nameof(TestRunner.TimeProvider))]
+    [KnownTautology("child-process test")]
     public static async Task DotnetMuxer_Should_KeepTheEntryAssemblyOnTheRelaunch()
     {
       using ProbeRun run = ProbeRun.Create();

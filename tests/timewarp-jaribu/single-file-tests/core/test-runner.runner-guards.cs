@@ -60,7 +60,7 @@ namespace TestRunner_
       stats.TotalTests.ShouldBe(1);
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
     public static async Task RunAllTests_Should_IgnoreRegistrationEditsDuringRun()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];
@@ -121,7 +121,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
-    [Proves(typeof(TerminalSink), nameof(TerminalSink.Dispose))]
+    [Proves(typeof(TerminalSink), nameof(TerminalSink.OnRunCompletedAsync))]
     public static async Task NullArguments_Should_Throw()
     {
       Should.Throw<ArgumentNullException>(() => new SkipAttribute(null!));

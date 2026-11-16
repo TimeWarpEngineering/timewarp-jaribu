@@ -11,8 +11,8 @@ using System.Reflection;
 // The baseline attempt is the result a normal run would report. Prove mode then
 // breaks one claim at a time. A kill is a failing attempt. The following restore
 // attempt must pass. A test that still passes while the member throws is unproven.
-// No [Proves] uses the last production method the test called directly.
-// Property and event accessors are skipped when any other method was entered.
+// No [Proves] uses the most specific production method the test called directly.
+// Dispose and a reset are set aside when another direct call remains.
 // KnownTautology skips the break and is not a strict failure.
 // An assembly with no instrumentation marker and no hits is a warning, and strict
 // mode fails the run. It is not reported as zero coverage.
@@ -73,7 +73,7 @@ internal static class TautologyExecutor
       TautologyFinding missing = Score(
         baseline,
         "instrumentation",
-        "Per-test coverage needs a build with JaribuInstrument=true.",
+        "Per-test coverage needs JaribuInstrument=true on the production project. That project references TimeWarp.Jaribu with PrivateAssets=\"all\", or it sets JaribuProbeAssembly.",
         location,
         covered: 0,
         proven: 0,
@@ -138,7 +138,7 @@ internal static class TautologyExecutor
         }
       }
     }
-    else if (!missingClaim && InferToken(production) is string inferredToken &&
+    else if (!missingClaim && TautologyInference.InferToken(production) is string inferredToken &&
              TautologyClaim.FromToken(inferredToken) is TautologyClaim inferred)
     {
       claims.Add(inferred);
@@ -317,49 +317,6 @@ internal static class TautologyExecutor
     }
 
     return seen.Count;
-  }
-
-  private static string? InferToken(List<TautologyProbe.Hit> production)
-  {
-    bool anyMethod = false;
-    foreach (TautologyProbe.Hit hit in production)
-    {
-      if (!IsAccessor(hit.Token))
-      {
-        anyMethod = true;
-        break;
-      }
-    }
-
-    int min = int.MaxValue;
-    string? chosen = null;
-    foreach (TautologyProbe.Hit hit in production)
-    {
-      if (anyMethod && IsAccessor(hit.Token))
-      {
-        continue;
-      }
-
-      if (hit.Depth < min || hit.Depth == min)
-      {
-        min = hit.Depth;
-        chosen = hit.Token;
-      }
-    }
-
-    return chosen;
-  }
-
-  private static bool IsAccessor(string token)
-  {
-    int paren = token.IndexOf('(', StringComparison.Ordinal);
-    string head = paren >= 0 ? token[..paren] : token;
-    int dot = head.LastIndexOf('.', StringComparison.Ordinal);
-    string name = dot < 0 ? head : head[(dot + 1)..];
-    return name.StartsWith("get_", StringComparison.Ordinal)
-      || name.StartsWith("set_", StringComparison.Ordinal)
-      || name.StartsWith("add_", StringComparison.Ordinal)
-      || name.StartsWith("remove_", StringComparison.Ordinal);
   }
 
   private static TautologyFinding Score(

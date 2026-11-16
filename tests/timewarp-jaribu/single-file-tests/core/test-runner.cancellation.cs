@@ -223,7 +223,7 @@ namespace TestRunner_
       SyncThrowCleanUpOnceFixture.CleanUpOnceEntered.ShouldBe(1);
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredTests))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
     public static async Task RunAllTests_Should_NotStartTheNextClass()
     {
       Type[] saved = [.. TestRunner.RegisteredTestClasses];
@@ -257,7 +257,7 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(SessionFixture), nameof(SessionFixture.GetAsync))]
     public static async Task CreateAsync_Should_StopWhenTheTokenFires()
     {
       TestRunner.ClearRegisteredSessionFixtures();
@@ -284,10 +284,40 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    private static async Task ClearLiveSessionFixturesAsync()
+    {
+      // A broken end can leave host depth nested once per in-flight begin.
+      for (int attempt = 0; attempt < 512; attempt++)
+      {
+        try
+        {
+          TestRunner.ClearRegisteredSessionFixtures();
+          return;
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains(
+          "live instance",
+          StringComparison.Ordinal))
+        {
+          // A broken EndTestSessionAsync leaves the instance live and the host depth nested.
+          // Dispose can throw after the instance is dropped; the next clear then succeeds.
+          try
+          {
+            await TestRunner.EndTestSessionAsync();
+          }
+          catch (InvalidOperationException)
+          {
+            // The instance is already dropped. The next clear finishes the reset.
+          }
+        }
+      }
+
+      TestRunner.ClearRegisteredSessionFixtures();
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
     public static async Task DisposeAsync_Should_StopWhenTheTokenFires()
     {
-      TestRunner.ClearRegisteredSessionFixtures();
+      await ClearLiveSessionFixturesAsync();
       TestRunner.RegisterSessionFixture<SlowDisposeFixture>();
       using CancellationTokenSource cts = new();
       TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -311,10 +341,10 @@ namespace TestRunner_
       }
     }
 
-    [Proves(typeof(TestRunner), nameof(TestRunner.ClearRegisteredSessionFixtures))]
+    [Proves(typeof(TestRunner), nameof(TestRunner.EndTestSessionAsync))]
     public static async Task EndSession_Should_StartDisposeOnEveryFixtureWhenAlreadyCancelled()
     {
-      TestRunner.ClearRegisteredSessionFixtures();
+      await ClearLiveSessionFixturesAsync();
       TestRunner.RegisterSessionFixture<FirstCancelledDisposeFixture>();
       TestRunner.RegisterSessionFixture<SecondCancelledDisposeFixture>();
       using CancellationTokenSource cts = new();
