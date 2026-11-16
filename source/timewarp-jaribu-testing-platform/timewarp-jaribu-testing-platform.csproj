@@ -33,6 +33,7 @@
     <InternalsVisibleTo Include="mtp-review-cleanups" />
     <!-- Multi-file MTP project; assembly name follows timewarp-jaribu-tests-mtp.csproj. -->
     <InternalsVisibleTo Include="timewarp-jaribu-tests-mtp" />
+    <InternalsVisibleTo Include="test-runner.tautology" />
   </ItemGroup>
 
   <ItemGroup>

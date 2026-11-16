@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../../source/timewarp-jaribu-testing-platform/timewarp-jaribu-testing-platform.csproj" />
+    <ProjectReference Include="../../tautology-fixture/tautology-fixture.csproj" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>
 

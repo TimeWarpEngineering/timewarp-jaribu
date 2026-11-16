@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>TautologyFixture</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <JaribuInstrument>true</JaribuInstrument>
+    <Description>Production methods the tautology detector breaks and covers.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="bin/**;obj/**" />
+  </ItemGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../source/timewarp-jaribu/build/timewarp.jaribu.targets" />
+</Project>

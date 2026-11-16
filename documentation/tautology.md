@@ -1,0 +1,57 @@
+# Tautology
+
+A test is **tautological** when it still passes after the production member it claims to test is forced to throw. Coverage, `[Proves]`, and the static analyzer are ways to find that case. They are off in the inner loop.
+
+## Per-test coverage
+
+Build the production assembly with `JaribuInstrument=true`. The build inserts `TautologyProbe.Enter` at the start of each eligible method. Constructors and compiler-generated methods are left alone. A normal run never calls the probe. With coverage on, the runner records the production methods entered during the test body.
+
+A production method lives in a different assembly from the test. A test that enters none is a coverage tautology. If no instrumented assembly is loaded, the finding says to rebuild with `JaribuInstrument=true` and is not a failure.
+
+Turn coverage on with `--per-test-coverage`, `JARIBU_PER_TEST_COVERAGE=1`, or the MSBuild property `JaribuPerTestCoverage=true` on the test assembly.
+
+## `[Proves]` and prove mode
+
+```csharp
+[Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
+public static async Task RunAllTests_Should_ReturnOneOnFailure()
+{
+  // ...
+}
+```
+
+A normal run ignores the attribute. `--prove` or `JARIBU_PROVE=1` breaks each claim: the named member throws `ProbeBrokenException`, the test must fail, then the member is restored and the test must pass. A test that still passes is unproven. Overloads of the named member share one claim. One break at a time, stop at the first kill for that claim.
+
+A test with no `[Proves]` uses the last distinct production method it entered as the implied claim. The report marks that rule `inferred:`.
+
+`[KnownTautology("reason")]` skips the break. Strict mode does not fail the run for it. The report still lists it.
+
+## Scoring
+
+Each test records production methods covered, claims proven, wall time, and kills per run-second. The console prints a ranked list, worst first: violations, then fewer kills per second, then slower tests, then test id.
+
+```text
+Tautology report (worst first)
+{TestId} | {Rule} | {Reason} | {file:line} | covered=N proven=N time=Ss kills/s=K
+```
+
+Microsoft.Testing.Platform publishes the same numbers as node properties: `jaribu.tautology.covered`, `jaribu.tautology.proven`, `jaribu.tautology.seconds`, `jaribu.tautology.killsPerSecond`, `jaribu.tautology.rule`, `jaribu.tautology.reason`, `jaribu.tautology.location`. Unproven and zero-coverage lines are warnings. The other lines are informational.
+
+## Strict mode
+
+`--strict-tautology`, `JARIBU_STRICT_TAUTOLOGY=1`, or `JaribuStrictTautology=true` turns an unproven or zero-coverage test into a failure. `--require-claims`, `JARIBU_REQUIRE_CLAIMS=1`, or `JaribuRequireClaims=true` also warns when a test has no `[Proves]`. Require-claims does not by itself break members. A known tautology stays passing.
+
+Environment values `1`, `true`, and `True` turn a flag on. A nested `RunTestsAsync` does not read the environment again, so a test that calls the runner does not prove its fixtures unless that call passes `TautologyOptions`.
+
+## Static analyzer
+
+The package analyzer reports four warnings. Each one is enough to say the test cannot fail for a production reason:
+
+| Id | Rule |
+|----|------|
+| JARIBU1001 | The test body is empty. |
+| JARIBU1002 | No assertion is reachable. |
+| JARIBU1003 | The test compares a value with itself (`value.ShouldBe(value)`). |
+| JARIBU1004 | The test asserts a literal it just assigned, with no production call between. |
+
+`[KnownTautology]` suppresses them. Hooks named `Setup`, `CleanUp`, `SetupOnce`, and `CleanUpOnce` are skipped. An unknown call is not "no assertion", so a helper the analyzer does not recognize stays quiet.

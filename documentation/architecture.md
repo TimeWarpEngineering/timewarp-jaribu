@@ -37,6 +37,8 @@ TestRunner.RunTestsAsync(sink)
 | `[Skip("reason")]` | Skips the method. Null is rejected. Empty and whitespace are kept. |
 | `[Input(...)]` | One invocation per attribute. `[Input(null)]` is one null argument. |
 | `[Timeout(ms)]` | Positive milliseconds. On a method it limits that body. On a class it limits hooks and session-fixture creation. Zero and negative are rejected. |
+| `[Proves(type, name)]` | Claim proved only under `--prove`. A normal run ignores it. Overloads of `name` share one claim. |
+| `[KnownTautology("reason")]` | Smoke or compile-only test. Listed in the tautology report. Strict mode does not fail the run for it. |
 
 A constructor rejection (`ArgumentException` or `CustomAttributeFormatException`) on a discovered method, or on the class, is one Error node for that method. The message names the attribute. The run fails. The process stays up, and a sibling method still runs. A class tag miss and a method tag miss do not replace that Error. The healthy sibling of a class tag miss stays Skipped and does not run. The healthy sibling of a method tag miss still runs.
 
@@ -57,6 +59,10 @@ Options:
 | `--filter-method` | Substring of the method name. Non-matches are omitted. |
 | `--strict-signatures` | Near-miss signatures fail the run. |
 | `--allow-empty` | A class with no discoverable tests succeeds. |
+| `--per-test-coverage` | Record production methods each test enters. |
+| `--prove` | Break each `[Proves]` claim, or the implied claim, and require a failure then a pass. |
+| `--strict-tautology` | Unproven and zero-coverage tests fail the run. |
+| `--require-claims` | A test with no `[Proves]` is a tautology warning, or a failure when strict. |
 
 Tree paths use `/Assembly/Namespace/Type/Method`.
 

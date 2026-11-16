@@ -3,6 +3,7 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Testing.Platform.CommandLine;
+using TimeWarp.Jaribu;
 using Microsoft.Testing.Platform.Extensions.OutputDevice;
 using Microsoft.Testing.Platform.OutputDevice;
 using Microsoft.Testing.Platform.Services;
@@ -205,6 +206,20 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       string? filterMethod = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterMethodOption);
       bool strictSignatures = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.StrictSignaturesOption);
       bool allowEmpty = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.AllowEmptyOption);
+      TautologyOptions resolved = TautologyOptions.Resolve();
+      TautologyOptions tautology = resolved with
+      {
+        CollectCoverage = resolved.CollectCoverage ||
+          commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.PerTestCoverageOption),
+        Prove = resolved.Prove ||
+          commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.ProveOption),
+        Strict = resolved.Strict ||
+          commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.StrictTautologyOption),
+        RequireClaims = resolved.RequireClaims ||
+          commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.RequireClaimsOption)
+      };
+      tautology = tautology.Normalize();
+      List<TautologyFinding> tautologyFindings = [];
       IOutputDevice outputDevice = ServiceProvider.GetOutputDevice();
       bool hostDropsWarnings = HostDropsOutputDeviceWarnings(outputDevice);
 
@@ -271,8 +286,10 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
             casePredicate: casePredicate,
             strictSignatures: strictSignatures,
             allowEmpty: allowEmpty,
-            cancellationToken: cancellationToken
+            cancellationToken: cancellationToken,
+            tautology: tautology
           ).ConfigureAwait(false);
+          tautologyFindings.AddRange(stats.TautologyFindings);
           if (stats.SignatureWarnings.Count > 0 && (!selectionFilter || stats.TotalTests > 0))
           {
             for (int index = 0; index < stats.SignatureWarnings.Count; index++)
@@ -296,6 +313,18 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
               }
             }
           }
+        }
+      }
+
+      if (!isDiscovery && tautologyFindings.Count > 0)
+      {
+        foreach (TautologyFinding finding in TautologyReport.Rank(tautologyFindings))
+        {
+          string line = TautologyReport.Format(finding);
+          IOutputDeviceData data = finding.Violation
+            ? new WarningMessageOutputDeviceData(line)
+            : new TextOutputDeviceData(line);
+          await outputDevice.DisplayAsync(this, data, cancellationToken).ConfigureAwait(false);
         }
       }
     }

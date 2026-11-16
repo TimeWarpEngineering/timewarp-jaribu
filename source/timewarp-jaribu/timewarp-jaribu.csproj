@@ -12,6 +12,26 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
     <PackageReference Include="TimeWarp.Terminal" />
+    <ProjectReference
+      Include="..\timewarp-jaribu-analyzers\timewarp-jaribu-analyzers.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Analyzer" />
   </ItemGroup>
+
+  <Import Project="build\timewarp.jaribu.targets" />
+
+  <Target Name="PackJaribuAnalyzer" BeforeTargets="GenerateNuspec">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\timewarp-jaribu-analyzers\timewarp-jaribu-analyzers.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <None
+        Include="$(MSBuildThisFileDirectory)..\timewarp-jaribu-analyzers\bin\$(Configuration)\netstandard2.0\timewarp-jaribu-analyzers.dll"
+        Pack="true"
+        PackagePath="analyzers/dotnet/cs"
+        Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>

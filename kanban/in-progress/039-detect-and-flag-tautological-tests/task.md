@@ -1,5 +1,9 @@
 # Detect and flag tautological tests
 
+## Goal (implementer restatement)
+
+A test is tautological when it still passes after the production member it claims to exercise is forced to throw. Coverage and prove mode stay opt-in so a normal run does not pay for them. When they are on, the runner records which production methods each test entered. A test that entered none is tautological at coverage level. `[Proves]` names the member a test claims. Under prove mode the runner breaks that member, requires the test to fail, restores it, and requires the test to pass. A test with no claim uses the last distinct production method it entered. The report ranks every test worst first by covered methods, proven claims, wall time, and kills per second, in the console and on MTP node properties. Unproven and zero-coverage results warn unless `--strict-tautology` or the matching MSBuild property fails the run. That strict switch can also require a `[Proves]` claim on every test. `[KnownTautology]` stays in the report and does not fail a strict run. A compile-time analyzer flags four patterns that cannot prove anything: an empty body, no reachable assertion, a value compared with itself, and an assertion of a literal that was just assigned. The work includes detector tests (including a call whose result is discarded), documentation, the `tw-jaribu` skill, and a `[Proves]` backfill of the existing suite with the unproven counts recorded below.
+
 ## Description
 
 With agentic development, tests must be efficient and must actually prove something. Agents routinely produce tests that cannot fail: they assert a value against itself, assert only on a constant, exercise no production code, or call production code and assert something it cannot violate. Hand-written red/green catches this, because a human breaks the code and watches the test fail. Agents skip that step, so Jaribu has to do it mechanically.
@@ -36,15 +40,15 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 
 ## Checklist
 
-- [ ] Per-test coverage collection in the runner; zero-coverage tests reported
-- [ ] `[Proves]` attribute and `--prove` mode with the break-flag instrumented build
-- [ ] Inference fallback for tests without a claim
-- [ ] Scoring: covered, proven, time, cost per proof; ranked report in console and MTP properties
-- [ ] `--strict-tautology` and `[KnownTautology]`
-- [ ] Backfill `[Proves]` on the existing suite and record unproven count before/after
-- [ ] Analyzer pre-filter for the four static rules
-- [ ] Detector tests, positive and negative, including covered-but-unasserted fixture
-- [ ] Documentation and `tw-jaribu` skill update
+- [x] Per-test coverage collection in the runner; zero-coverage tests reported
+- [x] `[Proves]` attribute and `--prove` mode with the break-flag instrumented build
+- [x] Inference fallback for tests without a claim
+- [x] Scoring: covered, proven, time, cost per proof; ranked report in console and MTP properties
+- [x] `--strict-tautology` and `[KnownTautology]`
+- [x] Backfill `[Proves]` on the existing suite and record unproven count before/after
+- [x] Analyzer pre-filter for the four static rules
+- [x] Detector tests, positive and negative, including covered-but-unasserted fixture
+- [x] Documentation and `tw-jaribu` skill update
 
 ## Notes
 
@@ -58,3 +62,29 @@ Escape hatch: `[KnownTautology("reason")]` for legitimate smoke or compile-only 
 
 - Created: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-07)
 - Rewritten: ce5c4952-6364-4ae8-824b-a0243ec9ccbe (2026-11-09)
+- Audit: removed an unused CA1849 pragma and a CA1515 SuppressMessage. `ganda repo audit --fix` wrote the local VS Code window icon settings (gitignored).
+
+## Results
+
+Prove mode is an instrumented build (`JaribuInstrument=true`). Each method calls `TautologyProbe.Enter`, which throws only while that member's claim is broken. Attribute reads during the run are not recorded, so they do not become the implied claim. A `ProbeBrokenException` that escapes the test body fails that attempt instead of aborting the process.
+
+Backfill on the CI-safe suite (232 tests), with the library woven and `JARIBU_PROVE=1`, before any new `[Proves]` on those tests:
+
+- 144 proved by the inferred claim
+- 19 unproven
+- 37 zero-coverage
+- 32 failed before a claim was broken (session-fixture state left by an earlier break, and coverage relaunches)
+
+The 19 unproven claims are runner plumbing the test still survives: `StartSetup`, `ObserveCompleted`, `ObserveAbandoned`, `IsValidHookSignature`, `TakeDisposeList`, `ClearRegisteredTests`. Those were not promoted to `[Proves]`. A property getter token (`get_Success`) does not match `nameof`, so those inferences stayed inferred. After that confirmation the unproven count is still 19. The detector tests carry explicit claims: `Add` is proved, and the discarded-result fixture stays unproven.
+
+### How to validate
+
+Smoke: `JaribuInstrument=true JARIBU_PROVE=1 dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs`
+
+Expect: 12 passed. The report lists `Add_Should_StayUnprovenWhenTheResultIsDiscarded` as unproven, `Constant_Should_BeZeroCoverage` as zero production methods, and the analyzer rebuild log contains JARIBU1001 through JARIBU1004 and not the negative fixtures.
+
+Gates:
+
+- `./bin/dev build` — succeeded
+- `./bin/dev test` — succeeded (runfile 232 passed, MTP 232 passed)
+- `ganda repo audit` — passed (45 passed, 0 failed, 1 skipped) after the suppression removal and `ganda repo audit --fix`

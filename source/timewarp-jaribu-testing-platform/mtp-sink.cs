@@ -3,6 +3,7 @@ namespace TimeWarp.Jaribu.TestingPlatform;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Testing.Platform.Extensions.Messages;
+using TimeWarp.Jaribu;
 
 #region Purpose
 // Publishes Jaribu test nodes onto the Microsoft.Testing.Platform message bus.
@@ -124,6 +125,11 @@ internal sealed class MtpSink : ITestResultSink
       }
     }
 
+    if (node.Tautology is TautologyFinding tautology)
+    {
+      AddTautology(properties, tautology);
+    }
+
     if (node.Parameters is { Count: > 0 } parameters)
     {
       for (int index = 0; index < parameters.Count; index++)
@@ -149,6 +155,21 @@ internal sealed class MtpSink : ITestResultSink
         }
       )
     ).ConfigureAwait(false);
+  }
+
+  private static void AddTautology(PropertyBag properties, TautologyFinding tautology)
+  {
+    properties.Add(new TestMetadataProperty("jaribu.tautology.covered", tautology.Covered.ToString(CultureInfo.InvariantCulture)));
+    properties.Add(new TestMetadataProperty("jaribu.tautology.proven", tautology.Proven.ToString(CultureInfo.InvariantCulture)));
+    properties.Add(new TestMetadataProperty(
+      "jaribu.tautology.seconds",
+      tautology.Seconds.ToString("F3", CultureInfo.InvariantCulture)));
+    properties.Add(new TestMetadataProperty(
+      "jaribu.tautology.killsPerSecond",
+      tautology.KillsPerSecond.ToString("F2", CultureInfo.InvariantCulture)));
+    properties.Add(new TestMetadataProperty("jaribu.tautology.rule", tautology.Rule));
+    properties.Add(new TestMetadataProperty("jaribu.tautology.reason", tautology.Reason));
+    properties.Add(new TestMetadataProperty("jaribu.tautology.location", tautology.Location));
   }
 
   private static TestNodeStateProperty MapStateToProperty(TestNodeInfo node)

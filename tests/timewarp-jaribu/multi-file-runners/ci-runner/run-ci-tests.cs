@@ -1,5 +1,6 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
+#:project $(TestsDirectory)timewarp-jaribu/tautology-fixture/tautology-fixture.csproj
 
 #region Purpose
 // Runs only CI-safe tests. Intentional failures stay inside the nested fixtures.

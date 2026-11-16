@@ -1,0 +1,47 @@
+<Project>
+  <!--
+    Opt-in instrumentation and strict-tautology assembly markers.
+    JaribuInstrument=true rewrites the assembly after compile.
+    JaribuStrictTautology, JaribuRequireClaims, and JaribuPerTestCoverage
+    stamp the test assembly. The runner reads those markers.
+  -->
+  <PropertyGroup>
+    <_JaribuInstrumenterProject>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\timewarp-jaribu-instrument.csproj</_JaribuInstrumenterProject>
+    <_JaribuInstrumenterDll>$(MSBuildThisFileDirectory)..\..\timewarp-jaribu-instrument\bin\$(Configuration)\net11.0\timewarp-jaribu-instrument.dll</_JaribuInstrumenterDll>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(JaribuStrictTautology)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.StrictTautologyAttribute" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(JaribuRequireClaims)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.RequireClaimsAttribute" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(JaribuPerTestCoverage)' == 'true'">
+    <AssemblyAttribute Include="TimeWarp.Jaribu.PerTestCoverageAttribute" />
+  </ItemGroup>
+
+  <Target
+    Name="JaribuInstrumentAssembly"
+    AfterTargets="Compile"
+    Condition="'$(JaribuInstrument)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(_JaribuInstrumenterProject)"
+      Targets="Build"
+      Properties="Configuration=$(Configuration)" />
+    <PropertyGroup>
+      <_JaribuProbeAssembly Condition="'$(JaribuProbeAssembly)' != ''">$(JaribuProbeAssembly)</_JaribuProbeAssembly>
+      <_JaribuCompiledAssembly>$(IntermediateOutputPath)$(TargetFileName)</_JaribuCompiledAssembly>
+      <_JaribuProbeAssembly Condition="'$(_JaribuProbeAssembly)' == '' and ('$(AssemblyName)' == 'timewarp-jaribu' or '$(AssemblyName)' == 'TimeWarp.Jaribu')">$(_JaribuCompiledAssembly)</_JaribuProbeAssembly>
+    </PropertyGroup>
+    <ItemGroup>
+      <_JaribuProbeCandidate Include="@(ReferencePath)" Condition="'%(Filename)' == 'timewarp-jaribu' or '%(Filename)' == 'TimeWarp.Jaribu'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_JaribuProbeAssembly Condition="'$(_JaribuProbeAssembly)' == ''">@(_JaribuProbeCandidate)</_JaribuProbeAssembly>
+    </PropertyGroup>
+    <Error
+      Condition="'$(_JaribuProbeAssembly)' == ''"
+      Text="JaribuInstrument needs JaribuProbeAssembly or a reference to TimeWarp.Jaribu." />
+    <Exec Command="dotnet &quot;$(_JaribuInstrumenterDll)&quot; &quot;$(_JaribuCompiledAssembly)&quot; &quot;$(_JaribuProbeAssembly)&quot;" />
+  </Target>
+</Project>

@@ -45,6 +45,12 @@ public record TestRunStats
   public IReadOnlyList<string> SignatureWarnings { get; init; } = [];
 
   /// <summary>
+  /// Coverage and prove-mode scores for this class, in report order.
+  /// Empty when that mode is off.
+  /// </summary>
+  public IReadOnlyList<TautologyFinding> TautologyFindings { get; init; } = [];
+
+  /// <summary>
   /// True when <paramref name="state"/> counts toward <see cref="FailedCount"/>.
   /// Failed, Error, Timeout, and Cancelled all fail the run. Skipped does not.
   /// MTP 2.3.3 counts CancelledTestNodeStateProperty toward the failed-test exit code.

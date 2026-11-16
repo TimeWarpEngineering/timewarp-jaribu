@@ -25,6 +25,9 @@ using System.Reflection;
 /// When the runner finished this node. Equals <paramref name="StartTime"/> plus <paramref name="Duration"/>
 /// so a host does not recompute the start from the publish clock.
 /// </param>
+/// <param name="Tautology">
+/// Coverage and prove-mode score. Null when that mode is off.
+/// </param>
 public record TestNodeInfo
 (
   string Uid,
@@ -36,5 +39,6 @@ public record TestNodeInfo
   IReadOnlyList<object?>? Parameters = null,
   MethodInfo? Method = null,
   DateTimeOffset? StartTime = null,
-  DateTimeOffset? EndTime = null
+  DateTimeOffset? EndTime = null,
+  TautologyFinding? Tautology = null
 );

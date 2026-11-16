@@ -12,7 +12,8 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 
 - **Convention over Configuration**: Discover public static async Task methods as tests via reflection.
 - **Assertion Helpers**: Simple, fluent assertions inspired by Shouldly.
-- **Attributes**: Support for [Skip], [TestTag], [Timeout], and [Input].
+- **Attributes**: Support for [Skip], [TestTag], [Timeout], [Input], [Proves], and [KnownTautology].
+- **Tautology checks**: Opt-in per-test coverage and `--prove`. A test is tautological when it still passes after the member it claims to test throws. See [documentation/tautology.md](documentation/tautology.md).
 - **Parameterized Tests**: Easy data-driven testing.
 - **Tag Filtering**: Run specific test groups.
 - **Small dependency set**: Shouldly for assertions, TimeWarp.Terminal for console output, and TimeWarp.Amuru on the package graph for runfiles that shell out.

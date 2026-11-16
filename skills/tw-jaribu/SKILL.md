@@ -61,6 +61,21 @@ public class YourTestClassName
 
 `RunAllTests` collects Cobertura when the call passes `new RunfileCoverageOptions()` or the process has `JARIBU_COVERAGE=1`. The runner relaunches under `dotnet-coverage collect -f cobertura -o <results-dir>/coverage.cobertura.xml -- dotnet <runner> …` and returns the child exit code. The default directory is `artifacts/coverage`. `JARIBU_COVERAGE_RESULTS` and `RunfileCoverageOptions.ResultsDirectory` override it. The settings file includes the consuming repository's project assemblies. Sources match that repo's directory or the deterministic `/_/` prefix, and dependency assemblies stay out. The default module filter also excludes assembly file names that contain `Tests`, `Jaribu`, or `MSBuild`. A directory named `tests` does not match. `JARIBU_COVERAGE_MODULE_FILTER` or `ModuleFilter` replaces that assembly list and does not remove the project include or the source rule. A report with no classes fails the run. A manifest found from the working directory keeps that directory; the manifest directory is used only when the runner file's manifest is outside the working directory. A missing `dotnet-coverage` fails the run and names `dotnet tool install -g dotnet-coverage`. A local manifest is `dotnet-tools.json` or `.config/dotnet-tools.json`. The 1.0.0-beta.15 `RunAllTests` signature forwards to the coverage overload.
 
+## Tautology
+
+A test is tautological when it still passes after the production member it claims to test throws. Write the claim on the test:
+
+```csharp
+[Proves(typeof(Subject), nameof(Subject.Add))]
+public static async Task Add_Should_ReturnTheSum()
+{
+  Subject.Add(2, 3).ShouldBe(5);
+  await Task.CompletedTask;
+}
+```
+
+Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI or pre-PR gate. It needs `JaribuInstrument=true` on the production build. A test with no claim uses the last production method it entered. `[KnownTautology("reason")]` is the escape hatch for a smoke or compile-only test. Do not use it to hide a test that should assert a production result. The model is `documentation/tautology.md`.
+
 ## Test Methods
 
 - Must be `public static async Task`
@@ -251,6 +266,8 @@ public static async Task Should_handle_input(string input)
 | `[Skip("reason")]` | Skip test with reason |
 | `[Timeout(ms)]` | Positive budget. Method: that test. Class or `TestRunner.DefaultHookTimeout`: Setup, CleanUp, once-hooks, and session fixture creation. `DefaultHookTimeout` under 1ms is rejected |
 | `[Input("value")]` | Data-driven test input |
+| `[Proves(typeof(T), nameof(T.M))]` | Production member this test claims to prove. Ignored unless prove mode is on |
+| `[KnownTautology("reason")]` | Legitimate smoke or compile-only test. Still listed in the tautology report |
 | `[ModuleInitializer]` | Register class for multi-mode |
 | `[ClearRunfileCache]` | Clear cache (standalone only, removed) |
 
@@ -388,6 +405,7 @@ Tests exist to **expose bugs**. A failing test is doing its job.
 
 **DO:**
 - Use descriptive `Should_` names
+- Put `[Proves(typeof(Subject), nameof(Subject.Method))]` on a test that claims a production member
 - Follow Arrange-Act-Assert pattern
 - One behavior per test
 - Use Setup/CleanUp for per-test state

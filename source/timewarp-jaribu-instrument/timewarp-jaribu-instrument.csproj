@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <RootNamespace>TimeWarp.Jaribu.Instrument</RootNamespace>
+    <Description>Inserts TautologyProbe.Enter at the start of each method.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" />
+  </ItemGroup>
+</Project>

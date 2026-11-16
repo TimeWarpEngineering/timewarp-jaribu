@@ -29,7 +29,7 @@ internal static class JaribuAttributeRead
   }
 
   /// <summary>
-  /// Returns true when a method Skip, TestTag, Input, or Timeout constructor throws.
+  /// Returns true when a method Skip, TestTag, Input, Timeout, Proves, or KnownTautology constructor throws.
   /// </summary>
   internal static bool TryRejectMethod(MethodInfo method, out Rejection rejection)
   {
