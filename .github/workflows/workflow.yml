@@ -1,12 +1,29 @@
 name: CI/CD Workflow
 
-# No paths filter. A filtered workflow never reports a status, so a required
-# check on a docs-only pull request would stay pending.
+# pull_request has no paths or paths-ignore filter. Every pull request reports
+# CI, and dev workflow asks PullRequestBuildClassifier (TimeWarp.Nuru.DevCli)
+# whether to build. A filtered pull request would leave that check pending.
 
 on:
   push:
     branches:
       - master
+    # A kanban-only merge must not rebuild and upload packages. Pull requests do not use this filter.
+    # readme.md and assets/logo.png are packed into the nupkg, so they stay here.
+    paths:
+      - 'source/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'msbuild/**'
+      - '.github/workflows/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'BannedSymbols.txt'
+      - '.editorconfig'
+      - 'global.json'
+      - 'timewarp-jaribu.slnx'
+      - 'readme.md'
+      - 'assets/logo.png'
   pull_request:
     branches:
       - master
@@ -47,6 +64,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # The classifier diffs base...head. A shallow checkout fails that diff and builds.
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
