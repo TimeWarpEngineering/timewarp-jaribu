@@ -3,14 +3,21 @@
 #endregion
 
 #region Design
-// PR/merge: classify -> clean -> build -> test
+// PR/merge: classify -> clean -> build -> test [-> pack]
 // Classify is PullRequestBuildClassifier (TimeWarp.Nuru.DevCli). On a pull
 // request that changes only declared non-build paths it prints its message
 // and the run exits 0. Push and release do not take that skip. readme.md and
 // assets/logo.png are packed, so .timewarp/dev.jsonc lists them under
 // pullRequestBuild.buildPaths. There is no local copy of the rule.
-// Release: clean -> build -> test -> tag guard -> NuGet index -> check-version -> pack -> push
-// Test runs ci-runner and the CI-safe MTP project on both pipelines.
+// --pack adds the pack step. workflow.yml passes it on the ubuntu leg only; that
+// leg uploads artifacts/packages as Packages-<run_number> on master (task 074).
+// Release: tag-gate -> check-version -> locate-run -> download-artifact -> verify -> push
+// Release is the package promotion model (DevCli CiRunPromotion): it builds,
+// tests, and packs nothing. It ships the bytes a successful workflow.yml run at
+// the tagged commit uploaded. Locate-run excludes pull_request runs and puts push
+// runs first; the first candidate with a live Packages-* artifact is downloaded
+// into a cleared artifacts/packages.
+// Test runs ci-runner and the CI-safe MTP project on the PR/merge pipeline.
 // The root is RepoRoot.Find when that directory contains timewarp-jaribu.slnx.
 // Otherwise the binary-relative walk, then the working directory.
 // The release tag must be "v" plus the version `dotnet msbuild -getProperty:Version`
@@ -18,15 +25,17 @@
 // A NuGet flat-container index is known only on HTTP 200. Any other status, and a
 // failed request, is unknown and the release stops. On 200, the shared check-version
 // handler decides whether that evaluated version is already published.
-// artifacts/packages is deleted before pack. The push list is the two nupkgs just
-// packed, not a glob of whatever the directory still holds, and uses --skip-duplicate.
-// Pack rebuilds with JaribuExposeInternals=false so the testing platform omits its test
-// InternalsVisibleTo grants. The release gate then reads each packed lib assembly
-// and refuses the release when any grant remains.
+// Pack deletes artifacts/packages first and rebuilds each packable project with
+// JaribuExposeInternals=false so the testing platform omits its test
+// InternalsVisibleTo grants. Pack and release both require artifacts/packages to
+// hold exactly one nupkg per packable id at the evaluated version, and refuse any
+// packed lib assembly that still grants internals. Push sends that list, not a
+// glob, with --skip-duplicate.
 // Auto-detects mode from GITHUB_EVENT_NAME. A non-empty API key also selects release.
 // The key is NUGET_API_KEY or --api-key. Push forwards it only as NUGET_API_KEY.
 // NuGet 7.6 and later read that variable, so the key is not a child-process argument.
-// OIDC Trusted Publishing supplies the key on the release job.
+// OIDC Trusted Publishing supplies the key on the release job; GH_TOKEN there
+// lets gh list runs and download the artifact.
 #endregion
 
 namespace DevCli.Commands;
@@ -41,6 +50,9 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
   [Option("api-key", Description = "NuGet API key for publishing. NUGET_API_KEY is preferred so the key is not a process argument.")]
   public string? ApiKey { get; set; }
+
+  [Option("pack", Description = "PR/merge mode: pack the release packages into artifacts/packages after test.")]
+  public bool Pack { get; set; }
 
   internal sealed class Handler : IRequestHandler<WorkflowCommand, Unit>
   {
@@ -86,13 +98,13 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       }
       else
       {
-        await RunPrWorkflowAsync(repoRoot, ct);
+        await RunPrWorkflowAsync(repoRoot, command.Pack, ct);
       }
 
       return Unit.Value;
     }
 
-    private async Task RunPrWorkflowAsync(string repoRoot, CancellationToken cancellationToken)
+    private async Task RunPrWorkflowAsync(string repoRoot, bool pack, CancellationToken cancellationToken)
     {
       cancellationToken.ThrowIfCancellationRequested();
 
@@ -104,11 +116,12 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         return;
       }
 
-      Terminal.WriteLine("CI Pipeline: clean -> build -> test");
+      int steps = pack ? 4 : 3;
+      Terminal.WriteLine(pack ? "CI Pipeline: clean -> build -> test -> pack" : "CI Pipeline: clean -> build -> test");
       Terminal.WriteLine("");
 
       // Step 1: Clean
-      Terminal.WriteLine("Step 1/3: Clean");
+      Terminal.WriteLine($"Step 1/{steps}: Clean");
       int exitCode = await DotNet.Clean(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
         .WithVerbosity("q")
         .WithWorkingDirectory(repoRoot)
@@ -116,7 +129,7 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
 
       // Step 2: Build
-      Terminal.WriteLine("\nStep 2/3: Build");
+      Terminal.WriteLine($"\nStep 2/{steps}: Build");
       exitCode = await DotNet.Build(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
         .WithConfiguration("Release")
         .WithWorkingDirectory(repoRoot)
@@ -124,39 +137,26 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       if (exitCode != 0) throw new InvalidOperationException("Build failed!");
 
       // Step 3: Test (ci-runner and the CI-safe MTP project)
-      Terminal.WriteLine("\nStep 3/3: Test");
+      Terminal.WriteLine($"\nStep 3/{steps}: Test");
       await CiTestSuite.RunAsync(repoRoot, cancellationToken).ConfigureAwait(false);
+
+      if (pack)
+      {
+        // Step 4: Pack the release packages (uploaded as Packages-<run_number> on master)
+        Terminal.WriteLine($"\nStep 4/{steps}: Pack");
+        await PackAsync(repoRoot, cancellationToken).ConfigureAwait(false);
+      }
 
       Terminal.WriteLine("\n✓ CI Pipeline completed successfully");
     }
 
     private async Task RunReleaseWorkflowAsync(string repoRoot, string? apiKey, CancellationToken ct)
     {
-      Terminal.WriteLine("Release Pipeline: clean -> build -> test -> check-version -> pack");
+      Terminal.WriteLine("Release Pipeline: tag-gate -> check-version -> locate-run -> download-artifact -> verify -> push");
       Terminal.WriteLine("");
 
-      // Step 1: Clean
-      Terminal.WriteLine("Step 1/5: Clean");
-      int exitCode = await DotNet.Clean(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
-        .WithVerbosity("q")
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(ct);
-      if (exitCode != 0) throw new InvalidOperationException("Clean failed!");
-
-      // Step 2: Build
-      Terminal.WriteLine("\nStep 2/5: Build");
-      exitCode = await DotNet.Build(Path.Combine(repoRoot, "timewarp-jaribu.slnx"))
-        .WithConfiguration("Release")
-        .WithWorkingDirectory(repoRoot)
-        .RunAsync(ct);
-      if (exitCode != 0) throw new InvalidOperationException("Build failed!");
-
-      // Step 3: Test (same ci-runner and CI-safe MTP project as PR)
-      Terminal.WriteLine("\nStep 3/5: Test");
-      await CiTestSuite.RunAsync(repoRoot, ct).ConfigureAwait(false);
-
-      // Step 4: Tag, NuGet index, and the shared check-version gate
-      Terminal.WriteLine("\nStep 4/5: Check Version");
+      // Step 1: Tag gate
+      Terminal.WriteLine("Step 1/6: Tag Gate");
       IReadOnlyList<PackableProject> packableProjects = await PackableProjectService
         .GetPackableProjectsAsync(repoRoot, ct)
         .ConfigureAwait(false);
@@ -173,6 +173,9 @@ internal sealed class WorkflowCommand : ICommand<Unit>
 
       Terminal.WriteLine($"Current version: {version}");
       Terminal.WriteLine($"Release tag: {ReleaseGate.ExpectedTag(version)}");
+
+      // Step 2: NuGet index and the shared check-version gate
+      Terminal.WriteLine("\nStep 2/6: Check Version");
       await EnsureNuGetIndexKnownAsync(packableProjects, ct).ConfigureAwait(false);
 
       Environment.ExitCode = 0;
@@ -189,20 +192,76 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         throw new InvalidOperationException($"Version {version} is not available to publish.");
       }
 
-      // Step 5: Pack only the projects just cleared into artifacts/packages
-      Terminal.WriteLine("\nStep 5/5: Pack");
+      // Step 3: Successful CI runs of workflow.yml at the tagged commit
+      Terminal.WriteLine("\nStep 3/6: Locate CI Run");
+      (string headSha, IReadOnlyList<CiRunSummary> candidateRuns) = await ReleasePromotion.LocateCiRunsAsync(repoRoot, ct)
+        .ConfigureAwait(false);
+      Terminal.WriteLine($"Found {candidateRuns.Count} candidate CI run(s) for commit {headSha}.");
+
+      // Step 4: Download the newest live Packages-* artifact among them
+      Terminal.WriteLine("\nStep 4/6: Download Artifact");
+      string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
+      await ReleasePromotion
+        .DownloadPackagesArtifactAsync(Terminal, repoRoot, artifactsDir, headSha, candidateRuns, ct)
+        .ConfigureAwait(false);
+
+      // Step 5: The downloaded set is exactly the packable set at this version, with no grants
+      Terminal.WriteLine("\nStep 5/6: Verify Package Set");
+      IReadOnlyList<string> packagePaths = VerifyPackages(artifactsDir, packableProjects, version);
+      Terminal.WriteLine("Package set verified.");
+
+      // Step 6: Push the promoted bytes
+      Terminal.WriteLine("\nStep 6/6: Push");
+      if (string.IsNullOrEmpty(apiKey))
+      {
+        throw new InvalidOperationException("Release push needs a NuGet API key (NUGET_API_KEY or --api-key).");
+      }
+
+      foreach (string packagePath in packagePaths)
+      {
+        string packageName = Path.GetFileName(packagePath);
+        Terminal.WriteLine($"  Pushing {packageName}...");
+
+        int exitCode = await DotNet.NuGet()
+          .WithEnvironmentVariable(NuGetApiKeyVariable, apiKey)
+          .Push(packagePath)
+          .WithSource("https://api.nuget.org/v3/index.json")
+          .WithSkipDuplicate()
+          .RunAsync(ct);
+
+        if (exitCode != 0)
+        {
+          throw new InvalidOperationException($"NuGet push failed: {packageName}");
+        }
+      }
+
+      Terminal.WriteLine("\n✓ Release Pipeline completed successfully");
+      foreach (string packagePath in packagePaths)
+      {
+        Terminal.WriteLine($"  {Path.GetFileName(packagePath)}");
+      }
+    }
+
+    private async Task PackAsync(string repoRoot, CancellationToken ct)
+    {
+      IReadOnlyList<PackableProject> packableProjects = await PackableProjectService
+        .GetPackableProjectsAsync(repoRoot, ct)
+        .ConfigureAwait(false);
+      ReleaseGate.RequirePackageIds([.. packableProjects.Select(project => project.PackageId)]);
+      string version = await EvaluateReleaseVersionAsync(repoRoot, packableProjects, ct);
+
       string artifactsDir = Path.Combine(repoRoot, "artifacts", "packages");
       ReleaseGate.ClearPackageDirectory(artifactsDir);
 
       foreach (PackableProject project in packableProjects)
       {
-        Terminal.WriteLine($"  Packing {project.PackageId}...");
+        Terminal.WriteLine($"  Packing {project.PackageId} {version}...");
 
         // GeneratePackageOnBuild is on, so a forced rebuild writes the package. An
         // incremental pack after the Release test build skips CoreCompile and keeps
         // the InternalsVisibleTo grants it compiled in; a clean followed by pack hits
         // NU5026 for the same reason. Rebuild with the grants off instead.
-        exitCode = await DotNet.Build(project.ProjectPath)
+        int exitCode = await DotNet.Build(project.ProjectPath)
           .WithConfiguration("Release")
           .WithNoIncremental()
           .WithProperty("JaribuExposeInternals", "false")
@@ -216,45 +275,29 @@ internal sealed class WorkflowCommand : ICommand<Unit>
         }
       }
 
-      IReadOnlyList<string> freshPackages = ReleaseGate.RequireFreshPackagePaths(
+      foreach (string packagePath in VerifyPackages(artifactsDir, packableProjects, version))
+      {
+        Terminal.WriteLine($"  {Path.GetFileName(packagePath)}");
+      }
+    }
+
+    private static IReadOnlyList<string> VerifyPackages
+    (
+      string artifactsDir,
+      IReadOnlyList<PackableProject> packableProjects,
+      string version
+    )
+    {
+      IReadOnlyList<string> packagePaths = ReleaseGate.RequireFreshPackagePaths(
         artifactsDir,
         [.. packableProjects.Select(project => project.PackageId)],
         version);
-      foreach (string packagePath in freshPackages)
+      foreach (string packagePath in packagePaths)
       {
         ReleaseGate.RequirePackageGrantsNoInternals(packagePath);
       }
 
-      if (!string.IsNullOrEmpty(apiKey))
-      {
-        Terminal.WriteLine("\nPushing packages to NuGet...");
-        foreach (string packagePath in freshPackages)
-        {
-          string packageName = Path.GetFileName(packagePath);
-          Terminal.WriteLine($"  Pushing {packageName}...");
-
-          exitCode = await DotNet.NuGet()
-            .WithEnvironmentVariable(NuGetApiKeyVariable, apiKey)
-            .Push(packagePath)
-            .WithSource("https://api.nuget.org/v3/index.json")
-            .WithSkipDuplicate()
-            .RunAsync(ct);
-
-          if (exitCode != 0)
-          {
-            throw new InvalidOperationException($"NuGet push failed: {packageName}");
-          }
-        }
-
-        Terminal.WriteLine("✓ Packages pushed to NuGet.org");
-      }
-
-      Terminal.WriteLine("\n✓ Release Pipeline completed successfully");
-      Terminal.WriteLine($"  Packages created in: {artifactsDir}");
-      foreach (string packagePath in freshPackages)
-      {
-        Terminal.WriteLine($"  {Path.GetFileName(packagePath)}");
-      }
+      return packagePaths;
     }
 
     private static string? ResolveApiKey(string? optionApiKey)
