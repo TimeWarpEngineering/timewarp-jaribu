@@ -139,6 +139,7 @@ repos are not created here.
 - Implement (2026-11-17): per-test spans, OTLP export, and `dev test` trace propagation.
   Removed the `CA1031` pragmas the first audit rejected. `vscode-window-icon` stays the
   pre-existing advisory.
+- Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-17T04:25:03Z
 
 ## Notes
 
