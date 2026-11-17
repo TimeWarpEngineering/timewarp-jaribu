@@ -84,8 +84,9 @@ jobs:
       - name: Install dotnet-coverage
         run: dotnet tool install --global dotnet-coverage
 
+      # Only the ubuntu leg packs. The other legs test and do not pack.
       - name: Run CI pipeline
-        run: dotnet run tools/dev-cli/dev.cs -- workflow
+        run: dotnet run tools/dev-cli/dev.cs -- workflow ${{ matrix.os == 'ubuntu-latest' && '--pack' || '' }}
 
       # upload-artifact v4+ rejects a second upload of the same name, so each OS keeps its own.
       - name: coverage
@@ -96,14 +97,110 @@ jobs:
           path: artifacts/coverage
           if-no-files-found: warn
 
+      # Package promotion (task 074): dev release and the release event ship the
+      # Packages-* artifact of a successful run at the tag sha, built here once.
+      # Master pushes and merge-mode dispatches on master only. Pull requests do
+      # not upload packages (org artifact quota). The ubuntu leg stages the bytes
+      # as staged-packages; packages-prune publishes them as Packages-<run> only
+      # after every leg passed. The staged name must not start with Packages-:
+      # a leg that fails after this upload must not leave a Packages-* artifact
+      # for the keep-last-two prune to count.
+      - name: Stage packages for packages-prune
+        if: success() && matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-packages
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+          # Kept for `gh run rerun --failed` of a red run; a green run deletes it.
+          retention-days: 3
+
+  packages-prune:
+    # Publishes Packages-<run> and runs the keep-last-two prune of Packages-*
+    # (copied from timewarp-nuru). Runs only after every test leg passed, so a
+    # red run neither creates a Packages-* artifact nor deletes an older green
+    # run's packages. The only job with actions: write.
+    name: publish and prune Packages artifacts
+    needs: test
+    if: success() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Download staged packages
+        uses: actions/download-artifact@v8
+        with:
+          name: staged-packages
+          path: artifacts/packages
+
+      - name: Upload packages
+        id: upload-packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: Packages-${{ github.run_number }}
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Keep last two Packages artifacts
+        if: success() && steps.upload-packages.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_ARTIFACT: Packages-${{ github.run_number }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $query = '.artifacts[] | select((.name | startswith("Packages-")) and (.expired == false)) | {created_at, id, name} | tojson'
+          $listed = gh api --paginate -H 'Accept: application/vnd.github+json' "/repos/$($env:GITHUB_REPOSITORY)/actions/artifacts?per_page=100" --jq $query
+          if ($LASTEXITCODE -ne 0) { throw 'gh api failed to list the Actions artifacts.' }
+          $artifacts = @($listed | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json })
+          if (-not ($artifacts | Where-Object { $_.name -eq $env:EXPECTED_ARTIFACT })) {
+            Write-Output "Just-uploaded artifact $($env:EXPECTED_ARTIFACT) is not listed yet; skipping prune (keep-last-2 runs on the next green master push)."
+            exit 0
+          }
+          $keep = 2
+          $sorted = @($artifacts | Sort-Object -Property @{ Expression = { [datetime]$_.created_at }; Descending = $true }, @{ Expression = { [long]$_.id }; Descending = $true })
+          for ($index = 0; $index -lt $sorted.Count; $index++) {
+            $artifact = $sorted[$index]
+            if ($index -lt $keep) {
+              Write-Output "Keeping $($artifact.name) (id=$($artifact.id), created=$($artifact.created_at))"
+              continue
+            }
+            Write-Output "Deleting $($artifact.name) (id=$($artifact.id), created=$($artifact.created_at))"
+            gh api --method DELETE "/repos/$($env:GITHUB_REPOSITORY)/actions/artifacts/$($artifact.id)" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Delete of $($artifact.name) (id=$($artifact.id)) failed." }
+          }
+
+      - name: Delete staged packages
+        # Storage only; a leftover expires with its retention.
+        if: success() && steps.upload-packages.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ids = @(gh api "/repos/$($env:GITHUB_REPOSITORY)/actions/runs/$($env:RUN_ID)/artifacts?per_page=100" `
+            --jq '.artifacts[] | select(.name == "staged-packages") | .id' | Where-Object { $_ })
+          if ($LASTEXITCODE -ne 0) { throw 'gh api failed to list the run artifacts.' }
+          foreach ($id in $ids) {
+            Write-Output "Deleting staged-packages (id=$id)"
+            gh api --method DELETE "/repos/$($env:GITHUB_REPOSITORY)/actions/artifacts/$id"
+            if ($LASTEXITCODE -ne 0) { throw "Delete of staged-packages (id=$id) failed." }
+          }
+
   release:
+    # Release event and the trusted-publishing probe. The release builds,
+    # tests, and packs nothing: dev workflow promotes the Packages-* artifact of
+    # the successful CI run at the tagged commit (task 074).
     name: release
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'probe')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
-      id-token: write
+      id-token: write  # NuGet Trusted Publishing (OIDC)
+      actions: read    # locate-run lists runs and downloads the Packages-* artifact
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -123,9 +220,6 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '**/*.props') }}
           restore-keys: ${{ runner.os }}-nuget-
 
-      - name: Install dotnet-coverage
-        run: dotnet tool install --global dotnet-coverage
-
       - name: NuGet login (OIDC Trusted Publishing)
         id: nuget-login
         uses: nuget/login@v1
@@ -140,12 +234,5 @@ jobs:
         if: github.event_name == 'release'
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: dotnet run tools/dev-cli/dev.cs -- workflow
-
-      - name: Upload packages
-        if: github.event_name == 'release'
-        uses: actions/upload-artifact@v7
-        with:
-          name: Packages-${{ github.run_number }}
-          path: artifacts/packages/*.nupkg
-          if-no-files-found: error
