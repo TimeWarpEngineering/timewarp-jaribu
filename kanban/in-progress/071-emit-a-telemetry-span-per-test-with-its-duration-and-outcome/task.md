@@ -154,11 +154,14 @@ repos are not created here.
 
 ### Review
 
-Round 1 (effort 3, roster: general). Counts: bug 1 fixed, suggestion 2 fixed, nit 0.
-Disposition: fixed. M1 completes a faulted once-hook span before the exception leaves. M2 holds
+Rounds: 2. Round 1 (effort 3, roster: general) raised 1 bug and 2 suggestions. Round 2
+(effort 2, roster: general) re-verified the fix delta `9d042bd..864abdf` and raised nothing new.
+Final counts: bug 1 fixed, suggestion 2 fixed, nit 0; 0 open, 0 wontfix.
+Disposition: **clean**. M1 completes a faulted once-hook span before the exception leaves. M2 holds
 one `JaribuTelemetry.BeginRun` across the MTP class loop. M3 aims the quiet listener at
 `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` while the base endpoint stays blank.
-Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`,
+`review/round-2/general.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ## Session
 
@@ -173,11 +176,13 @@ Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-
 - Fix pass (2026-11-17): M1, M2, and M3. A faulted async once-hook completes its span before the
   exception leaves. The MTP adapter holds one `BeginRun` across the class loop. The quiet export
   probe aims a traces endpoint at its listener. `vscode-window-icon` stays the pre-existing advisory.
+- Review oracle round 2 (2026-11-17): claude-opus-5-5, effort 2, roster general, turn cap 120;
+  session id not exposed. M1, M2, M3 verified fixed; no new findings. Disposition clean.
 
 ## Review
 
-- Round 1: fixed — M1, M2, M3. Round 2 is the host's next review.
-
+- Round 1: fixed — M1, M2, M3.
+- Round 2: Done
 ## Notes
 
 - Requested by Steven 2026-11-16 after the reposet timing review showed Ganda and Jaribu test
