@@ -178,6 +178,7 @@ Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-
   probe aims a traces endpoint at its listener. `vscode-window-icon` stays the pre-existing advisory.
 - Review oracle round 2 (2026-11-17): claude-opus-5-5, effort 2, roster general, turn cap 120;
   session id not exposed. M1, M2, M3 verified fixed; no new findings. Disposition clean.
+- Installed ganda changed during this walk: was 54451000 bytes a6494a061c5129d3e8c2918e53637320764cc8cd3ec70ec897bbb67e231ff1f3; now 54567832 bytes 3b6af0ab7d2d461c290c2c2d8649fa6002401e1e1d7550e00e635d5a3ac48ae4
 
 ## Review
 
