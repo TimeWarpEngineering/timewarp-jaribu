@@ -93,6 +93,9 @@ Acceptance:
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
 - Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Done — 2026-11-17T20:50:51Z
+- Review oracle: general (Grok, xAI, grok-4.7), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, effort 2, roster general, max-turns 120, round 1 — 2026-11-18. Open finding M1. Disposition not written.
+- Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, max-turns 120, artifacts general.md, merged.md — 2026-11-17T21:03:41Z
+- Implement-fix-2 oracle: implementer-claude (claude, anthropic, claude-opus-5-5) fixed M1 (staged-packages, publish after every leg) — 2026-11-18
 
 ## Results
 
@@ -113,8 +116,7 @@ Acceptance:
   (`if-no-files-found: error`, `retention-days: 7`). New `packages-prune` job (`needs: test`,
   `actions: write` only there) with Nuru's keep-last-two script. Release job: `actions: read`,
   `GH_TOKEN`, no dotnet-coverage install, no package upload. Probe steps and push `paths` unchanged.
-  The prune runs after all legs pass; a leg that fails after the ubuntu upload leaves a
-  `Packages-*` on a failed run, which locate-run ignores (`--status success`).
+  Superseded by the round-1 fix pass below: the ubuntu leg stages, `packages-prune` publishes.
 - `documentation/developer/guides/releasing.md`: new, this repo's promotion sequence.
 
 ### Gates
@@ -129,6 +131,21 @@ Acceptance:
   `TimeWarp.SourceGenerators` 1.0.0-beta.16 behind beta.17). Boy-scout fix: `ganda repo audit --fix`
   bumped the pin in `Directory.Packages.props`; that audit run reported "Repository passes all
   audit checks". `./bin/dev build` rerun after the bump: passed.
+
+### Fix pass (review round 1, M1)
+
+- `.github/workflows/workflow.yml`: the ubuntu leg no longer uploads `Packages-<run>`. It
+  uploads `staged-packages` (`if-no-files-found: error`, `retention-days: 3`) on
+  `refs/heads/master`. `packages-prune` (now named "publish and prune Packages artifacts")
+  downloads `staged-packages`, uploads `Packages-${{ github.run_number }}`
+  (`if-no-files-found: error`, `retention-days: 7`), runs the keep-last-two prune, then
+  deletes `staged-packages` (`continue-on-error`). Same shape as timewarp-nuru's `ci` job. A
+  run whose windows or macos leg fails leaves only `staged-packages`, which the
+  `Packages-*` prune and locate-run never see.
+- `documentation/developer/guides/releasing.md`: steps 3 and 4 describe the staging.
+- Gates: `./bin/dev build`: passed. No C# changed, so no test file covers this change
+  (workflow YAML parsed with `yaml.safe_load`: jobs test, packages-prune, release; no
+  actionlint installed). `ganda repo audit`: passed ("Repository passes all audit checks").
 
 ### How to validate
 
@@ -150,9 +167,17 @@ no Packages-* artifact)`. Observed.
 `./bin/dev workflow --help` lists `--pack`. The PR CI ubuntu leg runs `workflow --pack`, which
 exercises pack and its gates; the PR uploads no `Packages-*`.
 
-Post-merge (not runnable before merge): the master push run is green and lists
-`Packages-<run_number>`; from a synced master `dev release --dry-run` prints all guards green.
+Post-merge (not runnable before merge): the master push run is green, its
+`packages-prune` job lists `Packages-<run_number>`, and the run has no `staged-packages` left; from a synced master `dev release --dry-run` prints all guards green.
 Record that run id and the dry-run output here. Cutting beta.17 stays with Steve.
+
+### Review
+
+Round 1, roster general, effort 2. Counts: bug 1 open, 0 fixed, 0 wontfix. Suggestion 0. Nit 0. Disposition is not written while M1 is open. Paths: `review/review-framework.md`, `review/round-1/merged.md`. The goal restatement matches the original task. No misread.
+
+## Review
+
+- Round 1: Blocked — open M1
 
 ## Notes
 

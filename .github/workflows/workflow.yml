@@ -100,10 +100,42 @@ jobs:
       # Package promotion (task 074): dev release and the release event ship the
       # Packages-* artifact of a successful run at the tag sha, built here once.
       # Master pushes and merge-mode dispatches on master only. Pull requests do
-      # not upload packages (org artifact quota).
+      # not upload packages (org artifact quota). The ubuntu leg stages the bytes
+      # as staged-packages; packages-prune publishes them as Packages-<run> only
+      # after every leg passed. The staged name must not start with Packages-:
+      # a leg that fails after this upload must not leave a Packages-* artifact
+      # for the keep-last-two prune to count.
+      - name: Stage packages for packages-prune
+        if: success() && matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-packages
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+          # Kept for `gh run rerun --failed` of a red run; a green run deletes it.
+          retention-days: 3
+
+  packages-prune:
+    # Publishes Packages-<run> and runs the keep-last-two prune of Packages-*
+    # (copied from timewarp-nuru). Runs only after every test leg passed, so a
+    # red run neither creates a Packages-* artifact nor deletes an older green
+    # run's packages. The only job with actions: write.
+    name: publish and prune Packages artifacts
+    needs: test
+    if: success() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Download staged packages
+        uses: actions/download-artifact@v8
+        with:
+          name: staged-packages
+          path: artifacts/packages
+
       - name: Upload packages
         id: upload-packages
-        if: success() && matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v7
         with:
           name: Packages-${{ github.run_number }}
@@ -111,18 +143,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  packages-prune:
-    # Keep-last-two prune of Packages-* (copied from timewarp-nuru). Runs only
-    # after every test leg passed, so a red run never deletes an older green
-    # run's packages. The only job with actions: write.
-    name: keep last two Packages artifacts
-    needs: test
-    if: success() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
       - name: Keep last two Packages artifacts
+        if: success() && steps.upload-packages.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_ARTIFACT: Packages-${{ github.run_number }}
@@ -147,6 +169,24 @@ jobs:
             Write-Output "Deleting $($artifact.name) (id=$($artifact.id), created=$($artifact.created_at))"
             gh api --method DELETE "/repos/$($env:GITHUB_REPOSITORY)/actions/artifacts/$($artifact.id)" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "Delete of $($artifact.name) (id=$($artifact.id)) failed." }
+          }
+
+      - name: Delete staged packages
+        # Storage only; a leftover expires with its retention.
+        if: success() && steps.upload-packages.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ids = @(gh api "/repos/$($env:GITHUB_REPOSITORY)/actions/runs/$($env:RUN_ID)/artifacts?per_page=100" `
+            --jq '.artifacts[] | select(.name == "staged-packages") | .id' | Where-Object { $_ })
+          if ($LASTEXITCODE -ne 0) { throw 'gh api failed to list the run artifacts.' }
+          foreach ($id in $ids) {
+            Write-Output "Deleting staged-packages (id=$id)"
+            gh api --method DELETE "/repos/$($env:GITHUB_REPOSITORY)/actions/artifacts/$id"
+            if ($LASTEXITCODE -ne 0) { throw "Delete of staged-packages (id=$id) failed." }
           }
 
   release:

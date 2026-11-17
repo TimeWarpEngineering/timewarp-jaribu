@@ -31,12 +31,15 @@ The merge triggers a `push` run of `.github/workflows/workflow.yml`:
    grants are not compiled in. It then requires exactly one
    `<PackageId>.<Version>.nupkg` per packable id and refuses any packed lib assembly
    that still grants internals.
-3. The ubuntu leg uploads `artifacts/packages/*.nupkg` as `Packages-<run_number>`
-   (`if-no-files-found: error`, `retention-days: 7`). This happens only when
-   `github.ref` is `refs/heads/master`: master pushes and merge-mode
-   `workflow_dispatch` runs on master.
-4. After every leg passes, the `packages-prune` job deletes older `Packages-*`
-   artifacts and keeps the two newest. It is the only job with `actions: write`.
+3. The ubuntu leg stages `artifacts/packages/*.nupkg` as the `staged-packages` artifact
+   (`retention-days: 3`). This happens only when `github.ref` is `refs/heads/master`:
+   master pushes and merge-mode `workflow_dispatch` runs on master. The staged name does
+   not start with `Packages-`, so a run whose windows or macos leg fails after the ubuntu
+   upload leaves no `Packages-*` artifact behind.
+4. After every leg passes, the `packages-prune` job downloads `staged-packages`, uploads
+   it as `Packages-<run_number>` (`if-no-files-found: error`, `retention-days: 7`),
+   deletes older `Packages-*` artifacts so the two newest stay, then deletes
+   `staged-packages`. It is the only job with `actions: write`.
 
 The push trigger has a `paths` filter. A merge that changes only paths outside it
 (kanban, documentation, skills) gets no run. The release must be cut at a commit that
