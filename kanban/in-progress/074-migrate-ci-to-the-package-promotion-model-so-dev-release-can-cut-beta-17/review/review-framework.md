@@ -6,15 +6,15 @@
 **Plan / brief:** task 074 — CI builds release packages once on a green master run, uploads `Packages-*`, and the `release` event promotes those bytes instead of rebuilding.
 **Effort:** 2 (host by-diff budget; roster is general only)
 **Reviewer roster:** general
-**Session IDs:** Grok session `01a1eb46-fc8e-7201-a8b5-d2e129ff26f8` (review oracle, 2026-11-18)
+**Session IDs:** Grok session `01a1eb46-fc8e-7201-a8b5-d2e129ff26f8` (review round 1, 2026-11-18). Grok session `01a1eb54-6d74-7181-85bb-5c9ad0d478dd` (review round 2, 2026-11-18).
 
 ## Budget (by-diff)
 
-- Lines changed: 726
-- Effort: 2
+- Lines changed: 177
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 120 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Ground rules
 
@@ -30,3 +30,10 @@
 ## Restatement check
 
 `## Goal (implementer restatement)` matches the original requirements. `--pack` is the mechanism for the ubuntu pack step the task asked for. Upload, prune, release promotion, the probe path, the push `paths` filter, and `releasing.md` are the same scope. No misread recorded.
+
+## Round 2
+
+**Diff scope:** `3f140371..HEAD` (product: `.github/workflows/workflow.yml`, `documentation/developer/guides/releasing.md`). Round 1 base is `review/round-1/base.sha`.
+**Effort:** 1 (general only). The budget block above is the host by-diff budget for this round (177 lines, turn cap 80). Round 1 was 726 lines, effort 2, turn cap 120.
+**Session:** `01a1eb54-6d74-7181-85bb-5c9ad0d478dd`
+**Re-check:** M1 fixed on the fix delta. No new findings. Restatement still matches the task. The publish step now lives on `packages-prune` because that is the M1 fix.

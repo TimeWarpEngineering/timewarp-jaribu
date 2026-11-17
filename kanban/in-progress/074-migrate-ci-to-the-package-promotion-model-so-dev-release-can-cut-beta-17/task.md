@@ -96,6 +96,7 @@ Acceptance:
 - Review oracle: general (Grok, xAI, grok-4.7), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, effort 2, roster general, max-turns 120, round 1 — 2026-11-18. Open finding M1. Disposition not written.
 - Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, max-turns 120, artifacts general.md, merged.md — 2026-11-17T21:03:41Z
 - Implement-fix-2 oracle: implementer-claude (claude, anthropic, claude-opus-5-5) fixed M1 (staged-packages, publish after every leg) — 2026-11-18
+- Review oracle: general (Grok, xAI, grok-4.7), session 01a1eb54-6d74-7181-85bb-5c9ad0d478dd, effort 1, roster general, max-turns 80, round 2 — 2026-11-18. M1 fixed. No new findings. Disposition clean.
 
 ## Results
 
@@ -173,11 +174,23 @@ Record that run id and the dry-run output here. Cutting beta.17 stays with Steve
 
 ### Review
 
-Round 1, roster general, effort 2. Counts: bug 1 open, 0 fixed, 0 wontfix. Suggestion 0. Nit 0. Disposition is not written while M1 is open. Paths: `review/review-framework.md`, `review/round-1/merged.md`. The goal restatement matches the original task. No misread.
+Rounds 1–2, roster general. Round 1 effort 2 (726 lines, turn cap 120). Round 2 effort 1 (177 lines, turn cap 80).
+
+Round 1 raised M1 (bug): the ubuntu leg uploaded `Packages-*` before the other OS legs finished. The fix pass publishes `Packages-<run>` from `packages-prune` after every test leg succeeded. Round 2 re-read delta `3f14037..HEAD` and the fix-pass record. M1 is fixed. No new findings.
+
+Final counts: bug 0 open, 1 fixed, 0 wontfix. Suggestion 0. Nit 0. Disposition: clean. No wontfix. No escalation.
+
+Paths: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md`.
+
+The goal restatement matches the original task. No misread. `packages-prune` publishes `Packages-*` because that is the M1 fix of the shared "ubuntu uploads `Packages-*`" sentence.
 
 ## Review
 
 - Round 1: Blocked — open M1
+- Round 2: Done
+## Learnings
+
+Round 2 compared `## Goal (implementer restatement)` with the original requirements. They match. `--pack` is how the ubuntu leg is told to pack. No misread.
 
 ## Notes
 
