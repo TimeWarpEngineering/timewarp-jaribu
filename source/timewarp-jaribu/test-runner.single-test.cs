@@ -23,6 +23,7 @@ using System.Reflection;
 // token does not rewrite a failing body, and a passing body becomes Cancelled.
 // CleanUp may overlap a body that is still running after the wait was cancelled.
 // That abandoned body task is observed.
+// The caller opens the jaribu.test span. Setup and CleanUp open child hook spans.
 #endregion
 
 public static partial class TestRunner
@@ -56,46 +57,89 @@ public static partial class TestRunner
   {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
+    return RunSingleObservedAsync(
+      testClass,
+      method,
+      parameters,
+      inputOrdinal,
+      cancellationToken);
+  }
+
+  private static async Task<TestNodeInfo> RunSingleObservedAsync(
+    Type testClass,
+    MethodInfo method,
+    object?[]? parameters,
+    int? inputOrdinal,
+    CancellationToken cancellationToken)
+  {
     if (parameters is { Length: > 0 })
     {
       parameters = [.. parameters];
     }
 
-    if (JaribuAttributeRead.TryRejectClass(testClass, out JaribuAttributeRead.Rejection classRejection))
+    JaribuTelemetry.EnterRun();
+    try
     {
-      return Task.FromResult(AttributeRejectionNode(testClass, method, classRejection));
-    }
+      if (JaribuAttributeRead.TryRejectClass(testClass, out JaribuAttributeRead.Rejection classRejection))
+      {
+        return RejectedSingle(testClass, method, classRejection);
+      }
 
-    if (JaribuAttributeRead.TryRejectMethod(method, out JaribuAttributeRead.Rejection methodRejection))
-    {
-      return Task.FromResult(AttributeRejectionNode(testClass, method, methodRejection));
-    }
+      if (JaribuAttributeRead.TryRejectMethod(method, out JaribuAttributeRead.Rejection methodRejection))
+      {
+        return RejectedSingle(testClass, method, methodRejection);
+      }
 
-    ClassMetadata metadata = GetClassMetadata(testClass);
-    HookResolveResult setupHook = metadata.Setup;
-    HookResolveResult cleanUpHook = metadata.CleanUp;
-    Exception? signatureError = setupHook.ValidationError ?? cleanUpHook.ValidationError;
-    if (signatureError is not null)
-    {
-      return Task.FromResult(
-        SignatureFailureNode(
+      ClassMetadata metadata = GetClassMetadata(testClass);
+      HookResolveResult setupHook = metadata.Setup;
+      HookResolveResult cleanUpHook = metadata.CleanUp;
+      Exception? signatureError = setupHook.ValidationError ?? cleanUpHook.ValidationError;
+      if (signatureError is not null)
+      {
+        TestNodeInfo failed = SignatureFailureNode(
           testClass,
           method,
           parameters,
           inputOrdinal,
           signatureError,
-          cancellationToken));
-    }
+          cancellationToken);
+        using Activity? failedSpan = JaribuTelemetry.StartTest(
+          testClass,
+          method,
+          parameters,
+          inputOrdinal);
+        JaribuTelemetry.Complete(failedSpan, failed.State, failed.Exception);
+        return failed;
+      }
 
-    return RunPreparedTestAsync(
-      testClass,
-      method,
-      parameters,
-      inputOrdinal,
-      setupHook.Method,
-      cleanUpHook.Method,
-      DateTimeOffset.UtcNow,
-      cancellationToken);
+      using Activity? span = JaribuTelemetry.StartTest(testClass, method, parameters, inputOrdinal);
+      TestNodeInfo result = await RunPreparedTestAsync(
+        testClass,
+        method,
+        parameters,
+        inputOrdinal,
+        setupHook.Method,
+        cleanUpHook.Method,
+        DateTimeOffset.UtcNow,
+        cancellationToken).ConfigureAwait(false);
+      JaribuTelemetry.Complete(span, result.State, result.Exception);
+      return result;
+    }
+    finally
+    {
+      JaribuTelemetry.ExitRun();
+    }
+  }
+
+  private static TestNodeInfo RejectedSingle(
+    Type testClass,
+    MethodInfo method,
+    JaribuAttributeRead.Rejection rejection)
+  {
+    TestNodeInfo node = AttributeRejectionNode(testClass, method, rejection);
+    using Activity? span = JaribuTelemetry.StartTest(testClass, method, parameters: null, inputOrdinal: null);
+    JaribuTelemetry.Complete(span, TestNodeState.Error, rejection.Exception);
+    return node;
   }
 
   /// <summary>
@@ -156,7 +200,7 @@ public static partial class TestRunner
     SetupStart setup;
     try
     {
-      setup = StartSetup(setupMethod);
+      setup = StartSetup(setupMethod, cancellationToken);
     }
     catch (Exception ex) when (cancellationToken.IsCancellationRequested)
     {
@@ -169,42 +213,56 @@ public static partial class TestRunner
       return InvokeFault(Complete, stopwatch.Elapsed, ex);
     }
 
-    if (setup.Task is not null)
+    try
     {
-      try
+      if (setup.Task is not null)
       {
-        WaitKind setupKind = await WaitForCompletionAsync(
-          setup.Task,
-          ResolveHookTimeoutMilliseconds(testClass),
-          cancellationToken).ConfigureAwait(false);
-        if (setupKind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+        try
         {
-          stopwatch.Stop();
-          return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
-        }
+          WaitKind setupKind = await WaitForCompletionAsync(
+            setup.Task,
+            ResolveHookTimeoutMilliseconds(testClass),
+            cancellationToken).ConfigureAwait(false);
+          if (setupKind == WaitKind.Cancelled || cancellationToken.IsCancellationRequested)
+          {
+            stopwatch.Stop();
+            JaribuTelemetry.Complete(setup.Span, TestNodeState.Cancelled, exception: null);
+            return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken);
+          }
 
-        if (setupKind == WaitKind.TimedOut)
+          if (setupKind == WaitKind.TimedOut)
+          {
+            stopwatch.Stop();
+            int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
+            string message = TimeoutAfter(milliseconds, "Setup");
+            TimeoutException timeout = new(message);
+            JaribuTelemetry.Complete(setup.Span, TestNodeState.Timeout, timeout);
+            return Complete(
+              TestNodeState.Timeout,
+              stopwatch.Elapsed,
+              timeout,
+              message);
+          }
+        }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested)
         {
           stopwatch.Stop();
-          int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
-          string message = TimeoutAfter(milliseconds, "Setup");
-          return Complete(
-            TestNodeState.Timeout,
-            stopwatch.Elapsed,
-            new TimeoutException(message),
-            message);
+          JaribuTelemetry.Complete(setup.Span, TestNodeState.Cancelled, ex);
+          return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
+        }
+        catch (Exception ex)
+        {
+          stopwatch.Stop();
+          JaribuTelemetry.Complete(setup.Span, TestNodeState.Failed, ex);
+          return BodyFault(Complete, stopwatch.Elapsed, ex);
         }
       }
-      catch (Exception ex) when (cancellationToken.IsCancellationRequested)
-      {
-        stopwatch.Stop();
-        return CancelledNode(Complete, stopwatch.Elapsed, cancellationToken, ex);
-      }
-      catch (Exception ex)
-      {
-        stopwatch.Stop();
-        return BodyFault(Complete, stopwatch.Elapsed, ex);
-      }
+
+      JaribuTelemetry.Complete(setup.Span, TestNodeState.Passed, exception: null);
+    }
+    finally
+    {
+      setup.Span?.Dispose();
     }
 
     TestNodeInfo? outcome = null;

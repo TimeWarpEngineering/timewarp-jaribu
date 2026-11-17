@@ -27,6 +27,8 @@ TestRunner.RunTestsAsync(sink)
 
 `NullSink`, `TerminalSink`, and `MtpSink` reject a null node, class name, stats object, or result list. A null tag filter is allowed.
 
+The runner's `ActivitySource` is `TimeWarp.Jaribu`. Each class run is a `jaribu.class` span and each case is a child `jaribu.test` span. Setup and cleanup hooks are `jaribu.hook` spans. The test process exports them when `OTEL_EXPORTER_OTLP_ENDPOINT` is set and flushes before it returns. See [telemetry.md](telemetry.md).
+
 `TestNodeState` is Discovered, InProgress, Passed, Failed, Skipped, Timeout, Error, or Cancelled. `TestRunStats.FailedCount` includes Failed, Error, Timeout, and Cancelled. Skipped does not fail the run.
 
 ## Attributes
@@ -70,4 +72,4 @@ Tree paths use `/Assembly/Namespace/Type/Method`.
 
 `<Version>` lives in `source/Directory.Build.props`. The root `Directory.Build.props` sets `TargetFramework` to `net11.0` and turns analyzers on. It does not set the package version.
 
-The library package references Shouldly, TimeWarp.Terminal, and TimeWarp.Amuru. `TerminalSink` and `TestHelpers` write through TimeWarp.Terminal. Test authors call Shouldly. TimeWarp.Amuru is on the package graph for runfiles that shell out.
+The library package references Shouldly, TimeWarp.Terminal, TimeWarp.Amuru, and OpenTelemetry. `TerminalSink` and `TestHelpers` write through TimeWarp.Terminal. Test authors call Shouldly. TimeWarp.Amuru is on the package graph for runfiles that shell out. OpenTelemetry exports test spans only when the OTLP endpoint is set.

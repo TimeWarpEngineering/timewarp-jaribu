@@ -34,6 +34,8 @@ using System.Reflection;
 // A method-name filter still reports them.
 // A class Timeout or TestTag constructor that throws reports each selected
 // method as Error and does not open the hook-timeout scope.
+// The class span stays open for the whole run, including the tag-miss path
+// and session dispose, so method and hook spans parent to it.
 #endregion
 
 public static partial class TestRunner
@@ -67,13 +69,15 @@ public static partial class TestRunner
     bool ownsSession = SessionFixture.TryBeginRunLease(out long runEpoch);
 
     bool countedDepth = false;
+    Activity? classSpan = null;
+    List<TestNodeInfo> results = [];
+    JaribuTelemetry.EnterRun();
     try
     {
       TautologyDepth.Value++;
       countedDepth = true;
       DateTimeOffset startTime = DateTimeOffset.Now;
       Stopwatch overallStopwatch = Stopwatch.StartNew();
-      List<TestNodeInfo> results = [];
 
       async Task EndOwnedSessionIntoResultsAsync()
       {
@@ -103,6 +107,7 @@ public static partial class TestRunner
       filterTag = TestFilter.ResolveTag(filterTag);
 
       string className = ReportedClassName(testClass);
+      classSpan = JaribuTelemetry.StartClass(testClass);
 
       // Class tag miss: same nodes discovery lists. No hooks, no signature diagnostics.
       // A rejected method stays an Error node, the same as a method tag miss.
@@ -138,7 +143,12 @@ public static partial class TestRunner
             continue;
           }
 
-          results.AddRange(await ReportSkippedAsync(testCase, reason, casePredicate: null, sink));
+          results.AddRange(await ReportSkippedAsync(
+            testClass,
+            testCase,
+            reason,
+            casePredicate: null,
+            sink));
         }
 
         await EndOwnedSessionIntoResultsAsync().ConfigureAwait(false);
@@ -244,6 +254,7 @@ public static partial class TestRunner
 
           reported = true;
           await ReportCasesFailedDueToHookAsync(
+            testClass,
             cases,
             resolutionError,
             TestNodeState.Error,
@@ -388,6 +399,9 @@ public static partial class TestRunner
       }
 
       hookTimeout?.Dispose();
+      JaribuTelemetry.CompleteClass(classSpan, results);
+      classSpan?.Dispose();
+      JaribuTelemetry.ExitRun();
     }
   }
 

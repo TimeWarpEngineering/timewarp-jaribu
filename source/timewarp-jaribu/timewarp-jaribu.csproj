@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
     <PackageReference Include="TimeWarp.Terminal" />

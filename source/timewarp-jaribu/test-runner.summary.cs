@@ -14,6 +14,8 @@ using TimeWarp.Terminal;
 // A coverage request relaunches before that terminal and before the session.
 // The parent returns the child's exit code and does not run tests.
 // The 1.0.0-beta.15 RunAllTests signature (no coverage argument) forwards here.
+// EnterRun wraps every class so the exporter flushes once when the run returns,
+// including when a class fails.
 #endregion
 
 public static partial class TestRunner
@@ -168,6 +170,7 @@ public static partial class TestRunner
       return relaunchExitCode;
     }
 
+    JaribuTelemetry.EnterRun();
     bool ownsTerminal = terminal is null;
     ITerminal output = terminal ?? new TimeWarpTerminal();
     try
@@ -218,6 +221,7 @@ public static partial class TestRunner
     }
     finally
     {
+      JaribuTelemetry.ExitRun();
       if (ownsTerminal && output is IDisposable disposable)
       {
         disposable.Dispose();

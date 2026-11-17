@@ -24,6 +24,8 @@ using TimeWarp.Terminal;
 // macOS arm64 and Linux arm have no dynamic profiler. A file-based runner is
 // built and relaunched with --no-build. A compiled host is copied first so
 // instrumentation does not rewrite assemblies this process has loaded.
+// The child receives TRACEPARENT from the ambient span, or from this process's
+// TRACEPARENT, so a coverage relaunch stays on the dev test trace.
 #endregion
 
 /// <summary>
@@ -149,10 +151,12 @@ internal static partial class RunfileCoverage
         runnerArgument,
         includeFiles,
         runnerOptions);
-      int exitCode = await Shell.Builder(tool.FileName)
+      ShellBuilder launch = Shell.Builder(tool.FileName)
         .WithArguments(command)
         .WithWorkingDirectory(workingDirectory)
-        .WithEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName, "1")
+        .WithEnvironmentVariable(RunfileCoverageOptions.ActiveVariableName, "1");
+      launch = JaribuTelemetry.ApplyTraceContext(launch);
+      int exitCode = await launch
         .WithNoValidation()
         .RunAsync(cancellationToken)
         .ConfigureAwait(false);

@@ -1,0 +1,53 @@
+# Test telemetry
+
+The runner emits one span per test class and one child span per test case. A process that does not listen to `TimeWarp.Jaribu`, and does not set `OTEL_EXPORTER_OTLP_ENDPOINT`, pays for a null `StartActivity` and nothing else.
+
+## Spans
+
+| Name prefix | Parent | When |
+|-------------|--------|------|
+| `jaribu.class` | The ambient activity, or `TRACEPARENT` when there is no ambient activity | One `RunTestsAsync` / `RunAllTests` class |
+| `jaribu.test` | The class span | One case. Each `[Input]` row is its own span. Skip and attribute rejection are spans too |
+| `jaribu.hook` | The test span for `Setup` and `CleanUp`. The class span for `SetupOnce` and `CleanUpOnce` | The hook wait |
+
+The span name is the prefix, a space, and the identity. A class identity is the CLR full name. A test identity is `{class}.{method}` or `{class}.{method}[index]` for an `[Input]` row. A hook identity is `Setup`, `CleanUp`, `SetupOnce`, or `CleanUpOnce`.
+
+## Attributes
+
+| Attribute | Value |
+|-----------|--------|
+| `jaribu.test.class` | CLR full name of the test class |
+| `jaribu.test.method` | Method name. Test spans only |
+| `jaribu.test.case.index` | `[Input]` row index. Parameterized cases only |
+| `jaribu.test.case.arguments` | Formatted arguments, capped at 256 characters. Present when the case has arguments |
+| `jaribu.test.outcome` | `passed`, `failed`, `skipped`, `timed_out`, `error`, or `cancelled` |
+| `jaribu.hook.name` | Hook spans only |
+| `code.filepath` | Set when the MTP adapter resolved a portable PDB path for the method |
+
+`passed` sets span status Ok. `skipped` leaves status unset. `failed`, `timed_out`, `error`, and `cancelled` set status Error. A class span's outcome is `failed` when any case failed, timed out, errored, or was cancelled.
+
+## Environment
+
+The test process exports its own spans. `dev` does not register `TimeWarp.Jaribu`.
+
+| Variable | Required | Meaning |
+|----------|----------|---------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | to export | OTLP collector base URL. Unset or blank exports nothing |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | no | `grpc` (the SDK default) or `http/protobuf` |
+| `OTEL_SERVICE_NAME` | no | Overrides the default service name `TimeWarp.Jaribu` |
+| `TRACEPARENT` | no | W3C trace context. Used when the test process has no ambient activity |
+| `TRACESTATE` | no | Optional tracestate that accompanies `TRACEPARENT` |
+
+An invalid `TRACEPARENT` is ignored. The header is not copied onto a span attribute.
+
+The run flushes the exporter when the outermost `RunAllTests`, `RunTests`, or `RunSingleTestAsync` returns, including when the run fails. Process exit flushes again.
+
+## Joining `dev test`
+
+`dev test` copies the current command span into the child process's `TRACEPARENT` and `TRACESTATE`. Class spans then sit under the `test` span. A coverage relaunch copies the same context onto its child.
+
+A consumer that launches tests with its own dev CLI does the same: set `TRACEPARENT` to `00-{trace-id}-{span-id}-{flags}` from `Activity.Current` on the `dotnet run` or `dotnet test` process. The endpoint variable is inherited when the child keeps the parent environment. Without the `TRACEPARENT` copy, spans still export, and they parent to whatever `TRACEPARENT` the child already inherited, or they become roots.
+
+## Picking this up
+
+Ship `TimeWarp.Jaribu` and `TimeWarp.Jaribu.TestingPlatform` `1.0.0-beta.17`. Consuming repos bump that package. Their dev CLI passes `TRACEPARENT` when it starts the test process. Test bodies do not change.
