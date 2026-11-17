@@ -13,6 +13,7 @@
 //   UseTelemetry service name is the literal "timewarp-jaribu-dev".
 //   Export follows OTEL_EXPORTER_OTLP_ENDPOINT. Unset exports nothing.
 //   TRACEPARENT / TRACESTATE join a parent process's trace.
+//   dev test forwards the command span as the child's TRACEPARENT.
 //
 // To bootstrap:
 //   dotnet run tools/dev-cli/dev.cs -- self-install
@@ -30,7 +31,9 @@
 // endpoint stays unset here: a non-literal OtlpEndpoint is ignored, and an
 // unset OTEL_EXPORTER_OTLP_ENDPOINT exports nothing. ServiceName is the
 // literal timewarp-jaribu-dev. OTEL_SERVICE_NAME overrides it.
-// This repo has no ActivitySource of its own, so none is registered.
+// The dev process does not register an ActivitySource. Test processes
+// register TimeWarp.Jaribu and export when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+// dev test copies the command span into the child's TRACEPARENT.
 // IncomingTraceContext restores TRACEPARENT before RunAsync because
 // TelemetryBehavior parents its span to Activity.Current.
 #endregion

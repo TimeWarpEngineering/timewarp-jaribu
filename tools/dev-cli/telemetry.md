@@ -2,9 +2,9 @@
 
 `dev` calls `UseTelemetry()` with the service name `timewarp-jaribu-dev`. The OTLP endpoint is not set in code. A run exports traces, metrics, and logs only when the endpoint variable below is set. An unset variable exports nothing.
 
-Every route, including the DevCli routes (`clean`, `check-version`, `release`, `self-install`), gets one `TimeWarp.Nuru.Behavior` command span and a duration metric. This repo has no `ActivitySource` of its own. `dev workflow` does not emit stage spans.
+Every route, including the DevCli routes (`clean`, `check-version`, `release`, `self-install`), gets one `TimeWarp.Nuru.Behavior` command span and a duration metric. The dev process does not register an `ActivitySource`. `dev workflow` does not emit stage spans.
 
-`dotnet build` and `dotnet test` are not instrumented. The GitHub Actions workflows in this repo do not set a collector or an endpoint.
+`dev test` copies the command span into `TRACEPARENT` on the runfile and `dotnet test` children. Those processes register `TimeWarp.Jaribu` and export `jaribu.class`, `jaribu.test`, and `jaribu.hook` spans when the endpoint below is set. The span contract is [documentation/telemetry.md](../../documentation/telemetry.md). The GitHub Actions workflows in this repo do not set a collector or an endpoint.
 
 ## Environment
 

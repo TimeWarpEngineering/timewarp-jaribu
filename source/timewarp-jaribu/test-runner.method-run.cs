@@ -1,5 +1,6 @@
 namespace TimeWarp.Jaribu;
 
+using System.Diagnostics;
 using System.Reflection;
 
 #region Purpose
@@ -14,6 +15,9 @@ using System.Reflection;
 // A Jaribu attribute constructor that throws is an Error node for the method.
 // The message names the attribute. That Error wins over a method tag miss.
 // Sibling methods still run.
+// Each case opens a jaribu.test span before the sink start event, so a listener
+// can attach a source file while the span is current. Skip and attribute
+// rejection open that span too. The body, Setup, and CleanUp run under it.
 #endregion
 
 public static partial class TestRunner
@@ -48,14 +52,14 @@ public static partial class TestRunner
     if (TestFilter.TagSkipReason(testClass, method, filterTag) is string tagReason)
     {
       ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-      return await ReportSkippedAsync(skipCase, tagReason, casePredicate, sink);
+      return await ReportSkippedAsync(testClass, skipCase, tagReason, casePredicate, sink);
     }
 
     SkipAttribute? skipAttr = GetMethodMetadata(method).Skip;
     if (skipAttr is not null)
     {
       ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
-      return await ReportSkippedAsync(skipCase, skipAttr.Reason, casePredicate, sink);
+      return await ReportSkippedAsync(testClass, skipCase, skipAttr.Reason, casePredicate, sink);
     }
 
     List<ReportedTestCase> cases = SelectCases(
@@ -77,6 +81,7 @@ public static partial class TestRunner
     {
       TestNodeState state = FailureMark.StateFor(onceState.SetupOnceFailure, TestNodeState.Failed);
       await ReportCasesFailedDueToHookAsync(
+        testClass,
         cases,
         onceState.SetupOnceFailure,
         state,
@@ -92,6 +97,11 @@ public static partial class TestRunner
         break;
       }
 
+      using Activity? span = JaribuTelemetry.StartTest(
+        testClass,
+        method,
+        testCase.Parameters,
+        testCase.InputOrdinal);
       DateTimeOffset startedAt = DateTimeOffset.UtcNow;
       TestNodeInfo inProgressNode = new(
         testCase.Uid,
@@ -113,6 +123,7 @@ public static partial class TestRunner
         startedAt,
         tautology,
         cancellationToken);
+      JaribuTelemetry.Complete(span, result.State, result.Exception);
 
       await sink.OnTestCompletedAsync(result);
       results.Add(result);
@@ -129,6 +140,7 @@ public static partial class TestRunner
   /// Publishes one Skipped node unless <paramref name="casePredicate"/> rejects it.
   /// </summary>
   private static async Task<List<TestNodeInfo>> ReportSkippedAsync(
+    Type testClass,
     ReportedTestCase skipCase,
     string? message,
     Func<ReportedTestCase, bool>? casePredicate,
@@ -140,6 +152,12 @@ public static partial class TestRunner
     }
 
     TestNodeInfo skipNode = TestFilter.SkippedNode(skipCase, message);
+    using Activity? span = JaribuTelemetry.StartTest(
+      testClass,
+      skipCase.Method,
+      skipCase.Parameters,
+      skipCase.InputOrdinal);
+    JaribuTelemetry.Complete(span, TestNodeState.Skipped, exception: null);
     await sink.OnTestStartedAsync(skipNode);
     await sink.OnTestCompletedAsync(skipNode);
     return [skipNode];
@@ -163,6 +181,12 @@ public static partial class TestRunner
     }
 
     TestNodeInfo node = AttributeRejectionNode(testClass, method, rejection);
+    using Activity? span = JaribuTelemetry.StartTest(
+      testClass,
+      method,
+      parameters: null,
+      inputOrdinal: null);
+    JaribuTelemetry.Complete(span, TestNodeState.Error, rejection.Exception);
     await sink.OnTestStartedAsync(node);
     await sink.OnTestCompletedAsync(node);
     return [node];

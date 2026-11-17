@@ -25,6 +25,7 @@ using TimeWarp.Jaribu;
 // not enough: the sink does not subtract it from the publish clock.
 // Failed, Timeout, and Error with a null exception use one message that says
 // the core supplied no exception. That message is the exception text.
+// A resolved PDB path is also written onto the current Jaribu span.
 #endregion
 
 /// <summary>
@@ -122,6 +123,7 @@ internal sealed class MtpSink : ITestResultSink
       if (location is not null)
       {
         properties.Add(location);
+        JaribuTelemetry.SetSourceFile(location.FilePath);
       }
     }
 

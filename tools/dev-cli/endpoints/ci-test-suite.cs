@@ -16,6 +16,8 @@
 // A relative --coverage-output is resolved from --results-directory.
 // The runner project references Microsoft.Testing.Extensions.CodeCoverage so
 // --coverage is a known option. DotNet.Test has no slot for those extension arguments.
+// Both children receive TRACEPARENT for the current command span. The test
+// process parents jaribu.class and jaribu.test spans to that span.
 #endregion
 
 namespace DevCli.Commands;
@@ -37,10 +39,11 @@ internal static class CiTestSuite
       "multi-file-runners",
       "ci-runner",
       "run-ci-tests.cs");
-    int exitCode = await DotNet.Run()
-      .WithFile(ciTestRunner)
-      .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
-      .WithWorkingDirectory(repoRoot)
+    int exitCode = await TraceParentPropagation.Apply(
+        DotNet.Run()
+          .WithFile(ciTestRunner)
+          .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
+          .WithWorkingDirectory(repoRoot))
       .RunAsync(cancellationToken);
     if (exitCode != 0)
     {
@@ -57,22 +60,23 @@ internal static class CiTestSuite
       "multi-file-runners",
       "mtp-runner",
       "timewarp-jaribu-tests-mtp.csproj");
-    int exitCode = await Shell.Builder("dotnet")
-      .WithArguments
-      (
-        "test",
-        mtpProject,
-        "--configuration",
-        "Release",
-        "--results-directory",
-        "artifacts/coverage",
-        "--coverage",
-        "--coverage-output-format",
-        "cobertura",
-        "--coverage-output",
-        "coverage.cobertura.xml"
-      )
-      .WithWorkingDirectory(repoRoot)
+    int exitCode = await TraceParentPropagation.Apply(
+        Shell.Builder("dotnet")
+          .WithArguments
+          (
+            "test",
+            mtpProject,
+            "--configuration",
+            "Release",
+            "--results-directory",
+            "artifacts/coverage",
+            "--coverage",
+            "--coverage-output-format",
+            "cobertura",
+            "--coverage-output",
+            "coverage.cobertura.xml"
+          )
+          .WithWorkingDirectory(repoRoot))
       .RunAsync(cancellationToken);
     if (exitCode != 0)
     {

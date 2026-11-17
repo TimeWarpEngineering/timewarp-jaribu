@@ -17,6 +17,7 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 - **Parameterized Tests**: Easy data-driven testing.
 - **Tag Filtering**: Run specific test groups.
 - **Small dependency set**: Shouldly for assertions, TimeWarp.Terminal for console output, and TimeWarp.Amuru on the package graph for runfiles that shell out.
+- **Per-test traces**: One span per class and per test case, exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. See [documentation/telemetry.md](documentation/telemetry.md).
 - **Visual Studio Test Explorer integration** (M.T.P. Mode)
 - **VS Code Test Explorer integration** (M.T.P. Mode)
 - **`dotnet test` support** (M.T.P. Mode)
@@ -78,7 +79,7 @@ Create a single-file test script (e.g., `my-tests.cs`):
 
 ```csharp
 #!/usr/bin/env -S dotnet --
-#:package TimeWarp.Jaribu@1.0.0-beta.16
+#:package TimeWarp.Jaribu@1.0.0-beta.17
 
 using Shouldly;
 using TimeWarp.Jaribu;
@@ -327,7 +328,7 @@ Create a test project with the TestingPlatform package:
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="1.0.0-beta.16" />
+    <PackageReference Include="TimeWarp.Jaribu.TestingPlatform" Version="1.0.0-beta.17" />
   </ItemGroup>
 </Project>
 ```

@@ -9,19 +9,19 @@ using System.Runtime.ExceptionServices;
 #endregion
 
 #region Design
-// Hook methods stay parameterless. The runner stops waiting when the caller
-// token fires. A cancellation during SetupOnce still pairs with CleanUpOnce
-// once SetupOnce has been entered. Cancellation is not stored as a hook failure.
-// CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
-// still running. Abandoned hook tasks are observed. Hook waits use the class
-// TimeoutAttribute or DefaultHookTimeout. Setup, CleanUp, SetupOnce, and
-// CleanUpOnce are cached per class. A near-miss hook fails the class
-// before any body runs. A throw from Invoke is an invoke failure, and a fault
-// from the Setup task is a body failure. A CleanUpOnce that throws before it
-// returns a task is rethrown here. The class run traces that throw once the
-// caller token has fired, and reports it as a synthetic node otherwise.
-// A near-miss node is given the MethodInfo the diagnostic already holds.
-// NoTests and HookSignature do not look a method up by those names.
+// Hook methods stay parameterless. The runner stops waiting when the caller token fires.
+// A cancellation during SetupOnce still pairs with CleanUpOnce once SetupOnce has been
+// entered. Cancellation is not stored as a hook failure. CleanUp and CleanUpOnce may
+// overlap a cancelled body or SetupOnce that is still running. Abandoned hook tasks are
+// observed. Hook waits use the class TimeoutAttribute or DefaultHookTimeout. Setup,
+// CleanUp, SetupOnce, and CleanUpOnce are cached per class. A near-miss hook fails the
+// class before any body runs. A throw from Invoke is an invoke failure, and a fault from
+// the Setup task is a body failure. A CleanUpOnce that throws before it returns a task
+// is rethrown here. The class run traces that throw once the caller token has fired, and
+// reports it as a synthetic node otherwise. A near-miss node is given the MethodInfo the
+// diagnostic already holds. NoTests and HookSignature do not look a method up by those names.
+// Setup, CleanUp, SetupOnce, and CleanUpOnce each open a jaribu.hook span. A faulted
+// once-hook completes that span as failed or cancelled, then the exception leaves.
 #endregion
 
 public static partial class TestRunner
@@ -34,27 +34,41 @@ public static partial class TestRunner
 
   /// <summary>
   /// A started Setup task. <see cref="Task"/> is null when the type has no Setup.
+  /// <see cref="Span"/> stays open until the caller finishes waiting.
   /// </summary>
-  private readonly record struct SetupStart(Task? Task);
+  private readonly record struct SetupStart(Task? Task, Activity? Span);
 
   /// <summary>
   /// Invokes a Setup method already checked by <see cref="ResolveHook"/>.
   /// Null means the type has no Setup. A throw from the method escapes to the caller.
   /// </summary>
-  private static SetupStart StartSetup(MethodInfo? setupMethod)
+  private static SetupStart StartSetup(MethodInfo? setupMethod, CancellationToken cancellationToken)
   {
     if (setupMethod is null)
     {
-      return new SetupStart(null);
+      return new SetupStart(null, null);
     }
 
-    if (setupMethod.Invoke(null, null) is not Task task)
+    Activity? span = JaribuTelemetry.StartHook(JaribuTelemetry.HookSetup);
+    try
     {
-      throw new InvalidOperationException(
-        $"Method '{setupMethod.DeclaringType?.FullName}.{setupMethod.Name}' did not return Task.");
-    }
+      if (setupMethod.Invoke(null, null) is not Task task)
+      {
+        throw new InvalidOperationException(
+          $"Method '{setupMethod.DeclaringType?.FullName}.{setupMethod.Name}' did not return Task.");
+      }
 
-    return new SetupStart(task);
+      return new SetupStart(task, span);
+    }
+    catch (Exception exception)
+    {
+      TestNodeState state = cancellationToken.IsCancellationRequested
+        ? TestNodeState.Cancelled
+        : TestNodeState.Error;
+      JaribuTelemetry.Complete(span, state, exception);
+      span?.Dispose();
+      throw;
+    }
   }
 
   /// <summary>
@@ -92,6 +106,9 @@ public static partial class TestRunner
     MethodInfo? cleanupMethod,
     CancellationToken cancellationToken)
   {
+    using Activity? span = cleanupMethod is null
+      ? null
+      : JaribuTelemetry.StartHook(JaribuTelemetry.HookCleanUp);
     try
     {
       WaitKind kind = await InvokeCleanupForType(testClass, cleanupMethod, cancellationToken)
@@ -99,22 +116,28 @@ public static partial class TestRunner
       if (kind == WaitKind.TimedOut)
       {
         int milliseconds = ResolveHookTimeoutMilliseconds(testClass) ?? 0;
-        return new CleanupOutcome(
-          FailureMark.Mark(
-            new TimeoutException(TimeoutAfter(milliseconds, "CleanUp")),
-            FailureMark.HookTimeout),
-          Cancelled: false);
+        Exception timeout = FailureMark.Mark(
+          new TimeoutException(TimeoutAfter(milliseconds, "CleanUp")),
+          FailureMark.HookTimeout);
+        JaribuTelemetry.Complete(span, TestNodeState.Timeout, timeout);
+        return new CleanupOutcome(timeout, Cancelled: false);
       }
 
+      JaribuTelemetry.Complete(
+        span,
+        kind == WaitKind.Cancelled ? TestNodeState.Cancelled : TestNodeState.Passed,
+        exception: null);
       return new CleanupOutcome(Failure: null, Cancelled: kind == WaitKind.Cancelled);
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
       if (cancellationToken.IsCancellationRequested)
       {
+        JaribuTelemetry.Complete(span, TestNodeState.Cancelled, ex.InnerException);
         return new CleanupOutcome(Failure: null, Cancelled: true);
       }
 
+      JaribuTelemetry.Complete(span, TestNodeState.Failed, ex.InnerException);
       return new CleanupOutcome(ex.InnerException, Cancelled: false);
     }
 #pragma warning disable CA1031 // Cleanup failure is data for the node, not a crash
@@ -123,9 +146,11 @@ public static partial class TestRunner
     {
       if (cancellationToken.IsCancellationRequested)
       {
+        JaribuTelemetry.Complete(span, TestNodeState.Cancelled, ex);
         return new CleanupOutcome(Failure: null, Cancelled: true);
       }
 
+      JaribuTelemetry.Complete(span, TestNodeState.Failed, ex);
       return new CleanupOutcome(ex, Cancelled: false);
     }
   }
@@ -347,11 +372,11 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Invokes a resolved once-hook and awaits its Task, unwrapping TargetInvocationException.
-  /// Returns <see cref="WaitKind.Cancelled"/> when the caller token fires.
+  /// Invokes a resolved once-hook, awaits its Task, and returns <see cref="WaitKind.Cancelled"/> when the caller token fires.
   /// </summary>
   private static async Task<WaitKind> InvokeOnceHookAsync(MethodInfo method, CancellationToken cancellationToken)
   {
+    using Activity? span = JaribuTelemetry.StartHook(method.Name);
     object? result;
     try
     {
@@ -359,19 +384,35 @@ public static partial class TestRunner
     }
     catch (TargetInvocationException ex) when (ex.InnerException is not null)
     {
+      JaribuTelemetry.Complete(span, TestNodeState.Failed, ex.InnerException);
       ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
       throw; // unreachable; satisfies definite-assignment analysis
     }
 
     if (result is not Task task)
     {
+      JaribuTelemetry.Complete(span, TestNodeState.Passed, exception: null);
       return WaitKind.Completed;
     }
 
-    return await WaitForCompletionAsync(
-      task,
-      CurrentHookTimeoutMilliseconds,
-      cancellationToken).ConfigureAwait(false);
+    try
+    {
+      WaitKind kind = await WaitForCompletionAsync(
+        task, CurrentHookTimeoutMilliseconds, cancellationToken).ConfigureAwait(false);
+      TestNodeState state = kind switch
+      {
+        WaitKind.TimedOut => TestNodeState.Timeout,
+        WaitKind.Cancelled => TestNodeState.Cancelled,
+        _ => TestNodeState.Passed
+      };
+      JaribuTelemetry.Complete(span, state, exception: null);
+      return kind;
+    }
+    catch (Exception ex)
+    {
+      JaribuTelemetry.Complete(span, cancellationToken.IsCancellationRequested ? TestNodeState.Cancelled : TestNodeState.Failed, ex);
+      throw;
+    }
   }
 
   /// <summary>
@@ -423,6 +464,7 @@ public static partial class TestRunner
   /// <see cref="TestNodeState.Failed"/> or <see cref="TestNodeState.Timeout"/>.
   /// </summary>
   private static async Task ReportCasesFailedDueToHookAsync(
+    Type testClass,
     IReadOnlyList<ReportedTestCase> cases,
     Exception hookException,
     TestNodeState state,
@@ -444,6 +486,12 @@ public static partial class TestRunner
         Method: testCase.Method,
         StartTime: stamp,
         EndTime: stamp);
+      using Activity? span = JaribuTelemetry.StartTest(
+        testClass,
+        testCase.Method,
+        testCase.Parameters,
+        testCase.InputOrdinal);
+      JaribuTelemetry.Complete(span, state, hookException);
       await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
       await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
       results.Add(failedNode);
