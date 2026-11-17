@@ -9,7 +9,8 @@
 #region Design
 // Fixtures are not registered. Telemetry_Given_ drives them through RunTestsAsync
 // under an ActivityListener. The export case launches telemetry-export-probe.cs
-// so the provider sees the endpoint at process start.
+// so the provider sees the endpoint at process start. The quiet half leaves the
+// base endpoint blank and points OTEL_EXPORTER_OTLP_TRACES_ENDPOINT at its listener.
 // Clearing Activity.Current for the TRACEPARENT case keeps the outer test span
 // from becoming the parent. The listener is disposed before this method returns,
 // so the outer span is not in the capture.
@@ -86,6 +87,22 @@ namespace TestRunner_
       setup.ShouldContain(span => span.Tags[JaribuTelemetry.HookNameAttribute] == JaribuTelemetry.HookSetup);
       setup.ShouldContain(span => span.Tags[JaribuTelemetry.HookNameAttribute] == JaribuTelemetry.HookCleanUp);
       capture.Children(skipped.SpanId, JaribuTelemetry.HookSpanPrefix).ShouldBeEmpty();
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
+    public static async Task FaultingSetupOnce_Should_MarkTheHookFailed()
+    {
+      using TelemetryCapture capture = new();
+      TestRunStats stats = await TestRunner.RunTestsAsync<TelemetryFaultingSetupOnceFixture>(NullSink.Instance);
+      stats.Success.ShouldBeFalse();
+
+      string className = typeof(TelemetryFaultingSetupOnceFixture).FullName!;
+      CapturedSpan classSpan = capture.ForClass(className).Single(span =>
+        span.Name.StartsWith(JaribuTelemetry.ClassSpanPrefix, StringComparison.Ordinal));
+      CapturedSpan hook = capture.Children(classSpan.SpanId, JaribuTelemetry.HookSpanPrefix)
+        .Single(span => span.Tags[JaribuTelemetry.HookNameAttribute] == JaribuTelemetry.HookSetupOnce);
+      hook.Tags[JaribuTelemetry.OutcomeAttribute].ShouldBe(JaribuTelemetry.OutcomeFailed);
+      hook.Status.ShouldBe(ActivityStatusCode.Error);
     }
 
     [Proves(typeof(TestRunner), nameof(TestRunner.RunTestsAsync))]
@@ -184,7 +201,7 @@ namespace TestRunner_
       await Task.CompletedTask;
     }
 
-    [KnownTautology("child process asserts the OTLP payload and a quiet unset endpoint")]
+    [KnownTautology("child process asserts the OTLP payload, and a traces endpoint alone stays quiet")]
     public static async Task Endpoint_Should_ExportOnFailureAndStayQuietWhenUnset()
     {
       string root = FindRepoRoot();
@@ -212,7 +229,12 @@ namespace TestRunner_
       Contains(payload, Convert.FromHexString(ParentSpanId)).ShouldBeTrue();
 
       using TelemetryListener quiet = TelemetryListener.Start();
-      int quietExit = await LaunchProbe(root, probe, endpoint: null, traceParent: null);
+      int quietExit = await LaunchProbe(
+        root,
+        probe,
+        endpoint: null,
+        traceParent: null,
+        tracesEndpoint: $"{quiet.Endpoint}/v1/traces");
       quietExit.ShouldBe(1);
       byte[] quietPayload = quiet.TakeBody();
       quietPayload.Length.ShouldBe(0);
@@ -227,16 +249,20 @@ namespace TestRunner_
       string root,
       string probe,
       string? endpoint,
-      string? traceParent)
+      string? traceParent,
+      string? tracesEndpoint = null)
     {
+      bool export = endpoint is not null || tracesEndpoint is not null;
       return Shell.Builder("dotnet")
         .WithArguments("run", probe)
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint ?? string.Empty)
-        .WithEnvironmentVariable("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", endpoint ?? string.Empty)
+        .WithEnvironmentVariable(
+          "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+          tracesEndpoint ?? endpoint ?? string.Empty)
         .WithEnvironmentVariable(
           "OTEL_EXPORTER_OTLP_PROTOCOL",
-          endpoint is null ? string.Empty : "http/protobuf")
+          export ? "http/protobuf" : string.Empty)
         .WithEnvironmentVariable("TRACEPARENT", traceParent ?? string.Empty)
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3))

@@ -15,6 +15,7 @@ using TimeWarp.Amuru;
 // reads that variable and OTEL_EXPORTER_OTLP_PROTOCOL. OTEL_SERVICE_NAME overrides
 // the default service name TimeWarp.Jaribu. A failed builder does not fail the run.
 // EnterRun / ExitRun nest. The outermost exit ForceFlush-es, including a failing run.
+// BeginRun is that scope for a host. The MTP adapter holds one across its class loop.
 // Process exit flushes again so a host that skips the return path still exports.
 // ApplyTraceContext copies the ambient span, or the current TRACEPARENT, onto a
 // coverage relaunch so the grandchild stays on the same trace.
@@ -28,6 +29,16 @@ public static partial class JaribuTelemetry
   private static readonly AsyncLocal<int> RunDepth = new();
   private static int ProviderState;
   private static TracerProvider? Provider;
+
+  /// <summary>
+  /// Opens one export scope. Nested class runs flush once when the returned scope is disposed.
+  /// </summary>
+  /// <returns>A scope whose dispose flushes the exporter, including after a failed run.</returns>
+  public static IDisposable BeginRun()
+  {
+    EnterRun();
+    return new RunScope();
+  }
 
   internal static void EnterRun()
   {
@@ -183,6 +194,19 @@ public static partial class JaribuTelemetry
     {
       Provider?.Dispose();
       Provider = null;
+    }
+  }
+
+  private sealed class RunScope : IDisposable
+  {
+    private int Disposed;
+
+    public void Dispose()
+    {
+      if (Interlocked.Exchange(ref Disposed, 1) == 0)
+      {
+        ExitRun();
+      }
     }
   }
 

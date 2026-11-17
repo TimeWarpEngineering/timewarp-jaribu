@@ -41,6 +41,8 @@ using Microsoft.Testing.Platform.Services;
 // method whose tags exist and none match is one method-level node.
 // Discovery lists that node. The run reports it as Skipped. Uid-list
 // equality stays in MtpTreeFilter. This assembly does not call core internals.
+// A run request holds JaribuTelemetry.BeginRun across the class loop.
+// The scope disposes in the request finally, so the exporter flushes once.
 // --strict-signatures and --allow-empty are passed to RunTestsAsync.
 // Signature warnings go to the output device when the class produced nodes,
 // or when the MTP filter is NopFilter and no method filter is set.
@@ -179,6 +181,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
   public async Task ExecuteRequestAsync(ExecuteRequestContext context)
   {
+    IDisposable? runScope = null;
     try
     {
       bool isDiscovery;
@@ -226,6 +229,10 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
       Type[] registeredClasses = [.. TestRunner.RegisteredTestClasses];
       CancellationToken cancellationToken = context.CancellationToken;
+      if (!isDiscovery)
+      {
+        runScope = JaribuTelemetry.BeginRun();
+      }
 
       foreach (Type testClass in registeredClasses)
       {
@@ -350,6 +357,7 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 #pragma warning restore CA1031
     finally
     {
+      runScope?.Dispose();
       context.Complete();
     }
   }

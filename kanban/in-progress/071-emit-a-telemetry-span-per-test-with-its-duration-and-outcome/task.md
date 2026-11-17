@@ -28,6 +28,13 @@ Acceptance is the span tree above, tests that lock the names, attributes, and ou
 on a failing child process, documentation of the contract, and a record of what Ganda, Terminal,
 and Nuru must change to see the same tree.
 
+Review round 1 is the remaining acceptance. A faulted async `SetupOnce` or `CleanUpOnce`
+completes its `jaribu.hook` span as `failed`, or `cancelled` when the caller token has already
+fired, and then the exception leaves. The MTP adapter holds one `JaribuTelemetry.BeginRun`
+across the class loop so the exporter flushes once when the request returns. The quiet export
+check points `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` at a listener while the base endpoint stays
+blank, and that listener receives no bytes.
+
 ## Description
 
 `dev test` is the slowest command in the org's repos, and SigNoz cannot say which tests cost the
@@ -90,33 +97,45 @@ MTP project with `dotnet test`. A coverage relaunch starts one more child. `Acti
 does not cross those processes, so each child reads `TRACEPARENT`. `dev test` copies the command
 span into that variable. An in-process `RunTestsAsync` keeps the ambient activity as the parent.
 
+Review round 1 is fixed on this id. A faulted async `SetupOnce` or `CleanUpOnce` completes its
+`jaribu.hook` span as `failed`, or `cancelled` when the caller token has fired, and then the
+exception leaves. `JaribuTelemetry.BeginRun` is the public scope the MTP adapter holds across
+the class loop, so that path flushes once when the request returns. The quiet export probe
+leaves the base endpoint blank and points `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` at its own
+listener.
+
 ### How to validate
 
-Smoke: `./bin/dev test` with `OTEL_EXPORTER_OTLP_ENDPOINT` set. This run used
-`https://otlp.timewarp.work` and `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`.
+Smoke: from the repo root, `./bin/dev test`.
 
-Expect: the command exits 0. The runfile grand total is 248 passed and 0 failed. MTP reports
-`passed [+248/x0/?0]`, 248 succeeded and 0 failed. In SigNoz the `timewarp-jaribu-dev` span named
-`test` (trace `170cf00452ffd06140468bd3bbca8450`, span `bb8d1eb5c0408a52`, about 17 minutes) has
-`jaribu.class` children from service `TimeWarp.Jaribu`, and those class spans have `jaribu.test`
-children. A failing child still flushes: the export probe exits 1 and the local listener receives
-`jaribu.class`, `jaribu.test`, `jaribu.hook`, and the trace id.
+Expect: the command exits 0 (`Tests completed successfully!`). The runfile grand total is 249
+passed and 0 failed. `Telemetry_Given_` is 7 passed, including the faulting `SetupOnce` and the
+quiet traces-endpoint probe. MTP reports `passed [+249/x0/?0]`, 249 succeeded and 0 failed.
+The export probe still exits 1, and its listener receives `jaribu.class`, `jaribu.test`,
+`jaribu.hook`, and the trace id. The quiet listener, aimed at by
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` with the base endpoint blank, receives no bytes.
+
+The earlier SigNoz confirmation still stands for parenting. That run used
+`OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.timewarp.work` and
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. The `timewarp-jaribu-dev` span named `test`
+(trace `170cf00452ffd06140468bd3bbca8450`, span `bb8d1eb5c0408a52`) has `jaribu.class` children
+from service `TimeWarp.Jaribu`, and those class spans have `jaribu.test` children.
 
 Gates, after the last library edit:
 
 - `./bin/dev build` — exit 0 (`Build completed successfully!`).
-- `./bin/dev test` — exit 0 (`Tests completed successfully!`). Runfile grand total 248 passed,
-  0 failed. MTP `passed [+248/x0/?0]`, 248 succeeded, 0 failed, 8m 14s.
+- `./bin/dev test` — exit 0 (`Tests completed successfully!`). Runfile grand total 249 passed,
+  0 failed. `Telemetry_Given_` 7 passed. MTP `passed [+249/x0/?0]`, 249 succeeded, 0 failed,
+  8m 23s.
 - `ganda repo audit` — exit 0. 45 passed, 1 failed, 1 skipped. The closing line is
   `Repository passes — 1 advisory (non-blocking) warning(s).` The advisory is the pre-existing
   `vscode-window-icon` warning (`.vscode/settings.json` is missing). `analyzer-suppressions`
-  passes at 140, none above the baseline.
+  passes at 140, none above the baseline. `source-file-length` passes.
 
-The first audit failed `analyzer-suppressions` on two `CA1031` pragmas in
-`jaribu-telemetry.export.cs`. The pragmas came out. Exporter setup and flush catch argument,
+The first audit on the original implement failed `analyzer-suppressions` on two `CA1031` pragmas
+in `jaribu-telemetry.export.cs`. The pragmas came out. Exporter setup and flush catch argument,
 format, IO, invalid-operation, not-supported, HTTP, and timeout failures, and they leave the
-test result alone. `./bin/dev build` then `ganda repo audit` were run again. The recorded
-`./bin/dev test` is the suite after that build.
+test result alone.
 
 `./bin/dev` is gitignored. The suite that first showed spans in SigNoz was still the previous
 binary, so those class spans were siblings of `test`. `dotnet run --file tools/dev-cli/dev.cs -- self-install`
@@ -133,6 +152,14 @@ Without the `TRACEPARENT` copy, spans still export and parent to whatever `TRACE
 child already inherited, which makes them siblings of the `test` span. Follow-up tasks in those
 repos are not created here.
 
+### Review
+
+Round 1 (effort 3, roster: general). Counts: bug 1 fixed, suggestion 2 fixed, nit 0.
+Disposition: fixed. M1 completes a faulted once-hook span before the exception leaves. M2 holds
+one `JaribuTelemetry.BeginRun` across the MTP class loop. M3 aims the quiet listener at
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` while the base endpoint stays blank.
+Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`.
+
 ## Session
 
 - Created: e86bfd7a-3a43-4094-bbf9-e57432a1e9e7 (2026-11-16)
@@ -140,6 +167,16 @@ repos are not created here.
   Removed the `CA1031` pragmas the first audit rejected. `vscode-window-icon` stays the
   pre-existing advisory.
 - Implement oracle: implemented by implementer-cursor (cursor, vendor xai, model grok-4.7-high), session not reported, max-turns uncapped (no --max-turns flag; bound 500), Done — 2026-11-17T04:25:03Z
+- Review oracle round 1 (2026-11-17): claude-opus-5-5, effort 3, roster general, turn cap 200;
+  session id not exposed. 1 bug, 2 suggestions open; fix pass requested for M1, M2, M3.
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 067ef5a1-8f8f-4f72-9795-d5c1afb566b1, max-turns 200, artifacts general.md, merged.md — 2026-11-17T04:28:04Z
+- Fix pass (2026-11-17): M1, M2, and M3. A faulted async once-hook completes its span before the
+  exception leaves. The MTP adapter holds one `BeginRun` across the class loop. The quiet export
+  probe aims a traces endpoint at its listener. `vscode-window-icon` stays the pre-existing advisory.
+
+## Review
+
+- Round 1: fixed — M1, M2, M3. Round 2 is the host's next review.
 
 ## Notes
 

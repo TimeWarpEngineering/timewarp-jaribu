@@ -32,7 +32,7 @@ The test process exports its own spans. `dev` does not register `TimeWarp.Jaribu
 
 | Variable | Required | Meaning |
 |----------|----------|---------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | to export | OTLP collector base URL. Unset or blank exports nothing |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | to export | OTLP collector base URL. Unset or blank exports nothing. A traces endpoint alone does not export |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | no | `grpc` (the SDK default) or `http/protobuf` |
 | `OTEL_SERVICE_NAME` | no | Overrides the default service name `TimeWarp.Jaribu` |
 | `TRACEPARENT` | no | W3C trace context. Used when the test process has no ambient activity |
@@ -40,7 +40,7 @@ The test process exports its own spans. `dev` does not register `TimeWarp.Jaribu
 
 An invalid `TRACEPARENT` is ignored. The header is not copied onto a span attribute.
 
-The run flushes the exporter when the outermost `RunAllTests`, `RunTests`, or `RunSingleTestAsync` returns, including when the run fails. Process exit flushes again.
+The run flushes the exporter when the outermost `RunAllTests`, `RunTests`, or `RunSingleTestAsync` returns, including when the run fails. `JaribuTelemetry.BeginRun` is that scope for a host that calls `RunTestsAsync` once per class. The MTP adapter holds one scope across the class loop and flushes once when the request returns. Process exit flushes again.
 
 ## Joining `dev test`
 

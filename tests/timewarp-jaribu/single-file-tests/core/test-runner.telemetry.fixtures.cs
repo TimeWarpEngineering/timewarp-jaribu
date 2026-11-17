@@ -54,6 +54,21 @@ using System.Net.Sockets;
     }
   }
 
+  /// <summary>Async SetupOnce that faults after it yields.</summary>
+  public class TelemetryFaultingSetupOnceFixture
+  {
+    public static async Task SetupOnce()
+    {
+      await Task.Yield();
+      throw new InvalidOperationException("setup once failed");
+    }
+
+    public static async Task Should_Pass()
+    {
+      await Task.CompletedTask;
+    }
+  }
+
   /// <summary>One passing test used to read the parent trace.</summary>
   public class TelemetryParentFixture
   {

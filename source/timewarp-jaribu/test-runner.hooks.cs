@@ -9,21 +9,19 @@ using System.Runtime.ExceptionServices;
 #endregion
 
 #region Design
-// Hook methods stay parameterless. The runner stops waiting when the caller
-// token fires. A cancellation during SetupOnce still pairs with CleanUpOnce
-// once SetupOnce has been entered. Cancellation is not stored as a hook failure.
-// CleanUp and CleanUpOnce may overlap a cancelled body or SetupOnce that is
-// still running. Abandoned hook tasks are observed. Hook waits use the class
-// TimeoutAttribute or DefaultHookTimeout. Setup, CleanUp, SetupOnce, and
-// CleanUpOnce are cached per class. A near-miss hook fails the class
-// before any body runs. A throw from Invoke is an invoke failure, and a fault
-// from the Setup task is a body failure. A CleanUpOnce that throws before it
-// returns a task is rethrown here. The class run traces that throw once the
-// caller token has fired, and reports it as a synthetic node otherwise.
-// A near-miss node is given the MethodInfo the diagnostic already holds.
-// NoTests and HookSignature do not look a method up by those names.
-// Setup, CleanUp, SetupOnce, and CleanUpOnce each open a jaribu.hook span for
-// the wait, so a slow fixture is its own span under the test or the class.
+// Hook methods stay parameterless. The runner stops waiting when the caller token fires.
+// A cancellation during SetupOnce still pairs with CleanUpOnce once SetupOnce has been
+// entered. Cancellation is not stored as a hook failure. CleanUp and CleanUpOnce may
+// overlap a cancelled body or SetupOnce that is still running. Abandoned hook tasks are
+// observed. Hook waits use the class TimeoutAttribute or DefaultHookTimeout. Setup,
+// CleanUp, SetupOnce, and CleanUpOnce are cached per class. A near-miss hook fails the
+// class before any body runs. A throw from Invoke is an invoke failure, and a fault from
+// the Setup task is a body failure. A CleanUpOnce that throws before it returns a task
+// is rethrown here. The class run traces that throw once the caller token has fired, and
+// reports it as a synthetic node otherwise. A near-miss node is given the MethodInfo the
+// diagnostic already holds. NoTests and HookSignature do not look a method up by those names.
+// Setup, CleanUp, SetupOnce, and CleanUpOnce each open a jaribu.hook span. A faulted
+// once-hook completes that span as failed or cancelled, then the exception leaves.
 #endregion
 
 public static partial class TestRunner
@@ -374,8 +372,7 @@ public static partial class TestRunner
   }
 
   /// <summary>
-  /// Invokes a resolved once-hook and awaits its Task, unwrapping TargetInvocationException.
-  /// Returns <see cref="WaitKind.Cancelled"/> when the caller token fires.
+  /// Invokes a resolved once-hook, awaits its Task, and returns <see cref="WaitKind.Cancelled"/> when the caller token fires.
   /// </summary>
   private static async Task<WaitKind> InvokeOnceHookAsync(MethodInfo method, CancellationToken cancellationToken)
   {
@@ -398,18 +395,24 @@ public static partial class TestRunner
       return WaitKind.Completed;
     }
 
-    WaitKind kind = await WaitForCompletionAsync(
-      task,
-      CurrentHookTimeoutMilliseconds,
-      cancellationToken).ConfigureAwait(false);
-    TestNodeState state = kind switch
+    try
     {
-      WaitKind.TimedOut => TestNodeState.Timeout,
-      WaitKind.Cancelled => TestNodeState.Cancelled,
-      _ => TestNodeState.Passed
-    };
-    JaribuTelemetry.Complete(span, state, exception: null);
-    return kind;
+      WaitKind kind = await WaitForCompletionAsync(
+        task, CurrentHookTimeoutMilliseconds, cancellationToken).ConfigureAwait(false);
+      TestNodeState state = kind switch
+      {
+        WaitKind.TimedOut => TestNodeState.Timeout,
+        WaitKind.Cancelled => TestNodeState.Cancelled,
+        _ => TestNodeState.Passed
+      };
+      JaribuTelemetry.Complete(span, state, exception: null);
+      return kind;
+    }
+    catch (Exception ex)
+    {
+      JaribuTelemetry.Complete(span, cancellationToken.IsCancellationRequested ? TestNodeState.Cancelled : TestNodeState.Failed, ex);
+      throw;
+    }
   }
 
   /// <summary>
