@@ -54,19 +54,143 @@ keep-last-two prune, release job promotes). Canonical doc:
   decision; file as its own task if wanted.
 - Cutting beta.17. Steve runs `dev release` after this merges and master is green.
 
+## Goal (implementer restatement)
+
+`dev release` refuses to cut beta.17 because no green CI run of `workflow.yml` ever uploads a
+`Packages-*` artifact. CI must build the release packages once, on a green master run, and the
+release event must ship those same bytes instead of rebuilding them.
+
+Acceptance:
+
+- Push-mode `dev workflow` (non-release) packs after test when asked to (`--pack`): the same two
+  packable projects, rebuilt with `JaribuExposeInternals=false`, into `artifacts/packages`, with the
+  fresh-set and no-InternalsVisibleTo gates. Only the ubuntu matrix leg passes `--pack`.
+- The ubuntu leg uploads `Packages-${{ github.run_number }}` only when `github.ref` is
+  `refs/heads/master` (master push or merge-mode dispatch), `if-no-files-found: error`,
+  `retention-days: 7`. Pull requests upload nothing.
+- A keep-last-two prune of `Packages-*` (Nuru's script) runs in its own job after every matrix
+  leg passed; only that job has `actions: write`.
+- On `release: published`, `dev workflow` runs tag-gate, check-version, locate-run,
+  download-artifact, verify, push. It does not clean, build, test, or pack. The release job
+  gets `GH_TOKEN` and `actions: read` for `gh`.
+- `mode=probe` dispatch behaves as before (OIDC login only).
+- Push `paths` filter unchanged.
+- `documentation/developer/guides/releasing.md` describes this repo's promotion sequence.
+- Post-merge: master run green with a `Packages-*` artifact and `dev release --dry-run` all green,
+  recorded in Results. Cutting the release stays a human step.
+
 ## Checklist
 
-- [ ] Pack in push-mode dev workflow on ubuntu
-- [ ] Packages-<run> upload on master pushes and merge dispatches
-- [ ] Keep-last-two prune
-- [ ] Release job promotes, no rebuild
-- [ ] Probe path unchanged
-- [ ] releasing.md
-- [ ] Results: green master run id with Packages-* artifact, dry-run output
+- [x] Pack in push-mode dev workflow on ubuntu
+- [x] Packages-<run> upload on master pushes and merge dispatches
+- [x] Keep-last-two prune
+- [x] Release job promotes, no rebuild
+- [x] Probe path unchanged
+- [x] releasing.md
+- [ ] Results: green master run id with Packages-* artifact, dry-run output (post-merge; see Results)
 
 ## Session
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
+- Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Done — 2026-11-17T20:50:51Z
+- Review oracle: general (Grok, xAI, grok-4.7), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, effort 2, roster general, max-turns 120, round 1 — 2026-11-18. Open finding M1. Disposition not written.
+- Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1eb46-fc8e-7201-a8b5-d2e129ff26f8, max-turns 120, artifacts general.md, merged.md — 2026-11-17T21:03:41Z
+- Implement-fix-2 oracle: implementer-claude (claude, anthropic, claude-opus-5-5) fixed M1 (staged-packages, publish after every leg) — 2026-11-18
+- Review oracle: general (Grok, xAI, grok-4.7), session 01a1eb54-6d74-7181-85bb-5c9ad0d478dd, effort 1, roster general, max-turns 80, round 2 — 2026-11-18. M1 fixed. No new findings. Disposition clean.
+
+## Results
+
+### Changes
+
+- `tools/dev-cli/endpoints/workflow-command.cs`: new `--pack` option. PR/merge mode runs
+  classify, clean, build, test, then pack when `--pack` is set (step 5 of the old release path,
+  moved into `PackAsync`: same packable set, `--no-incremental`, `JaribuExposeInternals=false`,
+  fresh-set and no-InternalsVisibleTo gates). Release mode is now tag-gate, check-version,
+  locate-run, download-artifact, verify, push, with no clean, build, test, or pack. Release push
+  now requires the API key (it used to skip the push silently without one).
+- `tools/dev-cli/endpoints/release-promotion.cs` (new, split out for TWA0038 500-line limit):
+  `gh run list` at HEAD + `CiRunPromotion.OrderCandidateRuns`, then the first run whose
+  artifacts pass `CiRunPromotion.DescribeUnreleasableRun` is downloaded with `gh run download`
+  into a cleared `artifacts/packages`. Modeled on timewarp-nuru `workflow-command.attestation.cs`.
+- `.github/workflows/workflow.yml`: ubuntu leg runs `workflow --pack` and uploads
+  `Packages-${{ github.run_number }}` when `github.ref == 'refs/heads/master'`
+  (`if-no-files-found: error`, `retention-days: 7`). New `packages-prune` job (`needs: test`,
+  `actions: write` only there) with Nuru's keep-last-two script. Release job: `actions: read`,
+  `GH_TOKEN`, no dotnet-coverage install, no package upload. Probe steps and push `paths` unchanged.
+  Superseded by the round-1 fix pass below: the ubuntu leg stages, `packages-prune` publishes.
+- `documentation/developer/guides/releasing.md`: new, this repo's promotion sequence.
+
+### Gates
+
+- `./bin/dev build`: passed.
+- `dotnet run --file tools/dev-cli/dev.cs -- self-install` (dev-cli changed): compiled and
+  installed; first attempt failed TWA0038 (workflow-command.cs 532 lines), fixed by the
+  `release-promotion.cs` split, rerun passed.
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/release-gate.decisions.cs`
+  (covers `ReleaseGate`, used by pack and verify; no test references `WorkflowCommand`): 5/5 passed.
+- `ganda repo audit` (post-commit attest): failed `package-pin-currency` (pre-existing:
+  `TimeWarp.SourceGenerators` 1.0.0-beta.16 behind beta.17). Boy-scout fix: `ganda repo audit --fix`
+  bumped the pin in `Directory.Packages.props`; that audit run reported "Repository passes all
+  audit checks". `./bin/dev build` rerun after the bump: passed.
+
+### Fix pass (review round 1, M1)
+
+- `.github/workflows/workflow.yml`: the ubuntu leg no longer uploads `Packages-<run>`. It
+  uploads `staged-packages` (`if-no-files-found: error`, `retention-days: 3`) on
+  `refs/heads/master`. `packages-prune` (now named "publish and prune Packages artifacts")
+  downloads `staged-packages`, uploads `Packages-${{ github.run_number }}`
+  (`if-no-files-found: error`, `retention-days: 7`), runs the keep-last-two prune, then
+  deletes `staged-packages` (`continue-on-error`). Same shape as timewarp-nuru's `ci` job. A
+  run whose windows or macos leg fails leaves only `staged-packages`, which the
+  `Packages-*` prune and locate-run never see.
+- `documentation/developer/guides/releasing.md`: steps 3 and 4 describe the staging.
+- Gates: `./bin/dev build`: passed. No C# changed, so no test file covers this change
+  (workflow YAML parsed with `yaml.safe_load`: jobs test, packages-prune, release; no
+  actionlint installed). `ganda repo audit`: passed ("Repository passes all audit checks").
+
+### How to validate
+
+Smoke (release path, no key, nothing pushed):
+
+```
+env -u NUGET_API_KEY GITHUB_EVENT_NAME=release GITHUB_REF_NAME=v1.0.0-beta.17 ./bin/dev workflow
+```
+
+Expect, at a commit with no CI run: tag gate and check-version pass (`1.0.0-beta.17`, one
+increment ahead of beta.16), then `No successful CI run of workflow.yml exists for commit <sha>`.
+Observed on 4aa943c.
+
+At master 8a6e22e (shared clone, same command), expect locate-run to find run 44166636232 and
+download to refuse: `No successful CI run for commit 8a6e22e... has a live Packages-* artifact.
+Re-run CI on that commit (gh run rerun 44166636232). skipped run 44166636232 (workflow_dispatch,
+no Packages-* artifact)`. Observed.
+
+`./bin/dev workflow --help` lists `--pack`. The PR CI ubuntu leg runs `workflow --pack`, which
+exercises pack and its gates; the PR uploads no `Packages-*`.
+
+Post-merge (not runnable before merge): the master push run is green, its
+`packages-prune` job lists `Packages-<run_number>`, and the run has no `staged-packages` left; from a synced master `dev release --dry-run` prints all guards green.
+Record that run id and the dry-run output here. Cutting beta.17 stays with Steve.
+
+### Review
+
+Rounds 1–2, roster general. Round 1 effort 2 (726 lines, turn cap 120). Round 2 effort 1 (177 lines, turn cap 80).
+
+Round 1 raised M1 (bug): the ubuntu leg uploaded `Packages-*` before the other OS legs finished. The fix pass publishes `Packages-<run>` from `packages-prune` after every test leg succeeded. Round 2 re-read delta `3f14037..HEAD` and the fix-pass record. M1 is fixed. No new findings.
+
+Final counts: bug 0 open, 1 fixed, 0 wontfix. Suggestion 0. Nit 0. Disposition: clean. No wontfix. No escalation.
+
+Paths: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md`.
+
+The goal restatement matches the original task. No misread. `packages-prune` publishes `Packages-*` because that is the M1 fix of the shared "ubuntu uploads `Packages-*`" sentence.
+
+## Review
+
+- Round 1: Blocked — open M1
+- Round 2: Done
+## Learnings
+
+Round 2 compared `## Goal (implementer restatement)` with the original requirements. They match. `--pack` is how the ubuntu leg is told to pack. No misread.
 
 ## Notes
 
