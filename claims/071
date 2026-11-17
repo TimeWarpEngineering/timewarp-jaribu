@@ -1,1 +1,1 @@
-{"task":"071","holder":"cramer","session":"1871288","machine":"TWE-001","acquiredAt":"2026-11-17T02:31:44.8255155+00:00","isBoardClaim":false}
+{"task":"071","holder":"cramer","session":"1871288","machine":"TWE-001","worktree":"/home/steve/worktrees/github.com/TimeWarpEngineering/timewarp-jaribu/task-071-emit-a-telemetry-span-per-test-with-its-duration","branch":"task/071-emit-a-telemetry-span-per-test-with-its-duration","acquiredAt":"2026-11-17T02:31:44.8255155+00:00","isBoardClaim":false}
