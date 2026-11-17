@@ -124,7 +124,10 @@ Acceptance:
   `release-promotion.cs` split, rerun passed.
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/release-gate.decisions.cs`
   (covers `ReleaseGate`, used by pack and verify; no test references `WorkflowCommand`): 5/5 passed.
-- `ganda repo audit`: see below.
+- `ganda repo audit` (post-commit attest): failed `package-pin-currency` (pre-existing:
+  `TimeWarp.SourceGenerators` 1.0.0-beta.16 behind beta.17). Boy-scout fix: `ganda repo audit --fix`
+  bumped the pin in `Directory.Packages.props`; that audit run reported "Repository passes all
+  audit checks". `./bin/dev build` rerun after the bump: passed.
 
 ### How to validate
 
