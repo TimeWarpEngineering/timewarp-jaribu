@@ -74,7 +74,7 @@ public partial class RunfileCoverage_Given_
 
         string root = FindRepoRoot();
         string project = Path.Combine(root, "tests", "timewarp-jaribu", "coverage-tool-fake", "coverage-tool-fake.csproj");
-        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.Shell.Builder("dotnet")
+        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.DotNet.Builder()
           .WithArguments("build", project, "-c", "Release", "--nologo")
           .WithWorkingDirectory(root)
           .WithNoValidation()
@@ -127,7 +127,7 @@ public partial class RunfileCoverage_Given_
         arguments.Add(moduleFilter);
       }
 
-      TimeWarp.Amuru.ShellBuilder builder = TimeWarp.Amuru.Shell.Builder("dotnet")
+      TimeWarp.Amuru.DotNetBuilder builder = TimeWarp.Amuru.DotNet.Builder()
         .WithArguments([.. arguments])
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable(RunfileCoverageOptions.ToolVariableName, toolPath)
@@ -318,7 +318,7 @@ public partial class RunfileCoverage_Given_
           "timewarp-jaribu",
           "coverage-muxer-host",
           "coverage-muxer-host.csproj");
-        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.Shell.Builder("dotnet")
+        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.DotNet.Builder()
           .WithArguments("build", project, "-c", "Release", "--nologo")
           .WithWorkingDirectory(root)
           .WithNoValidation()

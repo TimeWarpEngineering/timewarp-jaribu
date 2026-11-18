@@ -46,13 +46,31 @@ are reported (run list/download, api, auth token/status, issue, pr, release); ot
 - Bump `<Version>` in `source/Directory.Build.props` to 1.0.0-beta.18 (consumers of
   beta.17 get the Amuru floor change via this release).
 
+## Goal (implementer restatement)
+
+Move Jaribu onto TimeWarp.Amuru / Amuru.Tools 3.0.0-beta.9 and make the build clean under
+the new AMURU0001 analyzer by rewriting every reported `Shell.Builder("dotnet")` /
+`Shell.Builder("gh")` call onto the typed `DotNet.*` / `Gh.*` builders (no pragma, no
+.editorconfig downgrade). Drop the hand-rolled TRACEPARENT propagation in the dev CLI where
+Amuru now does it from `Activity.Current`, or keep it with a comment where a call bypasses
+Amuru. Bump the Jaribu package version to 1.0.0-beta.18.
+
+Acceptance:
+- Both pins at 3.0.0-beta.9; `dev build` passes with zero AMURU0001.
+- Each former raw dotnet/gh site with a typed builder uses it; AMURU0002 sites left as-is with
+  an amuru task filed.
+- Coverage relaunch in `runfile-coverage.static.cs` keeps the same child argument order.
+- Hand TRACEPARENT code removed or justified.
+- `<Version>` is 1.0.0-beta.18.
+- Touched test files pass when run alone.
+
 ## Checklist
 
-- [ ] Pins at beta.9, build clean with zero AMURU0001
-- [ ] dotnet sites on typed builders; gh sites on `Gh` builders
-- [ ] Hand TRACEPARENT code removed or justified in a comment
-- [ ] Span parenting confirmed in SigNoz for `dev test`
-- [ ] Version bumped to 1.0.0-beta.18
+- [x] Pins at beta.9, build clean with zero AMURU0001 (library + tests; dev CLI blocked, see Results)
+- [x] dotnet sites on typed builders; gh sites on `Gh` builders
+- [x] Hand TRACEPARENT code removed or justified in a comment
+- [ ] Span parenting confirmed in SigNoz for `dev test` (needs the dev CLI to compile)
+- [x] Version bumped to 1.0.0-beta.18
 
 ## Depends on
 
@@ -61,6 +79,65 @@ are reported (run list/download, api, auth token/status, issue, pr, release); ot
 ## Session
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
+
+## Results
+
+### Changes
+
+- `Directory.Packages.props`: TimeWarp.Amuru and TimeWarp.Amuru.Tools 3.0.0-beta.5 -> 3.0.0-beta.9.
+- `source/Directory.Build.props`: Version 1.0.0-beta.17 -> 1.0.0-beta.18.
+- `source/timewarp-jaribu/timewarp-jaribu.csproj`: adds `TimeWarp.Amuru.Tools` (the library's
+  coverage build now uses `DotNet.Builder()`, which lives in Tools; Tools adds only NuGet.Versioning).
+- Typed builder where it expresses the call exactly:
+  - `test-runner.tautology.cs`: `DotNet.Build().WithProject().WithNoIncremental().WithNoLogo()`
+    (`--no-incremental` is the CLI's forward of `-target:Rebuild`).
+  - `workflow-command.cs`: `DotNet.MsBuild(project).WithGetProperty("Version").WithNoLogo()`
+    (same argv: `msbuild <proj> -getProperty:Version -nologo`).
+  - `release-promotion.cs`: `Gh.Run().List()`, `Gh.Api(endpoint)`, `Gh.Run().Download(id)`.
+  - `ci-test-suite.cs` ci-runner: already `DotNet.Run()`; wrapper removed.
+- Base `DotNet.Builder().WithArguments(<same args>)` where the typed builder lacks an option
+  the call needs (timeout, `--artifacts-path`, MTP extension args, `run <file> --nologo`):
+  `runfile-coverage.static.cs`, `ci-test-suite.cs` (MTP), `benchmark-suite.cs`,
+  `benchmark-in-process.cs`, `benchmark-measure.cs`, `mtp-validation-harness.cs`,
+  `mtp-node-identity.cs`, `testing-platform-props.transitive-consumer.cs`,
+  `test-runner.telemetry.cs`, `test-runner.runfile-coverage.launch.cs` (3 sites).
+  Gaps filed as timewarp-amuru 153.
+- `tools/dev-cli/endpoints/trace-parent-propagation.cs` deleted: Amuru beta.9
+  `TraceContextPropagation` sets TRACEPARENT/TRACESTATE on every child from
+  `Activity.Current` unless the caller set the key (the telemetry test still sets
+  TRACEPARENT explicitly, and an explicit key wins).
+- No AMURU0002 hit.
+- Coverage build argv (`runfile-coverage.static.cs`), before and after:
+  `dotnet build <entry> --artifacts-path <dir> --nologo --verbosity minimal`. Unchanged
+  because the same argument list is passed to `DotNet.Builder()`.
+
+### Blocked
+
+`dotnet run --file tools/dev-cli/dev.cs -- self-install` fails with AMURU0001 in source that
+`TimeWarp.Nuru.DevCli` 4.0.0-beta.15 (latest) ships as content and compiles into this dev CLI:
+`release-command.cs:142` (gh auth status), `release-command.guards.cs:266` (gh run list),
+`:287` (gh api), `services/github-packages-credential.cs:47` (gh auth token),
+`services/packable-project-service.cs:221` (dotnet msbuild). Filed timewarp-nuru 598.
+Unblock: a Nuru.DevCli release with typed builders, then bump `TimeWarp.Nuru.DevCli` here,
+self-install, and finish the dev CLI gates (`dev test`, benchmark endpoints, SigNoz
+parenting check).
+
+### How to validate
+
+Smoke: `./bin/dev build` and `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs`
+Expect: build succeeds with no AMURU0001; coverage runfile prints `Passed: 16`.
+
+### Gates
+
+- `./bin/dev build` -> pass (0 errors, 0 AMURU diagnostics)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs` -> 22/22 pass
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.telemetry.cs` -> 7/7 pass
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` -> 16/16 pass (runs the edited `.launch.cs` and `.static.cs` partials, and covers `source/.../runfile-coverage.static.cs`)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/mtp-validation-harness.cs` -> 5/5 pass
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` -> 1/1 pass
+- `mtp/mtp-node-identity.cs`: does not run standalone (CS7022 on the generated MTP entry point, no `GenerateTestingPlatformEntryPoint=false` directive in the file). This predates the change; the multi-file runners run it in CI.
+- `dotnet run --file tools/dev-cli/dev.cs -- self-install` -> FAIL (blocked, see above)
+- `ganda repo audit` -> not run; work is not finished.
 
 ## Notes
 

@@ -13,6 +13,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="TimeWarp.Amuru" />
+    <PackageReference Include="TimeWarp.Amuru.Tools" />
     <PackageReference Include="TimeWarp.Terminal" />
     <ProjectReference
       Include="..\timewarp-jaribu-analyzers\timewarp-jaribu-analyzers.csproj"

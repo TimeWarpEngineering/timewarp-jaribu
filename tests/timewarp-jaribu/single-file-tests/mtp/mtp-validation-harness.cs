@@ -235,7 +235,7 @@ namespace Mtp_
       }
 
       allArguments.AddRange(arguments);
-      CommandOutput output = await Shell.Builder("dotnet")
+      CommandOutput output = await DotNet.Builder()
         .WithArguments([.. allArguments])
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable("JARIBU_FILTER_TAG", "")

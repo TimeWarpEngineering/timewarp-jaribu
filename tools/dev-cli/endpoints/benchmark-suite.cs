@@ -223,7 +223,7 @@ internal static class BenchmarkSuite
   private static async Task GenerateAsync(string repo, CancellationToken cancellationToken)
   {
     string generator = Path.Combine(repo, "benchmarks", "generator", "generate-workloads.cs");
-    CommandOutput output = await Shell.Builder("dotnet")
+    CommandOutput output = await DotNet.Builder()
       .WithArguments("run", generator, "--nologo", "--", "--repo", repo)
       .WithWorkingDirectory(repo)
       .WithNoValidation()

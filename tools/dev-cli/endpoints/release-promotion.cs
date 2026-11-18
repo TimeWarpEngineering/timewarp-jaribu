@@ -42,8 +42,11 @@ internal static class ReleasePromotion
     CommandOutput runListResult;
     try
     {
-      runListResult = await Shell.Builder("gh")
-        .WithArguments("run", "list", "--workflow", "workflow.yml", "--commit", headSha, "--status", "success", "--json", "databaseId,event,headSha,createdAt")
+      runListResult = await Gh.Run().List()
+        .WithWorkflow("workflow.yml")
+        .WithCommit(headSha)
+        .WithStatus("success")
+        .WithJson("databaseId", "event", "headSha", "createdAt")
         .WithWorkingDirectory(repoRoot)
         .WithNoValidation()
         .CaptureAsync(cancellationToken)
@@ -85,8 +88,7 @@ internal static class ReleasePromotion
     List<string> skipped = [];
     foreach (CiRunSummary run in candidateRuns)
     {
-      CommandOutput artifactsResult = await Shell.Builder("gh")
-        .WithArguments("api", $"repos/{{owner}}/{{repo}}/actions/runs/{run.DatabaseId}/artifacts")
+      CommandOutput artifactsResult = await Gh.Api($"repos/{{owner}}/{{repo}}/actions/runs/{run.DatabaseId}/artifacts")
         .WithWorkingDirectory(repoRoot)
         .WithNoValidation()
         .CaptureAsync(cancellationToken)
@@ -112,11 +114,10 @@ internal static class ReleasePromotion
       ReleaseGate.ClearPackageDirectory(artifactsDir);
       terminal.WriteLine($"Downloading '{artifact.Name}' from run {run.DatabaseId} ({run.Event})...");
 
-      int exitCode = await Shell.Builder("gh")
-        .WithArguments(
-          "run", "download", run.DatabaseId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-          "--name", artifact.Name,
-          "--dir", artifactsDir)
+      int exitCode = await Gh.Run()
+        .Download(run.DatabaseId.ToString(System.Globalization.CultureInfo.InvariantCulture))
+        .WithName(artifact.Name)
+        .WithDirectory(artifactsDir)
         .WithWorkingDirectory(repoRoot)
         .RunAsync(cancellationToken)
         .ConfigureAwait(false);
