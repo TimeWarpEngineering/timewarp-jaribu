@@ -7,6 +7,12 @@ namespace TautologyAnalyzerFixture;
 public static class NegativeSubject
 {
   public static int Compute(int value) => value;
+
+  // Production methods whose names look like assertions. They are not assertions.
+  public static bool ShouldRefuse(string cwd, string gitRoot, string? claimPath) =>
+    string.Equals(cwd, gitRoot, StringComparison.Ordinal) && claimPath is not null;
+
+  public static bool Same(int left, int right) => left == right;
 }
 
 public static class Negative_
@@ -80,6 +86,22 @@ public static class Negative_
     }
 
     saw.ShouldBe(true);
+    await Task.CompletedTask;
+  }
+
+  public static async Task ShouldNamedProduction_Should_NotFlag()
+  {
+    string claim = "/claim";
+    string root = "/root";
+    NegativeSubject.ShouldRefuse(claim, claim, claim).ShouldBeTrue();
+    NegativeSubject.ShouldRefuse(root, root, null).ShouldBeFalse();
+    await Task.CompletedTask;
+  }
+
+  public static async Task AssertNamedProduction_Should_NotFlag()
+  {
+    int value = NegativeSubject.Compute(3);
+    NegativeSubject.Same(value, value).ShouldBeTrue();
     await Task.CompletedTask;
   }
 }
