@@ -79,6 +79,7 @@ Acceptance:
 ## Session
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
+- Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Blocked — 2026-11-18T05:37:14Z
 
 ## Results
 
@@ -144,3 +145,9 @@ Expect: build succeeds with no AMURU0001; coverage runfile prints `Passed: 16`.
 Steve 2026-11-18: "Consumer repos can now bump to Amuru beta.9. Expect AMURU0001 compile
 errors wherever they still call Shell.Builder("dotnet") with a verb that has a typed builder."
 Sibling: ganda 670 does the same bump plus Jaribu beta.17.
+
+## Blocked
+
+2026-11-18: TimeWarp.Nuru.DevCli content raises AMURU0001 under Amuru 3.0.0-beta.9 so the dev CLI cannot compile; needs timewarp-nuru 598 released, then bump TimeWarp.Nuru.DevCli here https://github.com/TimeWarpEngineering/timewarp-nuru/tree/master/kanban/to-do/598-move-dev-cli-content-gh-and-dotnet-shell-calls-to-the-amuru-beta-9-typed-builders
+
+- https://github.com/TimeWarpEngineering/timewarp-nuru/tree/master/kanban/to-do/598-move-dev-cli-content-gh-and-dotnet-shell-calls-to-the-amuru-beta-9-typed-builders
