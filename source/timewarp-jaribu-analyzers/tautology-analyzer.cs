@@ -97,11 +97,13 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
       return;
     }
 
+    AssertionApi assertions = new(context.SemanticModel, context.CancellationToken);
+
     if (method.Body is null)
     {
       if (method.ExpressionBody is not null &&
-          !HasAssertion(method.ExpressionBody) &&
-          !HasProductionCall(method.ExpressionBody) &&
+          !HasAssertion(method.ExpressionBody, assertions) &&
+          !HasProductionCall(method.ExpressionBody, assertions) &&
           !HasObjectCreation(method.ExpressionBody))
       {
         context.ReportDiagnostic(Diagnostic.Create(
@@ -119,23 +121,28 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
       return;
     }
 
-    if (!HasAssertion(method.Body) && !HasProductionCall(method.Body) && !HasObjectCreation(method.Body))
+    if (!HasAssertion(method.Body, assertions) &&
+        !HasProductionCall(method.Body, assertions) &&
+        !HasObjectCreation(method.Body))
     {
       context.ReportDiagnostic(Diagnostic.Create(NoAssertionRule, method.Identifier.GetLocation(), method.Identifier.Text));
     }
 
     foreach (InvocationExpressionSyntax invocation in method.Body.DescendantNodes().OfType<InvocationExpressionSyntax>())
     {
-      if (TrySelfComparison(invocation, out string symbol))
+      if (TrySelfComparison(invocation, assertions, out string symbol))
       {
         context.ReportDiagnostic(Diagnostic.Create(SelfComparisonRule, invocation.GetLocation(), symbol));
       }
     }
 
-    ReportAssignedLiterals(context, method);
+    ReportAssignedLiterals(context, method, assertions);
   }
 
-  private static void ReportAssignedLiterals(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method)
+  private static void ReportAssignedLiterals(
+    SyntaxNodeAnalysisContext context,
+    MethodDeclarationSyntax method,
+    AssertionApi assertions)
   {
     if (method.Body is null)
     {
@@ -145,7 +152,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
     List<AssignedLiteral> assigned = [];
     foreach (StatementSyntax statement in method.Body.Statements)
     {
-      if (ClearsLiterals(statement))
+      if (ClearsLiterals(statement, assertions))
       {
         assigned.Clear();
         continue;
@@ -153,7 +160,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
 
       foreach (InvocationExpressionSyntax invocation in statement.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
       {
-        if (TryAssignedLiteral(invocation, assigned, out string literal))
+        if (TryAssignedLiteral(invocation, assigned, assertions, out string literal))
         {
           context.ReportDiagnostic(Diagnostic.Create(AssignedLiteralRule, invocation.GetLocation(), literal));
         }
@@ -213,16 +220,16 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
     assigned.RemoveAll(entry => entry.Name == name);
   }
 
-  private static bool ClearsLiterals(StatementSyntax statement)
+  private static bool ClearsLiterals(StatementSyntax statement, AssertionApi assertions)
   {
-    if (HasProductionCall(statement) || HasObjectCreation(statement))
+    if (HasProductionCall(statement, assertions) || HasObjectCreation(statement))
     {
       return true;
     }
 
     foreach (MemberAccessExpressionSyntax access in statement.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
     {
-      if (access.Parent is InvocationExpressionSyntax invocation && IsAssertion(invocation))
+      if (access.Parent is InvocationExpressionSyntax invocation && assertions.IsAssertion(invocation))
       {
         continue;
       }
@@ -241,10 +248,11 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
   private static bool TryAssignedLiteral(
     InvocationExpressionSyntax invocation,
     List<AssignedLiteral> assigned,
+    AssertionApi assertions,
     out string literalText)
   {
     literalText = string.Empty;
-    if (!IsAssertion(invocation) ||
+    if (!assertions.IsAssertion(invocation) ||
         invocation.Expression is not MemberAccessExpressionSyntax member ||
         member.Expression is not IdentifierNameSyntax receiver ||
         invocation.ArgumentList.Arguments.Count == 0 ||
@@ -279,10 +287,13 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
     public string Literal { get; }
   }
 
-  private static bool TrySelfComparison(InvocationExpressionSyntax invocation, out string symbol)
+  private static bool TrySelfComparison(
+    InvocationExpressionSyntax invocation,
+    AssertionApi assertions,
+    out string symbol)
   {
     symbol = string.Empty;
-    if (!IsAssertion(invocation) || invocation.Expression is not MemberAccessExpressionSyntax member)
+    if (!assertions.IsAssertion(invocation) || invocation.Expression is not MemberAccessExpressionSyntax member)
     {
       return false;
     }
@@ -379,7 +390,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
     return true;
   }
 
-  private static bool HasAssertion(SyntaxNode node)
+  private static bool HasAssertion(SyntaxNode node, AssertionApi assertions)
   {
     if (node.DescendantNodesAndSelf().OfType<ThrowStatementSyntax>().Any() ||
         node.DescendantNodesAndSelf().OfType<ThrowExpressionSyntax>().Any())
@@ -389,7 +400,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
 
     foreach (InvocationExpressionSyntax invocation in node.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
     {
-      if (IsAssertion(invocation))
+      if (assertions.IsAssertion(invocation))
       {
         return true;
       }
@@ -404,7 +415,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
       node.DescendantNodesAndSelf().OfType<ImplicitObjectCreationExpressionSyntax>().Any();
   }
 
-  private static bool HasProductionCall(SyntaxNode node)
+  private static bool HasProductionCall(SyntaxNode node, AssertionApi assertions)
   {
     foreach (InvocationExpressionSyntax invocation in node.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
     {
@@ -414,7 +425,7 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
         return true;
       }
 
-      if (!IsAssertion(invocation) && !NonAssertions.Contains(name) && !NotProof.Contains(name))
+      if (!assertions.IsAssertion(invocation) && !NonAssertions.Contains(name) && !NotProof.Contains(name))
       {
         return true;
       }
@@ -430,43 +441,6 @@ public sealed class TautologyAnalyzer : DiagnosticAnalyzer
       IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
       MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
       _ => null
-    };
-  }
-
-  private static bool IsAssertion(InvocationExpressionSyntax invocation)
-  {
-    string? name = InvocationName(invocation);
-    if (name is null)
-    {
-      return false;
-    }
-
-    if (name.StartsWith("Should", StringComparison.Ordinal))
-    {
-      return true;
-    }
-
-    if (name is "Equal" or "AreEqual" or "NotEqual" or "AreNotEqual"
-        or "False" or "Fail" or "NotNull" or "Same" or "NotSame")
-    {
-      return true;
-    }
-
-    if (name is not ("True" or "Null" or "Contains" or "Empty" or "Single"))
-    {
-      return false;
-    }
-
-    return invocation.Expression is MemberAccessExpressionSyntax member && IsAssertReceiver(member.Expression);
-  }
-
-  private static bool IsAssertReceiver(ExpressionSyntax expression)
-  {
-    return expression switch
-    {
-      IdentifierNameSyntax identifier => identifier.Identifier.ValueText == "Assert",
-      MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText == "Assert",
-      _ => false
     };
   }
 
