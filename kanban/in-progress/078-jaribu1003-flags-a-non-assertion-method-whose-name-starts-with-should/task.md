@@ -112,10 +112,27 @@ Expect: the fixture build reports JARIBU1003 at `positive.cs(33,5)` ('value') an
 It reports no `negative.cs(` diagnostics, so `ShouldRefuse(claim, claim, claim)` and `Same(value, value)` are silent.
 The runfile passes 22/22.
 
+### Review
+
+- Round 1. Effort 2. Roster: general (review oracle, Grok).
+- Counts: bug 0 open / 0 fixed / 0 wontfix, suggestion 0, nit 0. Final open count: 0.
+- Disposition: clean (`review/disposition.md`). No wontfix and no escalation.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
 ## Session
 
 - Created: 64677b22-d705-4b25-b537-4b53732bcb92 (2026-11-18)
 - Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Done — 2026-11-18T05:57:00Z
+- Review oracle: grok session 01a1ed3a-fe89-7982-bfec-444ca59840f7 (2026-11-18), effort 2, roster general, round 1
+- Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1ed3a-fe89-7982-bfec-444ca59840f7, max-turns 120, artifacts general.md, merged.md, disposition.md — 2026-11-18T06:10:03Z
+
+## Learnings
+
+- Misread: requirement 1 names Shouldly's `Should*` extension classes, Jaribu's own assertions, and the Assert-style types the rule already covered. The restatement widens Shouldly to every type whose root namespace is `Shouldly` (that includes `ShouldlyConfiguration` and `Shouldly.Configuration`) and widens Assert to any type whose name ends with `Assert` (`CollectionAssert`, `StringAssert`, `ClassicAssert`). Jaribu ships no assertion types; that part matches the source. The code and `documentation/tautology.md` follow the wider rule. It is not a finding. `Should.Throw` and `ObjectGraphTestExtensions.ShouldBeEquivalentTo` are real assertions a `Should*` type-name filter would miss. Configuration methods are not the two-identifier shape JARIBU1003 reports, and a lone configuration call was already a production call, so JARIBU1002 stays quiet either way.
+
+## Review
+
+- Round 1: Done
 
 ## Notes
 
