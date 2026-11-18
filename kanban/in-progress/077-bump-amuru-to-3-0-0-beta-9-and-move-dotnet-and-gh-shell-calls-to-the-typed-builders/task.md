@@ -91,6 +91,7 @@ the touched test files pass alone.
 - Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 15c48a64-29ad-4af8-94a1-63cad29dc44f, max-turns 500, Done — 2026-11-18T10:57:11Z
 - Review oracle: general reviewer, grok, session 01a1ee4d-d3cb-7f53-a7b2-3ea0e7d05a75, effort 2, round 1 open (M1, M2, M3) — 2026-11-18
 - Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1ee4d-d3cb-7f53-a7b2-3ea0e7d05a75, max-turns 120, artifacts general.md, merged.md — 2026-11-18T11:13:39Z
+- Review oracle round 2: general reviewer, grok, session 01a1ee61-93fb-7ce2-a79f-2acbd030c188, effort 2, clean (M1, M2, M3 fixed) — 2026-11-18
 
 ## Results
 
@@ -206,10 +207,19 @@ Fix pass, review round 1:
 - `ci-test-suite.cs` MTP run: no standalone test; `dev test` in CI runs it.
 - `ganda repo audit` -> pass (exit 0). Advisory `vscode-window-icon` warning only, pre-existing.
 
+### Review disposition
+
+- Rounds: 2. Roster: general. Effort: 2.
+- Round 2 re-checked M1, M2, and M3 on `448d3cc..97e4ca3`.
+- Counts: bug 0 open / 0 fixed / 0 wontfix; suggestion 0 open / 2 fixed / 0 wontfix; nit 0 open / 1 fixed / 0 wontfix.
+- Disposition: clean. No wontfix. No escalation.
+- Paths: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md`.
+
 ## Review
 
-- Round 1: Blocked — open M1, M2, M3
-
+- Round 1 (2026-11-18): open M1, M2, M3. The fix pass closed them.
+- Round 2 (2026-11-18): clean. M1, M2, and M3 fixed. No new findings.
+- Round 2: Done
 ## Notes
 
 Steve 2026-11-18: "Consumer repos can now bump to Amuru beta.9. Expect AMURU0001 compile
