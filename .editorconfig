@@ -464,5 +464,3 @@ dotnet_diagnostic.IDE0005.severity = none
 # NuGet imports this directory name as written. A kebab rename would not flow
 # the adapter targets (task 056).
 kebab-path-names.prune = buildTransitive
-# Amuru 3.0.0-beta.9 adds AMURU0001; Shell.Builder("dotnet") call sites move to DotNet.* first (task 079).
-package-pin-currency.hold = TimeWarp.Amuru=3.0.0-beta.5 | AMURU0001 migration pending | timewarp-jaribu 079, TimeWarp.Amuru.Tools=3.0.0-beta.5 | AMURU0001 migration pending | timewarp-jaribu 079

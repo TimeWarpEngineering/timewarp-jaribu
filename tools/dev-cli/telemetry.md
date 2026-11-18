@@ -4,7 +4,7 @@
 
 Every route, including the DevCli routes (`clean`, `check-version`, `release`, `self-install`), gets one `TimeWarp.Nuru.Behavior` command span and a duration metric. The dev process does not register an `ActivitySource`. `dev workflow` does not emit stage spans.
 
-`dev test` copies the command span into `TRACEPARENT` on the runfile and `dotnet test` children. Those processes register `TimeWarp.Jaribu` and export `jaribu.class`, `jaribu.test`, and `jaribu.hook` spans when the endpoint below is set. The span contract is [documentation/telemetry.md](../../documentation/telemetry.md). The GitHub Actions workflows in this repo do not set a collector or an endpoint.
+`dev test` launches the runfile and `dotnet test` children through Amuru, which sets `TRACEPARENT` on each child from the command span (`Activity.Current`). Those processes register `TimeWarp.Jaribu` and export `jaribu.class`, `jaribu.test`, and `jaribu.hook` spans when the endpoint below is set. The span contract is [documentation/telemetry.md](../../documentation/telemetry.md). The GitHub Actions workflows in this repo do not set a collector or an endpoint.
 
 ## Environment
 
