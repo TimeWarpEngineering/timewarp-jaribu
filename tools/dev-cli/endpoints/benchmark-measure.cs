@@ -273,7 +273,7 @@ internal static class BenchmarkMeasure
     TimeSpan limit,
     CancellationToken cancellationToken)
   {
-    ShellBuilder builder = Shell.Builder("dotnet")
+    DotNetBuilder builder = DotNet.Builder()
       .WithArguments([.. arguments])
       .WithWorkingDirectory(repo)
       .WithNoValidation()

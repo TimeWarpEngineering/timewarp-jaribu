@@ -347,7 +347,7 @@ namespace TestingPlatformProps_
     private static async Task<CommandOutput> RunDotNetAsync(string workingDirectory, params string[] arguments)
     {
       using CancellationTokenSource timeout = new(DotNetTimeout);
-      ShellBuilder builder = Shell.Builder("dotnet")
+      DotNetBuilder builder = DotNet.Builder()
         .WithArguments(arguments)
         .WithWorkingDirectory(workingDirectory)
         .WithEnvironmentVariable("CORECLR_ENABLE_PROFILING", "0")

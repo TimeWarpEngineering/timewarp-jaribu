@@ -356,8 +356,9 @@ internal sealed class WorkflowCommand : ICommand<Unit>
       CancellationToken cancellationToken
     )
     {
-      CommandOutput result = await Shell.Builder("dotnet")
-        .WithArguments("msbuild", projectPath, "-getProperty:Version", "-nologo")
+      CommandOutput result = await DotNet.MsBuild(projectPath)
+        .WithGetProperty("Version")
+        .WithNoLogo()
         .WithWorkingDirectory(repoRoot)
         .WithNoValidation()
         .CaptureAsync(cancellationToken)

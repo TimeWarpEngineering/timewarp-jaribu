@@ -253,7 +253,7 @@ namespace TestRunner_
       string? tracesEndpoint = null)
     {
       bool export = endpoint is not null || tracesEndpoint is not null;
-      return Shell.Builder("dotnet")
+      return DotNet.Builder()
         .WithArguments("run", probe)
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint ?? string.Empty)

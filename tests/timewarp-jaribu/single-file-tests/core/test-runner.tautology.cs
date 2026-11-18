@@ -374,8 +374,10 @@ namespace Tautology_
         "timewarp-jaribu",
         "tautology-analyzer-fixture",
         "tautology-analyzer-fixture.csproj");
-      CommandOutput output = await Shell.Builder("dotnet")
-        .WithArguments("build", project, "-t:Rebuild", "--nologo")
+      CommandOutput output = await DotNet.Build()
+        .WithProject(project)
+        .WithNoIncremental()
+        .WithNoLogo()
         .WithWorkingDirectory(root)
         .WithNoValidation()
         .CaptureAsync();

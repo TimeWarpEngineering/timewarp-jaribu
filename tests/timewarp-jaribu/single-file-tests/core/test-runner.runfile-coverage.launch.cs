@@ -74,12 +74,7 @@ public partial class RunfileCoverage_Given_
 
         string root = FindRepoRoot();
         string project = Path.Combine(root, "tests", "timewarp-jaribu", "coverage-tool-fake", "coverage-tool-fake.csproj");
-        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.Shell.Builder("dotnet")
-          .WithArguments("build", project, "-c", "Release", "--nologo")
-          .WithWorkingDirectory(root)
-          .WithNoValidation()
-          .WithTimeout(TimeSpan.FromMinutes(3))
-          .CaptureAsync();
+        TimeWarp.Amuru.CommandOutput build = await BuildReleaseAsync(root, project);
         build.ExitCode.ShouldBe(0, build.Combined);
 
         string built = Path.Combine(
@@ -107,6 +102,16 @@ public partial class RunfileCoverage_Given_
       }
     }
 
+    private static Task<TimeWarp.Amuru.CommandOutput> BuildReleaseAsync(string root, string project) =>
+      TimeWarp.Amuru.DotNet.Build()
+        .WithProject(project)
+        .WithConfiguration("Release")
+        .WithNoLogo()
+        .WithWorkingDirectory(root)
+        .WithNoValidation()
+        .WithTimeout(TimeSpan.FromMinutes(3))
+        .CaptureAsync();
+
     private static Task<TimeWarp.Amuru.CommandOutput> RunProbeAsync(
       ProbeRun run,
       string mode,
@@ -127,7 +132,7 @@ public partial class RunfileCoverage_Given_
         arguments.Add(moduleFilter);
       }
 
-      TimeWarp.Amuru.ShellBuilder builder = TimeWarp.Amuru.Shell.Builder("dotnet")
+      TimeWarp.Amuru.DotNetBuilder builder = TimeWarp.Amuru.DotNet.Builder()
         .WithArguments([.. arguments])
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable(RunfileCoverageOptions.ToolVariableName, toolPath)
@@ -318,12 +323,7 @@ public partial class RunfileCoverage_Given_
           "timewarp-jaribu",
           "coverage-muxer-host",
           "coverage-muxer-host.csproj");
-        TimeWarp.Amuru.CommandOutput build = await TimeWarp.Amuru.Shell.Builder("dotnet")
-          .WithArguments("build", project, "-c", "Release", "--nologo")
-          .WithWorkingDirectory(root)
-          .WithNoValidation()
-          .WithTimeout(TimeSpan.FromMinutes(3))
-          .CaptureAsync();
+        TimeWarp.Amuru.CommandOutput build = await BuildReleaseAsync(root, project);
         build.ExitCode.ShouldBe(0, build.Combined);
 
         string built = Path.Combine(

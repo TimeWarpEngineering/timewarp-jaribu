@@ -65,7 +65,7 @@ internal static class BenchmarkInProcess
     arguments.Add("--filter");
     arguments.Add(filter ?? "*");
 
-    CommandOutput output = await Shell.Builder("dotnet")
+    CommandOutput output = await DotNet.Builder()
       .WithArguments([.. arguments])
       .WithWorkingDirectory(repo)
       .WithNoValidation()
