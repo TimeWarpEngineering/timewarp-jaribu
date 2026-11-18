@@ -424,9 +424,10 @@ namespace Mtp_
         "timewarp-jaribu-mtp-validation",
         "timewarp-jaribu-mtp-validation.csproj");
 
-      List<string> allArguments = ["test", project, "--nologo", .. arguments];
-      DotNetBuilder builder = DotNet.Builder()
-        .WithArguments([.. allArguments])
+      DotNetTestBuilder builder = DotNet.Test()
+        .WithProject(project)
+        .WithNoLogo()
+        .WithArguments(arguments)
         .WithWorkingDirectory(root)
         .WithNoValidation();
 

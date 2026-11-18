@@ -17,8 +17,8 @@ using TimeWarp.Terminal;
 // relaunched. JARIBU_COVERAGE_STATIC forces either path. The owned directory
 // is deleted after the child exits. A later child `dotnet run` is not in that build.
 // The build goes through Amuru's base DotNet.Builder, not DotNet.Build(), so the
-// command line stays `build <entry> --artifacts-path <dir> --nologo --verbosity minimal`:
-// DotNet.Build() has no --artifacts-path option (task 077).
+// command line stays `build <entry> --artifacts-path <dir> --nologo --verbosity minimal`.
+// DotNet.Build() emits --verbosity before --nologo, so it cannot keep that order (task 077).
 #endregion
 
 internal static partial class RunfileCoverage

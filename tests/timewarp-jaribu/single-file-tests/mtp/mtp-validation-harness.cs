@@ -227,16 +227,20 @@ namespace Mtp_
         "tests",
         "timewarp-jaribu-mtp-validation",
         "timewarp-jaribu-mtp-validation.csproj");
-      List<string> allArguments = ["test", project, "--nologo", "--no-ansi"];
+      // --output Detailed is the MTP console option, not dotnet test's --output path,
+      // so it goes through WithArguments and not WithOutput.
+      List<string> extensionArguments = ["--no-ansi"];
       if (detailed)
       {
-        allArguments.Add("--output");
-        allArguments.Add("Detailed");
+        extensionArguments.Add("--output");
+        extensionArguments.Add("Detailed");
       }
 
-      allArguments.AddRange(arguments);
-      CommandOutput output = await DotNet.Builder()
-        .WithArguments([.. allArguments])
+      extensionArguments.AddRange(arguments);
+      CommandOutput output = await DotNet.Test()
+        .WithProject(project)
+        .WithNoLogo()
+        .WithArguments([.. extensionArguments])
         .WithWorkingDirectory(root)
         .WithEnvironmentVariable("JARIBU_FILTER_TAG", "")
         .WithNoValidation()

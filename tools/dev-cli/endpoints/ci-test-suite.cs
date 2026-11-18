@@ -15,8 +15,10 @@
 // coverage flags and writes artifacts/coverage/coverage.cobertura.xml.
 // A relative --coverage-output is resolved from --results-directory.
 // The runner project references Microsoft.Testing.Extensions.CodeCoverage so
-// --coverage is a known option. DotNet.Test has no slot for those extension arguments,
-// so that call uses the base DotNet.Builder with the same argument list.
+// --coverage is a known option. DotNet.Test sets the project, configuration, and
+// results directory, and WithArguments appends the coverage extension tokens after
+// them, so the command line is unchanged:
+// `test <project> --configuration Release --results-directory artifacts/coverage --coverage ...`.
 // Amuru (3.0.0-beta.9+) sets TRACEPARENT on each child from Activity.Current, the
 // current command span. The test process parents jaribu.class and jaribu.test
 // spans to that span.
@@ -61,15 +63,12 @@ internal static class CiTestSuite
       "multi-file-runners",
       "mtp-runner",
       "timewarp-jaribu-tests-mtp.csproj");
-    int exitCode = await DotNet.Builder()
+    int exitCode = await DotNet.Test()
+      .WithProject(mtpProject)
+      .WithConfiguration("Release")
+      .WithResultsDirectory("artifacts/coverage")
       .WithArguments
       (
-        "test",
-        mtpProject,
-        "--configuration",
-        "Release",
-        "--results-directory",
-        "artifacts/coverage",
         "--coverage",
         "--coverage-output-format",
         "cobertura",
