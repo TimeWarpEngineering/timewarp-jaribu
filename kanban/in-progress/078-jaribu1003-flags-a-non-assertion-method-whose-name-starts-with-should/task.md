@@ -99,7 +99,8 @@ Acceptance:
   affected across the library, tests, and dev-cli, and the library would take a new package dependency. Because
   that change needs its own review, I filed and published **task 079**. I reverted the pins and added
   `package-pin-currency.hold = TimeWarp.Amuru=3.0.0-beta.5 | AMURU0001 migration pending | timewarp-jaribu 079`
-  under `[ganda.audit]` in `.editorconfig`. Audit rerun: passed. Build rerun: passed.
+  under `[ganda.audit]` in `.editorconfig`. The commit attest then flagged the dev-only `TimeWarp.Amuru.Tools`
+  pin, so the same hold covers `TimeWarp.Amuru.Tools=3.0.0-beta.5` (task 079). Audit rerun: passed. Build rerun: passed.
 
 ### How to validate
 
