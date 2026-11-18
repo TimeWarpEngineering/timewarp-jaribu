@@ -390,6 +390,8 @@ namespace Tautology_
       text.ShouldContain("Contains_Should_FlagNoAssertion");
       text.ShouldContain("NamespacedEmpty_Should_Flag");
       text.ShouldContain("'Empty_Should_Flag'");
+      text.ShouldContain("Test compares 'value' with itself");
+      text.ShouldContain("Test compares 'expected' with itself");
       text.ShouldNotContain("negative.cs(");
       text.ShouldNotContain("'Compute_Should_NotFlag'");
       text.ShouldNotContain("'Known_Should_NotFlag'");
@@ -399,6 +401,8 @@ namespace Tautology_
       text.ShouldNotContain("'QualifiedKnown_Should_NotFlag'");
       text.ShouldNotContain("'Generic_Should_NotFlag'");
       text.ShouldNotContain("'LoopAssigned_Should_NotFlag'");
+      text.ShouldNotContain("Test compares 'claim' with itself");
+      text.ShouldNotContain("Test compares 'root' with itself");
       text.ShouldNotContain("Test asserts -42");
       text.ShouldNotContain("Test asserts 17");
       text.ShouldNotContain("Test asserts true");
