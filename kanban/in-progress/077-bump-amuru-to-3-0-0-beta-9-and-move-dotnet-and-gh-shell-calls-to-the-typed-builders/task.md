@@ -64,12 +64,18 @@ Acceptance:
 - `<Version>` is 1.0.0-beta.18.
 - Touched test files pass when run alone.
 
+Fix pass for review round 1 (M1, M2, M3): on Amuru 3.0.0-beta.10 `DotNet.Build` and `DotNet.Test`
+can emit the same argv as five calls still on the base builder. Move those five to the typed
+builders with the argv unchanged, fix the stale reason in the `runfile-coverage.static.cs` Design
+comment, and add the typed verb builder term to `glossary.md`. Done when `./bin/dev build` passes and
+the touched test files pass alone.
+
 ## Checklist
 
-- [x] Pins at beta.9, build clean with zero AMURU0001 (library + tests; dev CLI blocked, see Results)
+- [x] Pins at beta.9 (now beta.10), build clean with zero AMURU0001 (library, tests, dev CLI)
 - [x] dotnet sites on typed builders; gh sites on `Gh` builders
 - [x] Hand TRACEPARENT code removed or justified in a comment
-- [ ] Span parenting confirmed in SigNoz for `dev test` (needs the dev CLI to compile)
+- [x] Span parenting confirmed in SigNoz for `dev test`
 - [x] Version bumped to 1.0.0-beta.18
 
 ## Depends on
@@ -80,12 +86,19 @@ Acceptance:
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
 - Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Blocked — 2026-11-18T05:37:14Z
+- Implement oracle (resume): implementer-claude (claude-opus-5-5), 2026-11-18 — unblocked by
+  TimeWarp.Nuru.DevCli 4.0.0-beta.16; finished dev CLI gates and SigNoz check.
+- Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 15c48a64-29ad-4af8-94a1-63cad29dc44f, max-turns 500, Done — 2026-11-18T10:57:11Z
+- Review oracle: general reviewer, grok, session 01a1ee4d-d3cb-7f53-a7b2-3ea0e7d05a75, effort 2, round 1 open (M1, M2, M3) — 2026-11-18
+- Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1ee4d-d3cb-7f53-a7b2-3ea0e7d05a75, max-turns 120, artifacts general.md, merged.md — 2026-11-18T11:13:39Z
+- Review oracle round 2: general reviewer, grok, session 01a1ee61-93fb-7ce2-a79f-2acbd030c188, effort 2, clean (M1, M2, M3 fixed) — 2026-11-18
 
 ## Results
 
 ### Changes
 
-- `Directory.Packages.props`: TimeWarp.Amuru and TimeWarp.Amuru.Tools 3.0.0-beta.5 -> 3.0.0-beta.9.
+- `Directory.Packages.props`: TimeWarp.Amuru and TimeWarp.Amuru.Tools 3.0.0-beta.5 -> 3.0.0-beta.9,
+  then 3.0.0-beta.10 on resume (the audit's `package-pin-currency` asked for the newer release).
 - `source/Directory.Build.props`: Version 1.0.0-beta.17 -> 1.0.0-beta.18.
 - `source/timewarp-jaribu/timewarp-jaribu.csproj`: adds `TimeWarp.Amuru.Tools` (the library's
   coverage build now uses `DotNet.Builder()`, which lives in Tools; Tools adds only NuGet.Versioning).
@@ -112,34 +125,101 @@ Acceptance:
   `dotnet build <entry> --artifacts-path <dir> --nologo --verbosity minimal`. Unchanged
   because the same argument list is passed to `DotNet.Builder()`.
 
-### Blocked
+### Resume (2026-11-18): dev CLI unblocked
 
-`dotnet run --file tools/dev-cli/dev.cs -- self-install` fails with AMURU0001 in source that
-`TimeWarp.Nuru.DevCli` 4.0.0-beta.15 (latest) ships as content and compiles into this dev CLI:
-`release-command.cs:142` (gh auth status), `release-command.guards.cs:266` (gh run list),
-`:287` (gh api), `services/github-packages-credential.cs:47` (gh auth token),
-`services/packable-project-service.cs:221` (dotnet msbuild). Filed timewarp-nuru 598.
-Unblock: a Nuru.DevCli release with typed builders, then bump `TimeWarp.Nuru.DevCli` here,
-self-install, and finish the dev CLI gates (`dev test`, benchmark endpoints, SigNoz
-parenting check).
+- Merged `origin/master` (task 078 had added a `package-pin-currency.hold` for both Amuru pins at
+  beta.5, pointing at task 079). This task does the 079 work, so the hold and its comment are
+  removed from `.editorconfig`. Task 079 (to-do) is a duplicate of this one and can be closed.
+- `TimeWarp.Nuru` and `TimeWarp.Nuru.DevCli` 4.0.0-beta.15 -> 4.0.0-beta.16. Beta.16 ships the
+  DevCli content on the typed builders (timewarp-nuru 598), so the dev CLI compiles under Amuru
+  beta.9. The earlier block is resolved.
+- `benchmarks/generator/generate-workloads.cs`: the generated `jaribu-runfile/<workload>/run.cs`
+  now carries a `#region Purpose` block. Without it the benchmark runfile failed TWA0004.
+- `tools/dev-cli/telemetry.md`: says Amuru sets `TRACEPARENT` on `dev test` children from the
+  command span (the hand-rolled copy is gone).
+- SigNoz check (`dev test` with `OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.timewarp.work`,
+  `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`): trace `85891258fa4ad7a151353cd3e6591101`. The
+  `timewarp-jaribu-dev` `test` span `43ff5998b9a9526e` is the direct parent of the dotnet-cli
+  `app run`, `app`, and `app test` spans and of every `TimeWarp.Jaribu` `jaribu.class` span.
+
+Follow-up (not in this task): `dev benchmark` in-process step fails in BenchmarkDotNet 0.15.8
+validation (`GetRuntimeVersion not implemented for NotRecognized`), because BDN 0.15.8 does not know
+the .NET 11 runtime. This dates from the net11.0 retarget (eaebc52), not from Amuru. Amuru launches
+the process fine; BDN then fails. Fix: BenchmarkDotNet 0.16.x (0.16.0-preview.2 is the newest) or
+a net10.0 in-process host. That change needs its own task and review.
+
+### Fix pass, review round 1 (2026-11-18)
+
+- M1: both Release builds in `test-runner.runfile-coverage.launch.cs` use one helper,
+  `BuildReleaseAsync`, on `DotNet.Build().WithProject().WithConfiguration("Release").WithNoLogo()`
+  (argv `build <project> --configuration Release --nologo`, the long form of `-c Release`). Same
+  working directory, `WithNoValidation`, 3-minute timeout. The helper also keeps the file at 499
+  lines (inline, it hit TWA0038 at 503). The `run <probe> -- …` site stays on the base builder.
+  `glossary.md` gets a "Typed verb builder" row.
+- M2: `ci-test-suite.cs` MTP run, `mtp-validation-harness.cs`, and `mtp-node-identity.cs` move to
+  `DotNet.Test().WithProject()…WithArguments(<MTP tokens>)`. Checked against the beta.10
+  `DotNetTestBuilder.Build` (decompiled): project, then `--configuration`, `--results-directory`,
+  `--nologo`, then the extra tokens in call order, so each argv is unchanged. MTP's `--output Detailed`
+  goes through `WithArguments`, not `WithOutput`. `WithNoValidation` and `WithTimeout` kept. The
+  ci-test-suite Design comment now says the typed builder emits the same line.
+- M3: `runfile-coverage.static.cs` Design comment: the base builder stays because `DotNet.Build()`
+  emits `--verbosity` before `--nologo`, not because `--artifacts-path` is missing.
 
 ### How to validate
 
-Smoke: `./bin/dev build` and `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs`
-Expect: build succeeds with no AMURU0001; coverage runfile prints `Passed: 16`.
+Smoke: `dotnet run --file tools/dev-cli/dev.cs -- self-install`, then `./bin/dev build`, then
+`dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs`
+Expect: self-install and build succeed with no AMURU0001; coverage runfile prints `Passed: 16`.
 
 ### Gates
 
-- `./bin/dev build` -> pass (0 errors, 0 AMURU diagnostics)
+First pass (before the block):
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.tautology.cs` -> 22/22 pass
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.telemetry.cs` -> 7/7 pass
-- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` -> 16/16 pass (runs the edited `.launch.cs` and `.static.cs` partials, and covers `source/.../runfile-coverage.static.cs`)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` -> 16/16 pass (runs the edited `.launch.cs` and `.static.cs` partials and covers `source/.../runfile-coverage.static.cs`)
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/mtp-validation-harness.cs` -> 5/5 pass
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` -> 1/1 pass
-- `mtp/mtp-node-identity.cs`: does not run standalone (CS7022 on the generated MTP entry point, no `GenerateTestingPlatformEntryPoint=false` directive in the file). This predates the change; the multi-file runners run it in CI.
-- `dotnet run --file tools/dev-cli/dev.cs -- self-install` -> FAIL (blocked, see above)
-- `ganda repo audit` -> not run; work is not finished.
+- `mtp/mtp-node-identity.cs`: not a standalone runfile (CS7022 on the generated MTP entry point). This predates the change. It ran inside `dev test` below.
 
+Resume pass (no test file edited in this pass):
+- `dotnet run --file tools/dev-cli/dev.cs -- self-install` -> pass
+- `./bin/dev build` -> pass (0 errors, no AMURU diagnostics)
+- `./bin/dev test` with OTEL set -> pass (runfile suite exit 0; MTP 249/249). Ran once because the
+  task asks for the SigNoz parenting check on `dev test` and `ci-test-suite.cs` has no other coverage.
+- `./bin/dev benchmark --runs 1 --workloads startup` -> jaribu-runfile, jaribu, fixie, tunit, xunit
+  startup cold and warm runs pass. The in-process BenchmarkDotNet step fails (pre-existing .NET 11
+  issue, see Follow-up above).
+- `ganda repo audit` (1st) -> FAIL `package-pin-currency`: Amuru and Amuru.Tools 3.0.0-beta.9 behind 3.0.0-beta.10.
+  Fix: pins to 3.0.0-beta.10. Reran: `self-install` pass, `./bin/dev build` pass (no AMURU diagnostics),
+  `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` -> 16/16 pass,
+  `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.telemetry.cs` -> 7/7 pass.
+- `ganda repo audit` (2nd) -> pass (exit 0). One advisory warning, `vscode-window-icon` (`.vscode/settings.json`
+  missing), is non-blocking and predates this task.
+
+Fix pass, review round 1:
+- `./bin/dev build` (1st) -> FAIL TWA0038, `test-runner.runfile-coverage.launch.cs` 503 lines. Fix: shared
+  `BuildReleaseAsync` helper (499 lines). Rerun -> pass, no AMURU diagnostics.
+- `dotnet run --file tools/dev-cli/dev.cs -- self-install` -> pass (compiles the edited `ci-test-suite.cs`)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` -> 16/16 pass (runs the edited `.launch.cs` partial)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/mtp-validation-harness.cs` -> 5/5 pass
+- `mtp/mtp-node-identity.cs`: not a standalone runfile (CS7022 on the generated MTP entry point, pre-existing).
+  It compiles in `./bin/dev build` (mtp-runner project). CI runs it.
+- `ci-test-suite.cs` MTP run: no standalone test; `dev test` in CI runs it.
+- `ganda repo audit` -> pass (exit 0). Advisory `vscode-window-icon` warning only, pre-existing.
+
+### Review disposition
+
+- Rounds: 2. Roster: general. Effort: 2.
+- Round 2 re-checked M1, M2, and M3 on `448d3cc..97e4ca3`.
+- Counts: bug 0 open / 0 fixed / 0 wontfix; suggestion 0 open / 2 fixed / 0 wontfix; nit 0 open / 1 fixed / 0 wontfix.
+- Disposition: clean. No wontfix. No escalation.
+- Paths: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md`.
+
+## Review
+
+- Round 1 (2026-11-18): open M1, M2, M3. The fix pass closed them.
+- Round 2 (2026-11-18): clean. M1, M2, and M3 fixed. No new findings.
+- Round 2: Done
 ## Notes
 
 Steve 2026-11-18: "Consumer repos can now bump to Amuru beta.9. Expect AMURU0001 compile
@@ -151,3 +231,9 @@ Sibling: ganda 670 does the same bump plus Jaribu beta.17.
 2026-11-18: TimeWarp.Nuru.DevCli content raises AMURU0001 under Amuru 3.0.0-beta.9 so the dev CLI cannot compile; needs timewarp-nuru 598 released, then bump TimeWarp.Nuru.DevCli here https://github.com/TimeWarpEngineering/timewarp-nuru/tree/master/kanban/to-do/598-move-dev-cli-content-gh-and-dotnet-shell-calls-to-the-amuru-beta-9-typed-builders
 
 - https://github.com/TimeWarpEngineering/timewarp-nuru/tree/master/kanban/to-do/598-move-dev-cli-content-gh-and-dotnet-shell-calls-to-the-amuru-beta-9-typed-builders
+
+Resolved 2026-11-18: TimeWarp.Nuru.DevCli 4.0.0-beta.16 is published and pinned here.
+
+## Learnings
+
+- Misread: the implementer restatement's acceptance bar is narrower than the task. The task requires `dev build`, `dev test` (it says all three suites), green benchmark endpoints, and a SigNoz check that `dotnet-cli` and `TimeWarp.Jaribu` spans parent to `dev test`. The restatement's acceptance list stops at "touched test files pass when run alone" and does not name the SigNoz check or the benchmark endpoints. The recorded `## Results` still cover `./bin/dev test` (runfile exit 0, MTP 249/249), the SigNoz trace, and `./bin/dev benchmark` startup. The in-process BenchmarkDotNet step is not green; Results call that a pre-existing .NET 11 gap. `ci-test-suite.cs` documents two `dev test` targets, and says the validation project is not a third target, so the task's "three suites" does not match the current command.
