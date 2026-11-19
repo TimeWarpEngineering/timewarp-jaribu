@@ -70,6 +70,7 @@ Tests cover include-any, exclude-any, include then exclude, class-level tags, en
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f50c-5f5e-75f1-afd9-89a03be6b223, max-turns 500, Done — 2026-11-19T18:40:01Z
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f5e1-ba18-7303-91e9-1b578824c84e, max-turns 500, Done — 2026-11-19T23:12:07Z. The earlier Done did not contain the filter behavior. This session added include-any, exclude, the skip text, MTP parity, tests, the readme, and `1.0.0-beta.19`.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f5e1-ba18-7303-91e9-1b578824c84e, max-turns 500, Done — 2026-11-19T23:14:04Z
 
 ## Results
 
