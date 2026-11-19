@@ -17,6 +17,7 @@ using TimeWarp.Amuru;
 // EnterRun / ExitRun nest. The outermost exit ForceFlush-es, including a failing run.
 // BeginRun is that scope for a host. The MTP adapter holds one across its class loop.
 // Process exit flushes again so a host that skips the return path still exports.
+// The outermost enter also opens the durations file. The matching exit writes it, then flushes.
 // ApplyTraceContext copies the ambient span, or the current TRACEPARENT, onto a
 // coverage relaunch so the grandchild stays on the same trace.
 #endregion
@@ -42,6 +43,11 @@ public static partial class JaribuTelemetry
 
   internal static void EnterRun()
   {
+    if (RunDepth.Value == 0)
+    {
+      JaribuDurations.BeginOuter();
+    }
+
     EnsureStarted();
     RunDepth.Value++;
   }
@@ -57,6 +63,7 @@ public static partial class JaribuTelemetry
     RunDepth.Value = depth;
     if (depth == 0)
     {
+      JaribuDurations.EndOuter();
       Flush();
     }
   }

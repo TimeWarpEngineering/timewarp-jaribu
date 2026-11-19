@@ -53,13 +53,25 @@ is on beta.17 and spans flow; the local source does not need to wait for that.
 - No automatic tagging or test selection. The report informs a human or a later task.
 - No change to what the PR gate runs. That is a follow-up once the report has data.
 
+## Goal (implementer restatement)
+
+The runner already times every case and emits a `jaribu.test` span. This task adds the missing report so a slow-test decision comes from those recordings.
+
+At the end of a run, both a single-file `RunTests` entry and a multi-class `RunAllTests` entry (the multi-file orchestrator, and the MTP request that wraps the same class loop) write one JSON file: `artifacts/jaribu/durations-<utc-timestamp>.json`. Each executed case is one record with class, method, case index, the same argument text the span records, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case keeps outcome `skipped` and a null duration. `JARIBU_DURATIONS=0` writes nothing. `JARIBU_DURATIONS_PATH` replaces the default path. Nested runner calls inside a test stay out of the outer file.
+
+`dev slow-tests` reads the newest file, or `--file`, and prints the slowest cases (default 20) with a running share of total time and the share the top N holds. `--format markdown` prints a table that can be pasted into a task. `--outcome passed` (or another recorded outcome) drops the rest. The command exits 0 when it has printed a report, including an empty one. It is not a gate.
+
+`dev slow-tests --signoz` reads `SIGNOZ_API_KEY` (the name ganda already uses) and `SIGNOZ_URL` (ganda's MCP config hardcodes the host, so this command takes the base URL from the environment). It queries `jaribu.test` spans for `service.name = TimeWarp.Jaribu` over `--since` (default `7d`), groups by class, method, and case index, and prints count, p50, p95, max, and failure rate. A missing variable prints one line naming it and exits 2. Tests parse a saved JSON response. They do not call SigNoz.
+
+The readme and `documentation/telemetry.md` say this report is what a PR-gate tag decision is based on, and that hand-tagging a test `slow` without the report is not the convention. Nothing here changes which tests the PR gate runs.
+
 ## Checklist
 
-- [ ] Durations file written by the runner, opt-out and path override honored
-- [ ] `dev slow-tests` local mode with table, cumulative percentage, top N, markdown format
-- [ ] `dev slow-tests --signoz` mode with p50/p95/max/failure rate over a window
-- [ ] Tests for writer and ranking; SigNoz mode against a fixture
-- [ ] telemetry.md and readme updated
+- [x] Durations file written by the runner, opt-out and path override honored
+- [x] `dev slow-tests` local mode with table, cumulative percentage, top N, markdown format
+- [x] `dev slow-tests --signoz` mode with p50/p95/max/failure rate over a window
+- [x] Tests for writer and ranking; SigNoz mode against a fixture
+- [x] telemetry.md and readme updated
 
 ## Depends on
 
@@ -69,6 +81,20 @@ is on beta.17 and spans flow; the local source does not need to wait for that.
 ## Session
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
+- Implementer wrote the durations file, `dev slow-tests`, the writer and ranking tests, and the docs. `ganda repo audit --fix --checks kanban-landed` landed task 073's kitchen onto origin-home (`land kanban 073`) so the unscoped audit could pass. `vscode-window-icon` stays an advisory warning.
+
+## Results
+
+### How to validate
+
+Smoke: `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.durations.cs` and `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/slow-tests.report.cs`.
+
+Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records and the default `artifacts/jaribu/durations-*.json` path for the single-class probe, and no file when `JARIBU_DURATIONS=0`. A skipped row has outcome `skipped` and a null duration. The report exits 0, orders 50 then 30 then 20, prints cumulative 50.0%, 80.0%, and 100.0%, and the top 2 hold 80.0%. The SigNoz fixture ranks `Should_Pass` at p50 1500.0 ms with failure rate 25.0%.
+
+- `./bin/dev build` — passed
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/slow-tests.report.cs` — passed (2)
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.durations.cs` — passed (3)
+- `ganda repo audit` — passed after `ganda repo audit --fix --checks kanban-landed` (landed task 073). `vscode-window-icon` remains an advisory warning and does not gate.
 
 ## Notes
 

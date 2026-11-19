@@ -458,11 +458,7 @@ public static partial class TestRunner
     }
   }
 
-  /// <summary>
-  /// Reports every selected case for a method with the hook outcome.
-  /// Resolution uses <see cref="TestNodeState.Error"/>. A hook body uses
-  /// <see cref="TestNodeState.Failed"/> or <see cref="TestNodeState.Timeout"/>.
-  /// </summary>
+  /// <summary>Reports every selected case for a method with the hook outcome.</summary>
   private static async Task ReportCasesFailedDueToHookAsync(
     Type testClass,
     IReadOnlyList<ReportedTestCase> cases,
@@ -492,6 +488,7 @@ public static partial class TestRunner
         testCase.Parameters,
         testCase.InputOrdinal);
       JaribuTelemetry.Complete(span, state, hookException);
+      JaribuDurations.Record(testClass, testCase, state, TimeSpan.Zero);
       await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
       await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
       results.Add(failedNode);
