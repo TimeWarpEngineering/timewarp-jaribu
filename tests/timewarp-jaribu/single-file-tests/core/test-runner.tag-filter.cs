@@ -186,8 +186,8 @@ namespace TestRunner_
       trimmed.ShouldContain("Passed: 2");
       trimmed.ShouldContain("Skipped: 3");
       trimmed.ShouldContain("No matching tag 'Keep'");
-      trimmed.ShouldContain("Untagged");
-      trimmed.ShouldContain("Keep");
+      ShouldShowOutcome(trimmed, "Untagged", "PASSED");
+      ShouldShowOutcome(trimmed, "Keep", "PASSED");
 
       string both = await LaunchProbeAsync("smoke,Keep", "slow");
       both.ShouldContain("(filtered by tag: smoke, Keep)");
@@ -241,6 +241,23 @@ namespace TestRunner_
     }
 
     private static List<string> CompletedUids(TagFilterSink sink) => [.. sink.Results.Select(node => node.Uid)];
+
+    private static void ShouldShowOutcome(string report, string testName, string marker)
+    {
+      string header = "Test: " + testName;
+      int headerAt = report.IndexOf(header, StringComparison.Ordinal);
+      headerAt.ShouldBeGreaterThanOrEqualTo(0, report);
+      int lineEnd = report.IndexOf('\n', headerAt + header.Length);
+      lineEnd.ShouldBeGreaterThanOrEqualTo(0, report);
+      int nextEnd = report.IndexOf('\n', lineEnd + 1);
+      if (nextEnd < 0)
+      {
+        nextEnd = report.Length;
+      }
+
+      string outcome = report[(lineEnd + 1)..nextEnd].TrimEnd('\r');
+      outcome.ShouldContain(marker);
+    }
 
     private static string Message(TagFilterSink sink, string displayName)
     {

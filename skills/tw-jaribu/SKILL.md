@@ -357,7 +357,7 @@ Tags are free-form. The repository decides its vocabulary.
 | `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
 Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate, ..., filterTags, excludeTag, excludeTags)` — method-name and predicate filters are selection (omit). `filterTag` is one tag. `filterTags` and `excludeTags` add more, and a test matches include when it carries any of them. A tag miss or an exclude at class or method level emits one Skipped node per method. A null filter inside a run does not read the environment. A rejected attribute on that method is an Error node, and the run fails.
-why: task 043; task 053, a class tag miss does not hide a rejected attribute
+why: task 043; task 053, a class tag miss does not hide a rejected attribute; task 073, multi-tag include and exclude
 
 ## Sink-Based API
 

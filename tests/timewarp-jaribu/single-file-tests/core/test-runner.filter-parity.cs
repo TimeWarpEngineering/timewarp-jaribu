@@ -10,6 +10,7 @@
 // with the same arguments, including a blank tag and a trimmed tag.
 // A class tag miss must be Skipped nodes, not an empty run, and must not run hooks.
 // JARIBU_FILTER_TAG is saved and restored. Inside this run a null filter does not read it.
+// A whitespace JARIBU_FILTER_TAG at depth 0 is covered by mtp-node-identity.cs.
 #endregion
 
 #if !JARIBU_MULTI
@@ -94,24 +95,7 @@ public class FilterParity_Given_
     string? previous = Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
     try
     {
-      string[] blanks = ["", "   ", "\t"];
-      foreach (string blank in blanks)
-      {
-        Environment.SetEnvironmentVariable("JARIBU_FILTER_TAG", blank);
-        MethodFilterParityFixture.Reset();
-        FilterParitySink sink = new();
-        TestRunStats stats = await TestRunner.RunTestsAsync<MethodFilterParityFixture>(sink);
-        stats.SkippedCount.ShouldBe(0);
-        stats.PassedCount.ShouldBe(5);
-        MethodFilterParityFixture.BodyRuns.ShouldBe(5);
-
-        List<string> discovered =
-        [
-          .. TestRunner.DiscoverTestCases(typeof(MethodFilterParityFixture)).Select(testCase => testCase.Uid)
-        ];
-        discovered.ShouldBe(CompletedUids(sink));
-      }
-
+      // mtp-node-identity.cs covers a whitespace JARIBU_FILTER_TAG at depth 0.
       Environment.SetEnvironmentVariable("JARIBU_FILTER_TAG", " Keep ");
       MethodFilterParityFixture.Reset();
       FilterParitySink trimmed = new();
