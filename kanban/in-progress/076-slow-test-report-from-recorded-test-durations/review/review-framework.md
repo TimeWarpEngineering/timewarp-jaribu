@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 2492
-- Effort: 3
+- Lines changed: 144
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 200 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Review framework — task 076
 

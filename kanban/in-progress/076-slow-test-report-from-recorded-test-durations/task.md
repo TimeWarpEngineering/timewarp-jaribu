@@ -133,3 +133,7 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 
 Related: 073 (exclude tag filter), 075 (OS-tagged CI legs). ganda follow-up to bump to beta.17
 and export spans from `dev test` is not yet filed.
+
+## Blocked
+
+2026-11-19: review verdict refused: Done with no roster findings. Round folder: /home/steve/worktrees/github.com/TimeWarpEngineering/timewarp-jaribu/task-076-slow-test-report-from-recorded-test-durations/kanban/in-progress/076-slow-test-report-from-recorded-test-durations/review/round-4. Oracle log: /home/steve/worktrees/github.com/TimeWarpEngineering/timewarp-jaribu/task-076-slow-test-report-from-recorded-test-durations/kanban/in-progress/076-slow-test-report-from-recorded-test-durations/oracle-review-2-20261119t195716169z.log.
