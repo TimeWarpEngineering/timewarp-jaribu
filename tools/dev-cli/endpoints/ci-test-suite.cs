@@ -5,6 +5,9 @@
 #region Design
 // The ci-runner runfile and the CI-safe MTP project are one set.
 // dev test and dev workflow both call RunAsync, so a local pass cannot skip MTP.
+// JARIBU_FILTER_TAG is inherited. The workflow leaves it blank on ubuntu, sets
+// macos on the macOS leg, and sets windows on the Windows leg. A blank value
+// is not a filter. Both targets read the same variable.
 // The validation project is not a third target. Its intentional failures stay
 // inside the out-of-process harness that the CI-safe suite executes.
 // The CI runfile opts into RunAllTests coverage and writes

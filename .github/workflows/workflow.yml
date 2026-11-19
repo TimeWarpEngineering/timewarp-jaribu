@@ -85,7 +85,12 @@ jobs:
         run: dotnet tool install --global dotnet-coverage
 
       # Only the ubuntu leg packs. The other legs test and do not pack.
+      # ubuntu runs the full suite (blank is not a filter). macOS and Windows run
+      # only tests tagged for that OS. The ci-runner and the MTP host both read
+      # JARIBU_FILTER_TAG. Release and probe do not use this step.
       - name: Run CI pipeline
+        env:
+          JARIBU_FILTER_TAG: ${{ matrix.os == 'macos-latest' && 'macos' || matrix.os == 'windows-latest' && 'windows' || '' }}
         run: dotnet run tools/dev-cli/dev.cs -- workflow ${{ matrix.os == 'ubuntu-latest' && '--pack' || '' }}
 
       # upload-artifact v4+ rejects a second upload of the same name, so each OS keeps its own.

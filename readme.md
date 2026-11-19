@@ -655,6 +655,8 @@ See the [architecture overview](documentation/architecture.md) for how the runne
 2. Run `dotnet build`.
 3. Run tests with `./bin/dev test`. That is the CI set: the CI-safe runfile at `tests/timewarp-jaribu/multi-file-runners/ci-runner/`, then `dotnet test` on `tests/timewarp-jaribu/multi-file-runners/mtp-runner/`. The MTP validation project is not a third pass/fail target. The harness inside the CI-safe suite runs it out of process and checks the expected node states.
 
+This repo's OS tags are `macos` and `windows`. A test carries one when its behavior branches on that OS. The ubuntu CI leg runs the full suite. The macOS leg sets `JARIBU_FILTER_TAG=macos` and the Windows leg sets `JARIBU_FILTER_TAG=windows`, so those legs run only tests tagged for that OS. A filtered leg that executes no test fails.
+
 ## Contributing
 
 Contributions are welcome. Open an issue or a pull request.

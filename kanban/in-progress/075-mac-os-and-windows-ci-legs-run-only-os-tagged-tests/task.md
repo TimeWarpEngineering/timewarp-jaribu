@@ -1,5 +1,11 @@
 # macOS and Windows CI legs run only OS-tagged tests
 
+## Goal (implementer restatement)
+
+The macOS and Windows test legs should run only the tests whose behavior depends on that OS, and ubuntu should keep running the whole suite. The matrix stays. Release and probe stay as they are after task 074. Exclude-tag filtering (073) is not required.
+
+A test gets `macos` and/or `windows` when its behavior branches on that OS. A test that behaves the same on every OS gets no OS tag. Because CI classes already carry a component tag, `JARIBU_FILTER_TAG` skips them unless they also carry the leg's tag. The workflow sets that variable to `macos` or `windows` on those legs and leaves it blank on ubuntu, so the ci-runner and the MTP project both see it. A filtered run that executes no test fails, so renaming a tag cannot turn a leg into a green no-op. The readme names the two tags and what each leg runs. The 11.0 / 10.8 / 14.0 baseline is recorded here; the durations after merge wait on the first green master run.
+
 ## Description
 
 `workflow.yml` runs the full suite on ubuntu, windows, and macos for every push and pull
@@ -54,15 +60,42 @@ instruments the build and relaunches. Windows and Linux never run that branch.
 
 ## Checklist
 
-- [ ] OS-dependent tests inventoried and tagged
-- [ ] macOS and Windows legs filtered by tag
-- [ ] Empty-selection guard fails the leg
-- [ ] Readme paragraph on OS tags
+- [x] OS-dependent tests inventoried and tagged
+- [x] macOS and Windows legs filtered by tag
+- [x] Empty-selection guard fails the leg
+- [x] Readme paragraph on OS tags
 - [ ] Results with per-leg durations
 
 ## Session
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
+- Implemented the OS-leg filter, the empty-run guard, and the readme (2026-11-20). `ganda repo audit --fix` set the gitignored VS Code window title. The taskbar icon was not applied because Windows-side ganda was not found. The audit then passed.
+
+## Results
+
+The ubuntu leg stays unfiltered. The macOS leg sets `JARIBU_FILTER_TAG=macos` and the Windows leg sets `JARIBU_FILTER_TAG=windows` on the test step only. Release and probe are unchanged. A filtered `RunAllTests` that passes and fails nothing exits 1, and `allowEmpty` does not waive that. The MTP host does not use that guard, so a macOS leg whose MTP tests are all skipped still exits 0. The ci-runner guard is what fails a tag that matches nothing.
+
+Tagged because the behavior branches on that OS:
+
+- `macos` and `windows`: the four manifest coverage tests. macOS rewrites `/private` paths, and Windows looks up `.exe`, `.cmd`, and `.bat`.
+- `macos`: the three static-instrumentation tests and `DeterministicPathMap_Should_KeepTheProductAndOmitDependencies`.
+- `windows`: `DotnetMuxer_Should_KeepTheEntryAssemblyOnTheRelaunch` and MTP `ClassLibrary_Should_StayALibrary`.
+
+Coverage probes set `JARIBU_FILTER_TAG` to blank so a filtered parent does not filter the probe. A test that behaves the same on every OS has no OS tag. The fake-dotnet helpers moved to `test-runner.runfile-coverage.fake-dotnet.cs` so `launch.cs` stays under the 500-line cap.
+
+Baseline from the last green master run named in this task: ubuntu 11.0 min, windows 10.8 min, macos 14.0 min. The durations after this change wait on the first green master run after merge, so the durations checklist item stays open.
+
+### How to validate
+
+Smoke: `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.silent-no-ops.cs` runs `RunAllTests_Should_FailWhenATagFilterExecutesNothing`.
+
+Expect: a class tagged only `Jaribu`, called with `filterTag: "macos"` and `allowEmpty: true`, exits 1 and prints `No tests executed for tag 'macos'`. A class tagged `macos` with one passing method exits 0.
+
+- `./bin/dev build` — passed. An earlier build failed TWA0038 because `launch.cs` was 503 lines. The fake-dotnet split fixed that. A later build after `WriteLineAsync` also passed.
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.silent-no-ops.cs` — passed, 16/16, including the new guard. Reran after `WriteLineAsync` and passed, 16/16. Standalone runfile.
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.runfile-coverage.cs` — passed, 16/16. The launch, manifest, deterministic, static, and fake-dotnet partials are `#:include` files, not standalone runfiles. This parent runs them.
+- `dotnet run --file tests/timewarp-jaribu/single-file-tests/mtp/testing-platform-props.transitive-consumer.cs` — passed, 1/1. Standalone runfile.
+- `ganda repo audit` — failed first: CA1849 suppressions were 4 against a baseline of 3, and the VS Code window title was missing. The empty-tag line now uses `WriteLineAsync`, so no new suppression. `ganda repo audit --fix` set the gitignored window title and passed: 46 passed, 0 failed, 1 skipped.
 
 ## Notes
 
