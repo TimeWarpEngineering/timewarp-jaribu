@@ -14,8 +14,10 @@ using System.Text.Json;
 // bumps a depth on that scope. Only depth 1 is recorded, so a runner call made
 // from inside a test does not join the outer file or write one of its own.
 // A skipped case stores outcome skipped and a null duration. JARIBU_DURATIONS=0
-// skips the write. JARIBU_DURATIONS_PATH replaces artifacts/jaribu/durations-<utc>.json.
-// A write failure is traced and does not fail the run.
+// skips the write. JARIBU_DURATIONS_PATH replaces the file. An existing directory,
+// or a path that ends with a separator, receives durations-<utc>.json. Otherwise
+// the default path is artifacts/jaribu/durations-<utc>.json relative to the process
+// working directory. A write failure is traced and does not fail the run.
 #endregion
 
 /// <summary>
@@ -209,16 +211,38 @@ internal static class JaribuDurations
     string? overridePath = Environment.GetEnvironmentVariable(PathVariable);
     if (!string.IsNullOrWhiteSpace(overridePath))
     {
+      if (IsDirectoryOverride(overridePath))
+      {
+        return UniqueFile(Path.GetFullPath(overridePath));
+      }
+
       return Path.GetFullPath(overridePath);
     }
 
+    return UniqueFile(Path.Combine("artifacts", "jaribu"));
+  }
+
+  private static bool IsDirectoryOverride(string overridePath)
+  {
+    char last = overridePath[^1];
+    if (last == Path.DirectorySeparatorChar || last == Path.AltDirectorySeparatorChar)
+    {
+      return true;
+    }
+
+    return Directory.Exists(overridePath);
+  }
+
+  private static string UniqueFile(string directory)
+  {
     string stamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
-    string directory = Path.Combine("artifacts", "jaribu");
     string path = Path.Combine(directory, "durations-" + stamp + ".json");
     int suffix = 2;
     while (File.Exists(path))
     {
-      path = Path.Combine(directory, "durations-" + stamp + "-" + suffix.ToString(CultureInfo.InvariantCulture) + ".json");
+      path = Path.Combine(
+        directory,
+        "durations-" + stamp + "-" + suffix.ToString(CultureInfo.InvariantCulture) + ".json");
       suffix++;
     }
 

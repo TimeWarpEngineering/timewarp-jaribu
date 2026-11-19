@@ -22,6 +22,10 @@
 // Amuru (3.0.0-beta.9+) sets TRACEPARENT on each child from Activity.Current, the
 // current command span. The test process parents jaribu.class and jaribu.test
 // spans to that span.
+// Both legs set JARIBU_DURATIONS_PATH to the repository artifacts/jaribu directory
+// with a trailing separator. The writer puts durations-<utc>.json there, including
+// when the test host's working directory is not the repo root. dev slow-tests
+// reads that same directory.
 #endregion
 
 namespace DevCli.Commands;
@@ -30,11 +34,22 @@ internal static class CiTestSuite
 {
   public static async Task RunAsync(string repoRoot, CancellationToken cancellationToken)
   {
-    await RunCiRunnerAsync(repoRoot, cancellationToken).ConfigureAwait(false);
-    await RunMtpRunnerAsync(repoRoot, cancellationToken).ConfigureAwait(false);
+    string durationsDirectory = DurationsDirectory(repoRoot);
+    await RunCiRunnerAsync(repoRoot, durationsDirectory, cancellationToken).ConfigureAwait(false);
+    await RunMtpRunnerAsync(repoRoot, durationsDirectory, cancellationToken).ConfigureAwait(false);
   }
 
-  private static async Task RunCiRunnerAsync(string repoRoot, CancellationToken cancellationToken)
+  private static string DurationsDirectory(string repoRoot)
+  {
+    string directory = Path.Combine(repoRoot, "artifacts", "jaribu");
+    Directory.CreateDirectory(directory);
+    return directory + Path.DirectorySeparatorChar;
+  }
+
+  private static async Task RunCiRunnerAsync(
+    string repoRoot,
+    string durationsDirectory,
+    CancellationToken cancellationToken)
   {
     string ciTestRunner = Path.Combine(
       repoRoot,
@@ -47,6 +62,7 @@ internal static class CiTestSuite
       .WithFile(ciTestRunner)
       .WithProperty("ExperimentalFileBasedProgramEnableTransitiveDirectives", "true")
       .WithWorkingDirectory(repoRoot)
+      .WithEnvironmentVariable("JARIBU_DURATIONS_PATH", durationsDirectory)
       .RunAsync(cancellationToken);
     if (exitCode != 0)
     {
@@ -54,7 +70,10 @@ internal static class CiTestSuite
     }
   }
 
-  private static async Task RunMtpRunnerAsync(string repoRoot, CancellationToken cancellationToken)
+  private static async Task RunMtpRunnerAsync(
+    string repoRoot,
+    string durationsDirectory,
+    CancellationToken cancellationToken)
   {
     string mtpProject = Path.Combine(
       repoRoot,
@@ -76,6 +95,7 @@ internal static class CiTestSuite
         "coverage.cobertura.xml"
       )
       .WithWorkingDirectory(repoRoot)
+      .WithEnvironmentVariable("JARIBU_DURATIONS_PATH", durationsDirectory)
       .RunAsync(cancellationToken);
     if (exitCode != 0)
     {

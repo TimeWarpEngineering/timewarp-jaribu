@@ -7,6 +7,11 @@
 // does not understand exit 2, and so does a SigNoz call that cannot return rows.
 // Missing SIGNOZ_URL or SIGNOZ_API_KEY prints one line and exits 2.
 // The newest durations file is the latest write under the repo's artifacts/jaribu.
+// The writer's default path is relative to the test process working directory.
+// dev test points JARIBU_DURATIONS_PATH at that repo directory. --file covers
+// a run that wrote somewhere else. --outcome limits SigNoz duration groups.
+// The failure-rate column is blank when it is set, because that count is no
+// longer every run.
 #endregion
 
 namespace DevCli.Commands;
@@ -246,7 +251,7 @@ internal sealed class SlowTestsCommand : ICommand<Unit>
         }
 
         string label = string.IsNullOrWhiteSpace(since) ? "7d" : since.Trim();
-        Terminal.Write(SignozSlowTests.Format(groups, top, markdown, label));
+        Terminal.Write(SignozSlowTests.Format(groups, top, markdown, label, showFailureRate: outcome is null));
       }
     }
 

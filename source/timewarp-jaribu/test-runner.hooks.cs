@@ -364,8 +364,7 @@ public static partial class TestRunner
 
   private static bool IsValidHookSignature(MethodInfo method)
   {
-    return method.IsPublic &&
-      method.IsStatic &&
+    return method.IsPublic && method.IsStatic &&
       method.ReturnType == typeof(Task) &&
       !method.IsGenericMethodDefinition &&
       method.GetParameters().Length == 0;
@@ -458,7 +457,11 @@ public static partial class TestRunner
     }
   }
 
-  /// <summary>Reports every selected case for a method with the hook outcome.</summary>
+  /// <summary>
+  /// Reports every selected case for a method with the hook outcome.
+  /// Resolution uses <see cref="TestNodeState.Error"/>. A hook body uses
+  /// <see cref="TestNodeState.Failed"/> or <see cref="TestNodeState.Timeout"/>.
+  /// </summary>
   private static async Task ReportCasesFailedDueToHookAsync(
     Type testClass,
     IReadOnlyList<ReportedTestCase> cases,

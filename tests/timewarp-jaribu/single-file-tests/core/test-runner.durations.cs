@@ -9,8 +9,9 @@
 // The file is written when the outermost run returns, so this test cannot
 // read a file produced by its own suite. A child process runs the probe.
 // multi covers both classes. single covers one class and the default path.
-// JARIBU_DURATIONS=0 writes nothing. A skipped row has outcome skipped and
-// a null duration.
+// A directory JARIBU_DURATIONS_PATH writes there when the working directory
+// is somewhere else. JARIBU_DURATIONS=0 writes nothing. A skipped row has
+// outcome skipped and a null duration.
 #endregion
 
 #if !JARIBU_MULTI
@@ -69,6 +70,24 @@ namespace TestRunner_
       records.Count.ShouldBe(4);
       records.ShouldNotContain(record => record.Method == "Should_AlsoPass");
       One(records, "Should_Skip", caseIndex: null).DurationMilliseconds.ShouldBeNull();
+    }
+
+    [KnownTautology("child process asserts the durations file")]
+    public static async Task DirectoryOverride_Should_IgnoreTheWorkingDirectory()
+    {
+      string workingDirectory = Path.Combine(Path.GetTempPath(), "jaribu-durations-cwd-" + Guid.NewGuid().ToString("N"));
+      string anchor = Path.Combine(Path.GetTempPath(), "jaribu-durations-anchor-" + Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(workingDirectory);
+      CommandOutput output = await LaunchAsync(
+        "single",
+        anchor + Path.DirectorySeparatorChar,
+        optOut: false,
+        workingDirectory);
+      output.ExitCode.ShouldBe(0, output.Combined);
+      string[] files = Directory.GetFiles(anchor, "durations-*.json");
+      files.Length.ShouldBe(1, output.Combined);
+      Directory.Exists(Path.Combine(workingDirectory, "artifacts")).ShouldBeFalse(output.Combined);
+      Read(files[0]).Count.ShouldBe(4);
     }
 
     [KnownTautology("child process asserts the durations file")]

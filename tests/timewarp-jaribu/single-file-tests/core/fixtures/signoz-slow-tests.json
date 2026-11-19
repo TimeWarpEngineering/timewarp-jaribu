@@ -15,7 +15,9 @@
           ],
           "data": [
             ["DurationProbeAlpha", "Should_Echo", 0, 2, 500000000, 800000000, 900000000],
-            ["DurationProbeAlpha", "Should_Pass", null, 4, 1500000000, 2000000000, 3000000000]
+            ["DurationProbeAlpha", "Should_Pass", null, 4, 1500000000, 2000000000, 3000000000],
+            ["DurationProbeAlpha", "Should_StaySlow", null, 8, 2000000000, 2100000000, 2200000000],
+            ["DurationProbeAlpha", "Should_StallOnce", null, 3, 100000000, 10000000000, 10000000000]
           ]
         },
         {

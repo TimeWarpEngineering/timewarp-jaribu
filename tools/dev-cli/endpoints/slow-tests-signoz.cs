@@ -6,10 +6,9 @@
 // SIGNOZ_API_KEY is the name ganda already uses. SIGNOZ_URL is the base URL
 // because ganda's MCP entry hardcodes the host. The query is POST /api/v5/query_range,
 // requestType scalar, two builder queries on jaribu.test spans for service
-// TimeWarp.Jaribu. A is count, p50, p95, and max of durationNano, grouped by
-// class, method, and case index. B counts outcomes failed, timed_out, error,
-// and cancelled for the failure rate. The recorded fixture is that response
-// shape. This type does not open a socket.
+// TimeWarp.Jaribu. A is count, p50, p95, and max, ordered and ranked by p50,
+// then p95, then identity, so a one-off stall stays below a steady slow test.
+// B ignores --outcome. Failure rate is blank when --outcome is set. This type does not open a socket.
 #endregion
 
 namespace DevCli.Commands;
@@ -88,9 +87,10 @@ internal static class SignozSlowTests
   internal static string BuildRequestJson(long startMs, long endMs, string? outcome)
   {
     string filter = "service.name = '" + ServiceName + "' AND name CONTAINS 'jaribu.test'";
+    string durations = filter;
     if (outcome is not null)
     {
-      filter += " AND jaribu.test.outcome = '" + outcome + "'";
+      durations += " AND jaribu.test.outcome = '" + outcome + "'";
     }
 
     string failures = filter + " AND jaribu.test.outcome IN ('failed', 'timed_out', 'error', 'cancelled')";
@@ -109,7 +109,7 @@ internal static class SignozSlowTests
       writer.WriteEndObject();
       writer.WriteStartObject("compositeQuery");
       writer.WriteStartArray("queries");
-      WriteQuery(writer, "A", filter, true);
+      WriteQuery(writer, "A", durations, true);
       WriteQuery(writer, "B", failures, false);
       writer.WriteEndArray();
       writer.WriteEndObject();
@@ -180,16 +180,16 @@ internal static class SignozSlowTests
 
     ranked.Sort(static (left, right) =>
     {
-      int p95 = right.P95Milliseconds.CompareTo(left.P95Milliseconds);
-      if (p95 != 0)
-      {
-        return p95;
-      }
-
       int p50 = right.P50Milliseconds.CompareTo(left.P50Milliseconds);
       if (p50 != 0)
       {
         return p50;
+      }
+
+      int p95 = right.P95Milliseconds.CompareTo(left.P95Milliseconds);
+      if (p95 != 0)
+      {
+        return p95;
       }
 
       int className = string.CompareOrdinal(left.ClassName, right.ClassName);
@@ -208,7 +208,8 @@ internal static class SignozSlowTests
     IReadOnlyList<SignozGroup> groups,
     int top,
     bool markdown,
-    string window)
+    string window,
+    bool showFailureRate)
   {
     ArgumentNullException.ThrowIfNull(groups);
     ArgumentOutOfRangeException.ThrowIfLessThan(top, 1);
@@ -221,7 +222,12 @@ internal static class SignozSlowTests
       .Append(shown.ToString(CultureInfo.InvariantCulture))
       .Append(" of ")
       .Append(groups.Count.ToString(CultureInfo.InvariantCulture))
-      .AppendLine(" groups by p95.");
+      .AppendLine(" groups by p50.");
+    if (!showFailureRate)
+    {
+      builder.AppendLine("Failure rate is blank because --outcome filters the group count.");
+    }
+
     if (markdown)
     {
       builder.AppendLine("| Class | Method | Case | Count | p50 ms | p95 ms | Max ms | Failure rate |");
@@ -235,7 +241,8 @@ internal static class SignozSlowTests
     for (int index = 0; index < shown; index++)
     {
       SignozGroup group = groups[index];
-      string rate = (group.FailureRate * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%";
+      string rate = showFailureRate
+        ? (group.FailureRate * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%" : string.Empty;
       string caseText = group.CaseIndex is int caseIndex
         ? caseIndex.ToString(CultureInfo.InvariantCulture)
         : string.Empty;
@@ -317,7 +324,7 @@ internal static class SignozSlowTests
     writer.WriteStartArray("order");
     writer.WriteStartObject();
     writer.WriteStartObject("key");
-    writer.WriteString("name", durations ? "p95" : "failures");
+    writer.WriteString("name", durations ? "p50" : "failures");
     writer.WriteEndObject();
     writer.WriteString("direction", "desc");
     writer.WriteEndObject();

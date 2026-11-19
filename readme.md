@@ -18,7 +18,7 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 - **Tag Filtering**: Run specific test groups.
 - **Small dependency set**: Shouldly for assertions, TimeWarp.Terminal for console output, and TimeWarp.Amuru on the package graph for runfiles that shell out.
 - **Per-test traces**: One span per class and per test case, exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. See [documentation/telemetry.md](documentation/telemetry.md).
-- **Slow-test report**: Every run writes `artifacts/jaribu/durations-<utc>.json`. `dev slow-tests` ranks that file. The report is the input to deciding a PR-gate tag. Hand-tagging a test `slow` without this report is not the convention.
+- **Slow-test report**: Every run writes `artifacts/jaribu/durations-<utc>.json` relative to the process working directory. `dev slow-tests` ranks the newest file under the repository root. The report is the input to deciding a PR-gate tag. Hand-tagging a test `slow` without this report is not the convention.
 - **Visual Studio Test Explorer integration** (M.T.P. Mode)
 - **VS Code Test Explorer integration** (M.T.P. Mode)
 - **`dotnet test` support** (M.T.P. Mode)
@@ -648,7 +648,7 @@ public static async Task CleanUpOnce()
 
 ## Slow-test report
 
-A run writes one JSON file, `artifacts/jaribu/durations-<utc-timestamp>.json`, with one record per executed case: class, method, case index, the argument text stored on the span, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case is `skipped` and has no duration. `JARIBU_DURATIONS=0` writes nothing. `JARIBU_DURATIONS_PATH` replaces the default path. Single-file and multi-file runs both write the file.
+A run writes one JSON file, `artifacts/jaribu/durations-<utc-timestamp>.json`, with one record per executed case: class, method, case index, the argument text stored on the span, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case is `skipped` and has no duration. `JARIBU_DURATIONS=0` writes nothing. The default path is relative to the process working directory. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. This repository's `dev test` sets it to `artifacts/jaribu/` under the repository root, so the CI runfile and the MTP `dotnet test` both write `<repo>/artifacts/jaribu/durations-<utc>.json`. `dev slow-tests` reads the newest file in that directory. Pass `--file` when a run used another working directory and did not set the variable. Single-file and multi-file runs both write the file.
 
 ```bash
 dev slow-tests
@@ -658,7 +658,7 @@ dev slow-tests --outcome passed --format markdown
 
 The table is slowest first. Each row shows the cumulative percentage of the timed cases, and the first line shows the share the top N holds. The default N is 20. The command exits 0. It is a report, not a gate. `--format markdown` is the table to paste into a task or pull request.
 
-Across runs, when spans are exported, `dev slow-tests --signoz` ranks `jaribu.test` for service `TimeWarp.Jaribu`. See [documentation/telemetry.md](documentation/telemetry.md).
+Across runs, when spans are exported, `dev slow-tests --signoz` ranks `jaribu.test` for service `TimeWarp.Jaribu` by p50, then p95, so a one-off stall does not outrank a test that is slow on every run. `--outcome` limits those groups. The failure-rate column is blank when `--outcome` is set. See [documentation/telemetry.md](documentation/telemetry.md).
 
 The report is the input to deciding a PR-gate tag. Hand-tagging a test `slow` without this report is not the convention. The report does not change which tests run.
 
