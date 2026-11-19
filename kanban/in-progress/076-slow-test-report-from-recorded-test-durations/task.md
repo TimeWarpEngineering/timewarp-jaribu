@@ -97,6 +97,8 @@ The readme and `documentation/telemetry.md` say this report is what a PR-gate ta
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 7ea57655-5b16-43a7-a681-43f53619d1c1, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-19T21:17:49Z
 - Fix pass for review round 3 (M5, M6): class depth is an `AsyncLocal`, matching run depth, and duration rows are appended under the session lock. A child-process probe runs one sequential nested class and eight concurrent nested classes; the outer file keeps the three outer rows. An empty durations file throws `InvalidOperationException`, which `dev slow-tests` prints before exiting 0. The first commit of that pass dropped the executable bit on the two edited runfiles, so post-commit attest failed `runfile-executable`. The follow-up commit restores the bit.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f5ae-9a39-7d92-a42a-0e5108f0d59b, max-turns 500, Done — 2026-11-19T21:36:43Z
+- Review oracle round 4 (2026-11-20): Claude Code, claude-opus-5-5, effort 3, roster general, turn cap 200. Scope: the fix delta `0d8a39c..HEAD`. M5 and M6 are fixed, with no new findings. Files: `review/round-4/{general,merged}.md` and `review/disposition.md` (clean).
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session b0d83bcb-ca76-4cd3-9fd9-abbfd7d2c2d3, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-19T21:38:53Z
 
 ## Results
 
@@ -115,9 +117,10 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 
 ### Review disposition
 
-- Disposition: **pending** round 4. The fix pass addressed M5 and M6. `review/round-3/merged.md` still lists them open until that review verifies the fix. 3 rounds so far, roster general plus an independent helper in round 3. Round 1 ran at effort 3, round 2 at effort 2, and round 3 at effort 3.
-- Counts in the round-3 ledger: bug 1 fixed and 1 open, suggestion 1 fixed and 1 open, nit 2 fixed. 0 wontfix.
-- Paths: `review/review-framework.md`, `review/round-3/merged.md` (live ledger), `review/round-3/helper.md`, `review/disposition.md`.
+- Disposition: **clean**. 4 rounds. The roster was general in every round, with an independent read-only helper in round 3. Effort: round 1 at 3, round 2 at 2, rounds 3 and 4 at 3.
+- Final counts (`review/round-4/merged.md`): bug 2 fixed, suggestion 2 fixed, nit 2 fixed. 0 open, 0 wontfix, no escalations.
+- Round 4 checked the fix delta `0d8a39c..HEAD`. M5 is fixed: class depth is an `AsyncLocal`, rows are appended under the session lock, and the nested and concurrent probe asserts 3 outer rows. M6 is fixed: an empty file prints one line and exits 0. Round 4 found nothing new and ran no gates. It relies on the recorded results above and on CI.
+- Paths: `review/review-framework.md`, `review/round-4/general.md`, `review/round-4/merged.md` (final ledger), `review/disposition.md`.
 
 ## Review
 
@@ -128,7 +131,8 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 - Round 3 (kanban-only delta `2e645ed..HEAD` plus a fresh pass over the product diff `ef6d1df..HEAD`): M1 to M4 are still fixed on the final tree. The independent helper found M5 (bug: the durations `ClassDepth` races under concurrent nested runs, which `test-runner.session-fixture.concurrency.cs:182` does in both `dev test` legs, and nested-run isolation has no test) and M6 (suggestion: an empty durations file crashes `dev slow-tests`). Both are open. Fix pass needed, then round 4.
 - Round 3: Blocked — open M5, M6
 - Round 3 fix: M5 stores class depth in an `AsyncLocal` and appends rows under the session lock. The durations probe's `nested` mode runs one sequential nested class and eight concurrent nested classes, and the outer file has the three outer rows only. M6 makes `SlowTestReport.Read` throw `InvalidOperationException` for an empty file. `PrintLocal` already catches that, prints the message, and returns, so `dev slow-tests` exits 0.
-
+- Round 4 (fix delta `0d8a39c..HEAD`): M5 and M6 are fixed, verified by reading the code. No new findings. Disposition is clean (bug 2, suggestion 2, nit 2, all fixed).
+- Round 4: Done
 ## Learnings
 
 - Misread (review round 1): the task says SigNoz mode "ranks by p50 and p95 across runs, so a one-off stall does not look like a slow test". `## Goal (implementer restatement)` dropped the ranking and its reason and kept only "prints count, p50, p95, max, and failure rate". The code then ranked by p95 first, which is review finding M1. When a requirement gives a reason ("so that …"), restate the reason too, because it settles the sort order. why: review round 1, task 076, 2026-11-20

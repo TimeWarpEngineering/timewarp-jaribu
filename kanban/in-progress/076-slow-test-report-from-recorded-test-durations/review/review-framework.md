@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 144
-- Effort: 1
+- Lines changed: 2962
+- Effort: 3
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 80 (--max-turns; cursor uncapped)
+- Turn cap: 200 (--max-turns; cursor uncapped)
 
 ## Review framework — task 076
 
@@ -23,6 +23,12 @@
 - Delta since round 2 (`2e645ed..HEAD`): kanban kitchen only (`4071290`, `67c8c9b`, `0d8a39c` and the land commits). No product file changed.
 - Because the by-diff budget is effort 3, round 3 also takes a fresh pass over the whole product diff `ef6d1df..HEAD` (excluding `kanban/` and the task 072 `skills/tw-jaribu/SKILL.md` change): the review oracle's own read plus one independent read-only helper given the code and the spec, not the earlier findings.
 - Re-checks M1 to M4 against the final tree.
+
+### Round 4 scope (2026-11-20)
+
+- Fix delta since round 3 (`0d8a39c..HEAD`): `bfafabb` (M5, M6) and `adf7387` (executable bit restored), plus kitchen land commits.
+- Re-checks M5 and M6 against the final tree and the updated `## Results` record. It also scans the fix delta for new defects: the `AsyncLocal` class depth at every `EnterClass`, `ExitClass`, and `Record` call site, the session lock, the nested probe and its assertions, and the empty-file path in `dev slow-tests`.
+- M1 to M4 were fixed and re-checked in rounds 2 and 3. The fix delta does not touch their code.
 
 ### Ground rules
 
