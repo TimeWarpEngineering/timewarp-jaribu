@@ -13,6 +13,8 @@ Edit Directory.Packages.props in this repo only.
 
 - Minted by ganda task wave run 20261119T023451Z-133310
 - Implement oracle: implemented by implementer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 500, Done — 2026-11-19T03:33:19Z
+- Review oracle: general (grok, vendor xAI, model Grok 4.7), session 01a1f1dd-ce37-7b91-b65a-7403aac4caba, max-turns 80, effort 1 — 2026-11-19
+- Review oracle: review by reviewer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f1dd-ce37-7b91-b65a-7403aac4caba, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-19T03:36:27Z
 
 ## Goal (implementer restatement)
 
@@ -34,3 +36,14 @@ Acceptance criteria:
 
 Smoke: `./bin/dev benchmark --runs 1 --workloads startup --hosts tunit --skip-in-process`
 Expect: the TUnit host builds against TUnit 1.87.0 and reports cold and warm startup timings with exit code 0. Discard the generated `benchmarks/results/*` changes afterward.
+
+### Review
+
+- Round 1, effort 1, roster: general.
+- Counts: bug 0 open / 0 fixed / 0 wontfix; suggestion 0; nit 0. No findings raised.
+- Disposition: clean. No wontfix and no escalation.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
+## Review
+
+- Round 1: Done
