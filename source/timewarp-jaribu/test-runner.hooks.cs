@@ -364,8 +364,7 @@ public static partial class TestRunner
 
   private static bool IsValidHookSignature(MethodInfo method)
   {
-    return method.IsPublic &&
-      method.IsStatic &&
+    return method.IsPublic && method.IsStatic &&
       method.ReturnType == typeof(Task) &&
       !method.IsGenericMethodDefinition &&
       method.GetParameters().Length == 0;
@@ -492,6 +491,7 @@ public static partial class TestRunner
         testCase.Parameters,
         testCase.InputOrdinal);
       JaribuTelemetry.Complete(span, state, hookException);
+      JaribuDurations.Record(testClass, testCase, state, TimeSpan.Zero);
       await sink.OnTestStartedAsync(failedNode).ConfigureAwait(false);
       await sink.OnTestCompletedAsync(failedNode).ConfigureAwait(false);
       results.Add(failedNode);
