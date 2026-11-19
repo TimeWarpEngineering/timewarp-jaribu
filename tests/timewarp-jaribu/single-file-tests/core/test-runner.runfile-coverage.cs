@@ -1,6 +1,7 @@
 #!/usr/bin/env -S dotnet --
 #:project $(SourceDirectory)timewarp-jaribu/timewarp-jaribu.csproj
 #:include test-runner.runfile-coverage.launch.cs
+#:include test-runner.runfile-coverage.fake-dotnet.cs
 #:include test-runner.runfile-coverage.manifest.cs
 #:include test-runner.runfile-coverage.deterministic.cs
 #:include test-runner.runfile-coverage.static.cs
@@ -17,6 +18,9 @@
 // and the coverage profiler variables.
 // Manifest tests hide PATH and ~/.dotnet/tools, then point `dotnet` at the same fake.
 // coverage-muxer-host is a dll launched by the dotnet muxer.
+// Probes set JARIBU_FILTER_TAG to blank. A filtered CI leg must not filter the probe.
+// A blank value is not a filter.
+// why: task 075
 #endregion
 
 #if !JARIBU_MULTI
@@ -30,10 +34,16 @@ namespace TestRunner_
   using System.Xml.Linq;
   using TimeWarp.Amuru;
 
+  // Class tags open the OS-leg gate. A method runs on a leg only when it also
+  // carries that OS tag. A method tagged only Jaribu stays on the unfiltered leg.
   [TestTag("Jaribu")]
+  [TestTag("macos")]
+  [TestTag("windows")]
   public partial class RunfileCoverage_Given_
   {
     private const int ProbeTimeoutMilliseconds = 180_000;
+
+    private const string FilterTagVariable = "JARIBU_FILTER_TAG";
 
     private static readonly SemaphoreSlim BuildGate = new(1, 1);
 
@@ -48,6 +58,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task MissingTool_Should_NameTheInstallCommand()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -62,6 +73,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task InvalidModuleFilter_Should_FailBeforeLaunch()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -81,6 +93,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [Proves(typeof(RunfileCoverageOptions), nameof(RunfileCoverageOptions.DefaultModuleExcludes))]
+    [TestTag("Jaribu")]
     public static async Task Relaunch_Should_CollectCoberturaOnceWithTheDefaultFilter()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -120,6 +133,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task ApiOptions_Should_OverrideResultsDirectoryAndModuleFilter()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -142,6 +156,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task Environment_Should_OptInAndPropagateTheChildExitCode()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -167,6 +182,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task UnsetVariable_Should_RunInProcess()
     {
       using ProbeRun run = ProbeRun.Create();
@@ -180,6 +196,7 @@ namespace TestRunner_
 
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
     public static async Task EmptyReport_Should_FailTheRun()
     {
       using ProbeRun run = ProbeRun.Create();

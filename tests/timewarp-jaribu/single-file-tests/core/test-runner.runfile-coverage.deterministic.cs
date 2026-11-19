@@ -17,6 +17,8 @@ public partial class RunfileCoverage_Given_
 {
     [Timeout(ProbeTimeoutMilliseconds)]
     [KnownTautology("child-process test")]
+    [TestTag("Jaribu")]
+    [TestTag("macos")]
     public static async Task DeterministicPathMap_Should_KeepTheProductAndOmitDependencies()
     {
       using ConsumerWorkspace workspace = ConsumerWorkspace.Create(FindRepoRoot());
@@ -40,6 +42,7 @@ public partial class RunfileCoverage_Given_
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
+        .WithEnvironmentVariable(FilterTagVariable, string.Empty)
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(4))
         .CaptureAsync();

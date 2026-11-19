@@ -37,7 +37,9 @@ namespace TestingPlatformProps_
   using System.Text.Json;
   using TimeWarp.Amuru;
 
+  // The apphost name branches on Windows, and a profiled child restore hangs there.
   [TestTag("Mtp")]
+  [TestTag("windows")]
   public class TransitiveConsumer_Given_
   {
     private const string PackagePrefix = "TimeWarp.Jaribu.TestingPlatform.";

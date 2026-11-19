@@ -56,7 +56,7 @@ Options:
 
 | Option | Effect |
 |--------|--------|
-| `--filter-tag` | Exact tag. A miss is one Skipped node per method, unless that method's attribute constructor throws. That rejection is an Error node and the run fails. A blank `JARIBU_FILTER_TAG` is ignored. |
+| `--filter-tag` | Exact tag. A miss is one Skipped node per method, unless that method's attribute constructor throws. That rejection is an Error node and the run fails. A blank `JARIBU_FILTER_TAG` is ignored. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule. |
 | `--filter-class` | Substring of the class full name. Non-matches are omitted. |
 | `--filter-method` | Substring of the method name. Non-matches are omitted. |
 | `--strict-signatures` | Near-miss signatures fail the run. |
