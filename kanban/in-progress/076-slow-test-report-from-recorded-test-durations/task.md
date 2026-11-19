@@ -90,6 +90,7 @@ The readme and `documentation/telemetry.md` say this report is what a PR-gate ta
 - Review oracle round 1 (2026-11-20): Claude Code, claude-opus-5-5, effort 3, roster general. Findings: M1 bug, M2 suggestion, M3 and M4 nits, all open. Files: `review/review-framework.md` and `review/round-1/{general,merged}.md`. A fix pass is needed before disposition.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 200, artifacts general.md, merged.md — 2026-11-19T19:33:24Z
 - Fix pass for review round 1 (implement-fix-2): ranked SigNoz groups by p50, then p95, then identity, and ordered the duration query by p50. The failure-rate query ignores `--outcome`, and that column is blank when `--outcome` is set. Both `dev test` legs set `JARIBU_DURATIONS_PATH` to `<repo>/artifacts/jaribu/`. The hook outcome summary is restored.
+- Review oracle round 2 (2026-11-20): Claude Code, claude-opus-5-5, effort 2, roster general, turn cap 120. Scope: fix delta `d0c5054..2e645ed`. M1 through M4 are fixed, with no new findings. Files: `review/round-2/{general,merged}.md` and `review/disposition.md` (clean).
 
 ## Results
 
@@ -104,11 +105,18 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.durations.cs` — passed (4)
 - `ganda repo audit` — passed (exit 0). `vscode-window-icon` remains an advisory warning and does not gate.
 
+### Review disposition
+
+- Disposition: **clean**. 2 rounds, roster general. Round 1 ran at effort 3 and round 2 at effort 2.
+- Final counts: bug 1 fixed, suggestion 1 fixed, nit 2 fixed. 0 open, 0 wontfix.
+- Paths: `review/review-framework.md`, `review/round-2/merged.md` (final ledger), `review/disposition.md`.
+
 ## Review
 
 - Round 1: open M1, M2, M3, M4
 - Round 1 fix: M1 ranks by p50, then p95, then identity, and the query orders by p50. M2 anchors both `dev test` legs with `JARIBU_DURATIONS_PATH` at the repository `artifacts/jaribu/` and states the cwd-relative default. M3 restores the hook outcome summary. M4 builds the failure-rate query without `--outcome` and blanks that column when `--outcome` is set.
-
+- Round 2 (fix delta `d0c5054..2e645ed`): M1, M2, M3, and M4 are fixed. No new findings. Disposition is clean.
+- Round 2: Done
 ## Learnings
 
 - Misread (review round 1): the task says SigNoz mode "ranks by p50 and p95 across runs, so a one-off stall does not look like a slow test". `## Goal (implementer restatement)` dropped the ranking and its reason and kept only "prints count, p50, p95, max, and failure rate". The code then ranked by p95 first, which is review finding M1. When a requirement gives a reason ("so that …"), restate the reason too, because it settles the sort order. why: review round 1, task 076, 2026-11-20
