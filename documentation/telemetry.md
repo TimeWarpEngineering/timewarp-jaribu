@@ -50,7 +50,7 @@ A consumer that launches tests with its own dev CLI does the same: set `TRACEPAR
 
 ## Durations file
 
-The same run writes `artifacts/jaribu/durations-<utc-timestamp>.json` relative to the process working directory. One record per executed case stores the class, method, case index, argument text, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case stores `skipped` and a null duration. `JARIBU_DURATIONS=0` skips the file. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. `dev slow-tests` reads the newest file under the repository root's `artifacts/jaribu`, or `--file` when the run's working directory was not that root.
+The same run writes `artifacts/jaribu/durations-<utc-timestamp>.json` relative to the process working directory. One record per executed case stores the class, method, case index, argument text, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case stores `skipped` and a null duration. `JARIBU_DURATIONS=0` skips the file. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. A runner call from inside a test, including calls that run at the same time, stays out of that file. `dev slow-tests` reads the newest file under the repository root's `artifacts/jaribu`, or `--file` when the run's working directory was not that root. An empty file prints one line and exits 0.
 
 ## SigNoz
 

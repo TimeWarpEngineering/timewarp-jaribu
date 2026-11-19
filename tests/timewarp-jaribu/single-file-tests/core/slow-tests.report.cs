@@ -12,7 +12,8 @@
 // include the Nuru command. SigNoz mode parses a saved JSON response and
 // does not call SigNoz. Rank is p50, then p95. A high p95 with a low p50
 // stays below a steady high p50. The MTP project lists those helpers itself
-// because a normal project ignores #:include.
+// because a normal project ignores #:include. Empty text is an invalid file.
+// A records array with no rows is a report of no rows.
 #endregion
 
 #if !JARIBU_MULTI
@@ -57,6 +58,15 @@ namespace SlowTests_
       passed.ShouldNotContain("Fast");
       passed.ShouldNotContain("Skip");
       passed.ShouldContain("Top 2 of 2 hold 100.0% of 80.0 ms.");
+      await Task.CompletedTask;
+    }
+
+    public static async Task EmptyFile_Should_ThrowInvalidOperation()
+    {
+      InvalidOperationException exception = Should.Throw<InvalidOperationException>(
+        () => SlowTestReport.Read(string.Empty));
+      exception.Message.ShouldBe("Durations file is empty.");
+      SlowTestReport.Read("""{"records":[]}""").Count.ShouldBe(0);
       await Task.CompletedTask;
     }
 

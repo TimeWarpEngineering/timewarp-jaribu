@@ -10,9 +10,11 @@ using System.Text.Json;
 
 #region Design
 // The file is the local input to dev slow-tests. A span export is not required.
-// EnterRun on the outermost scope owns the file. Each RunTestsAsync class run
-// bumps a depth on that scope. Only depth 1 is recorded, so a runner call made
-// from inside a test does not join the outer file or write one of its own.
+// EnterRun on the outermost scope owns the file. Class depth is an AsyncLocal,
+// the same way run depth is, so each flow has its own copy. Only depth 1 is
+// recorded. A runner call from inside a test, including one started on another
+// thread, does not join the outer file or write one of its own. Those flows
+// share the session object, so rows are appended under its lock.
 // A skipped case stores outcome skipped and a null duration. JARIBU_DURATIONS=0
 // skips the write. JARIBU_DURATIONS_PATH replaces the file. An existing directory,
 // or a path that ends with a separator, receives durations-<utc>.json. Otherwise
@@ -30,6 +32,7 @@ internal static class JaribuDurations
   internal const string DirectoryName = "artifacts/jaribu";
 
   private static readonly AsyncLocal<Session?> Current = new();
+  private static readonly AsyncLocal<int> ClassDepth = new();
 
   internal static void BeginOuter()
   {
@@ -43,14 +46,25 @@ internal static class JaribuDurations
   {
     Session? session = Current.Value;
     Current.Value = null;
-    if (session is null || !session.SawClass || OptOut())
+    if (session is null || OptOut())
     {
       return;
     }
 
+    List<Row> records;
+    lock (session.Gate)
+    {
+      if (!session.SawClass)
+      {
+        return;
+      }
+
+      records = [.. session.Records];
+    }
+
     try
     {
-      Write(session.Records);
+      Write(records);
     }
     catch (ArgumentException exception)
     {
@@ -74,19 +88,21 @@ internal static class JaribuDurations
   {
     Session session = Current.Value ?? new Session();
     Current.Value = session;
-    session.ClassDepth++;
-    session.SawClass = true;
+    ClassDepth.Value++;
+    lock (session.Gate)
+    {
+      session.SawClass = true;
+    }
   }
 
   internal static void ExitClass()
   {
-    Session? session = Current.Value;
-    if (session is null || session.ClassDepth == 0)
+    if (ClassDepth.Value == 0)
     {
       return;
     }
 
-    session.ClassDepth--;
+    ClassDepth.Value--;
   }
 
   internal static void Record(
@@ -100,21 +116,24 @@ internal static class JaribuDurations
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
     Session? session = Current.Value;
-    if (session is null || session.ClassDepth != 1)
+    if (session is null || ClassDepth.Value != 1)
     {
       return;
     }
 
     bool skipped = state == TestNodeState.Skipped;
-    session.Records.Add(
-      new Row(
-        testClass.FullName ?? testClass.Name,
-        method.Name,
-        caseIndex,
-        JaribuTelemetry.FormatCaseArguments(parameters),
-        JaribuTelemetry.OutcomeFor(state),
-        skipped ? null : duration?.TotalMilliseconds,
-        Tags(testClass, method)));
+    Row row = new(
+      testClass.FullName ?? testClass.Name,
+      method.Name,
+      caseIndex,
+      JaribuTelemetry.FormatCaseArguments(parameters),
+      JaribuTelemetry.OutcomeFor(state),
+      skipped ? null : duration?.TotalMilliseconds,
+      Tags(testClass, method));
+    lock (session.Gate)
+    {
+      session.Records.Add(row);
+    }
   }
 
   internal static void Record(
@@ -309,7 +328,7 @@ internal static class JaribuDurations
 
   private sealed class Session
   {
-    public int ClassDepth { get; set; }
+    public object Gate { get; } = new();
 
     public bool SawClass { get; set; }
 

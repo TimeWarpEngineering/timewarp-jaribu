@@ -11,7 +11,8 @@
 // multi covers both classes. single covers one class and the default path.
 // A directory JARIBU_DURATIONS_PATH writes there when the working directory
 // is somewhere else. JARIBU_DURATIONS=0 writes nothing. A skipped row has
-// outcome skipped and a null duration.
+// outcome skipped and a null duration. nested runs inner runners, including
+// concurrent ones, and the file keeps only the outer rows.
 #endregion
 
 #if !JARIBU_MULTI
@@ -55,6 +56,20 @@ namespace TestRunner_
       RecordedCase second = One(records, "Should_Echo", caseIndex: 1);
       second.Arguments.ShouldBe("\"two\"");
       One(records, "Should_AlsoPass", caseIndex: null).Tags.ShouldBeEmpty();
+    }
+
+    [KnownTautology("child process asserts the durations file")]
+    public static async Task NestedRun_Should_RecordOnlyTheOuterCases()
+    {
+      string path = Path.Combine(Path.GetTempPath(), "jaribu-durations-" + Guid.NewGuid().ToString("N") + ".json");
+      CommandOutput output = await LaunchAsync("nested", path, optOut: false, workingDirectory: FindRepoRoot());
+      output.ExitCode.ShouldBe(0, output.Combined);
+      List<RecordedCase> records = Read(path);
+      records.Count.ShouldBe(3);
+      One(records, "Should_RunNested", caseIndex: null).Outcome.ShouldBe("passed");
+      One(records, "Should_StillRecord", caseIndex: null).Outcome.ShouldBe("passed");
+      One(records, "Should_RecordTheLaterClass", caseIndex: null).Outcome.ShouldBe("passed");
+      records.ShouldNotContain(record => record.ClassName.Contains("Nested", StringComparison.Ordinal));
     }
 
     [KnownTautology("child process asserts the durations file")]

@@ -7,6 +7,8 @@
 // last and does not add to the total. Cumulative percentage uses every timed row
 // that passed the outcome filter, including rows past --top. The top-N share is
 // that same total. Markdown and text carry the same numbers.
+// Empty text throws InvalidOperationException. The command prints that line and
+// exits 0. A file with an empty records array is a report of no rows.
 // Exit 0 belongs to the command: this type only builds the text.
 #endregion
 
@@ -98,7 +100,11 @@ internal static class SlowTestReport
 
   internal static IReadOnlyList<DurationRow> Read(string json)
   {
-    ArgumentException.ThrowIfNullOrEmpty(json);
+    if (string.IsNullOrEmpty(json))
+    {
+      throw new InvalidOperationException("Durations file is empty.");
+    }
+
     using JsonDocument document = JsonDocument.Parse(json);
     if (!document.RootElement.TryGetProperty("records", out JsonElement records) ||
         records.ValueKind != JsonValueKind.Array)

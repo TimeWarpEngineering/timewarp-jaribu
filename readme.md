@@ -648,7 +648,7 @@ public static async Task CleanUpOnce()
 
 ## Slow-test report
 
-A run writes one JSON file, `artifacts/jaribu/durations-<utc-timestamp>.json`, with one record per executed case: class, method, case index, the argument text stored on the span, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case is `skipped` and has no duration. `JARIBU_DURATIONS=0` writes nothing. The default path is relative to the process working directory. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. This repository's `dev test` sets it to `artifacts/jaribu/` under the repository root, so the CI runfile and the MTP `dotnet test` both write `<repo>/artifacts/jaribu/durations-<utc>.json`. `dev slow-tests` reads the newest file in that directory. Pass `--file` when a run used another working directory and did not set the variable. Single-file and multi-file runs both write the file.
+A run writes one JSON file, `artifacts/jaribu/durations-<utc-timestamp>.json`, with one record per executed case: class, method, case index, the argument text stored on the span, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case is `skipped` and has no duration. `JARIBU_DURATIONS=0` writes nothing. The default path is relative to the process working directory. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. This repository's `dev test` sets it to `artifacts/jaribu/` under the repository root, so the CI runfile and the MTP `dotnet test` both write `<repo>/artifacts/jaribu/durations-<utc>.json`. `dev slow-tests` reads the newest file in that directory. Pass `--file` when a run used another working directory and did not set the variable. Single-file and multi-file runs both write the file. A runner call from inside a test, including calls that run at the same time, stays out of that file.
 
 ```bash
 dev slow-tests
@@ -656,7 +656,7 @@ dev slow-tests --top 10 --file artifacts/jaribu/durations-20261120T010203004Z.js
 dev slow-tests --outcome passed --format markdown
 ```
 
-The table is slowest first. Each row shows the cumulative percentage of the timed cases, and the first line shows the share the top N holds. The default N is 20. The command exits 0. It is a report, not a gate. `--format markdown` is the table to paste into a task or pull request.
+The table is slowest first. Each row shows the cumulative percentage of the timed cases, and the first line shows the share the top N holds. The default N is 20. The command exits 0, including when the durations file is empty: that prints one line. It is a report, not a gate. `--format markdown` is the table to paste into a task or pull request.
 
 Across runs, when spans are exported, `dev slow-tests --signoz` ranks `jaribu.test` for service `TimeWarp.Jaribu` by p50, then p95, so a one-off stall does not outrank a test that is slow on every run. `--outcome` limits those groups. The failure-rate column is blank when `--outcome` is set. See [documentation/telemetry.md](documentation/telemetry.md).
 

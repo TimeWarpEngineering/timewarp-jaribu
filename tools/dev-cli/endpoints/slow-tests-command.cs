@@ -6,6 +6,7 @@
 // Local mode exits 0. A missing file is still a report. Option values this command
 // does not understand exit 2, and so does a SigNoz call that cannot return rows.
 // Missing SIGNOZ_URL or SIGNOZ_API_KEY prints one line and exits 2.
+// An empty durations file prints one line and exits 0.
 // The newest durations file is the latest write under the repo's artifacts/jaribu.
 // The writer's default path is relative to the test process working directory.
 // dev test points JARIBU_DURATIONS_PATH at that repo directory. --file covers
