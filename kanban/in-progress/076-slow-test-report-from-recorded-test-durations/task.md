@@ -91,6 +91,7 @@ The readme and `documentation/telemetry.md` say this report is what a PR-gate ta
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 200, artifacts general.md, merged.md — 2026-11-19T19:33:24Z
 - Fix pass for review round 1 (implement-fix-2): ranked SigNoz groups by p50, then p95, then identity, and ordered the duration query by p50. The failure-rate query ignores `--outcome`, and that column is blank when `--outcome` is set. Both `dev test` legs set `JARIBU_DURATIONS_PATH` to `<repo>/artifacts/jaribu/`. The hook outcome summary is restored.
 - Review oracle round 2 (2026-11-20): Claude Code, claude-opus-5-5, effort 2, roster general, turn cap 120. Scope: fix delta `d0c5054..2e645ed`. M1 through M4 are fixed, with no new findings. Files: `review/round-2/{general,merged}.md` and `review/disposition.md` (clean).
+- Implement pass after the empty pull-request body: product work was already complete and the review disposition was already clean. The `## Results` summary is the paragraph open-pr copies into the body. Dropped an unpushed merge of `origin/feature/test-tiers` so task 075 does not ride into this pull request. No product files changed, so the recorded gates still stand.
 
 ## Results
 
