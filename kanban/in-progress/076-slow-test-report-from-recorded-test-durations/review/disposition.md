@@ -1,15 +1,13 @@
 # Disposition — task 076
 
 **Date:** 2026-11-20
-**Outcome:** pending — round 3 has open findings
-**Rounds:** 3
-**Final open count:** 2 (M5 bug, M6 suggestion)
+**Outcome:** clean
+**Rounds:** 4
+**Final open count:** 0
 
 ## Summary
 
-Rounds 1 and 2 raised M1 to M4, and all four are fixed in 2e645ed. Round 3 re-checked them on the final tree. An independent read-only pass in round 3 then found M5, a bug: the durations class-depth counter races when a test runs nested runners concurrently, and this repo's suite does that. It also found M6, a suggestion: an empty durations file crashes `dev slow-tests`. Both are open in `review/round-3/merged.md`. A fix pass on this task id, then round 4, is needed before the disposition can be clean.
-
-Note: the round-3 oracle sent `Done` before the helper's report arrived. That answer was premature. This file and `round-3/merged.md` are the corrected record.
+Round 1 raised M1 to M4, and all four were fixed in 2e645ed and re-checked in rounds 2 and 3. Round 3's independent read-only pass raised M5 (bug: the durations class-depth counter raced under concurrent nested runs) and M6 (suggestion: an empty durations file crashed `dev slow-tests`). Both were fixed in bfafabb, and adf7387 restored the runfile executable bit. Round 4 checked the fix delta `0d8a39c..HEAD`. Class depth is now an `AsyncLocal` with locked row appends, a nested and concurrent probe covers it, and an empty file prints one line and exits 0. Round 4 found nothing new. Every raised finding is fixed: bug 2, suggestion 2, nit 2, 0 wontfix.
 
 ## Exception log (if accepted-exceptions)
 
@@ -19,4 +17,4 @@ None.
 
 - None.
 
-Live ledger: `review/round-3/merged.md`.
+Final ledger: `review/round-4/merged.md`.
