@@ -56,7 +56,9 @@ The MTP adapter exposes `--filter-tag` and `--exclude-tag` as one or more argume
 
 Tests cover include-any, exclude-any, include then exclude, class-level tags, environment comma lists and trim at depth 0, nested runs ignoring the environment, and the skip text, on the runfile path and the MTP path. The readme states exclude, multi-tag, and that tags are free-form so the repository chooses the vocabulary. The package version is `1.0.0-beta.19`.
 
-This pass also closes the round-1 notes. `glossary.md` defines carrier as a class or method whose own `[TestTag]`, or a tag inherited from its class, matches a filter tag. `### How to validate` records `test-runner.tag-filtering.cs` and `mtp-validation-harness.cs`. The skill filter section names task 073. The `--filter-tag` row in `documentation/architecture.md` has no trailing space. The environment report asserts that `Untagged` and `Keep` passed, and a whitespace `JARIBU_FILTER_TAG` at depth 0 stays with `mtp-node-identity.cs`.
+This pass also closes the round-1 notes. `### How to validate` records `test-runner.tag-filtering.cs` and `mtp-validation-harness.cs`. The skill filter section names task 073. The `--filter-tag` row in `documentation/architecture.md` has no trailing space. The environment report asserts that `Untagged` and `Keep` passed, and a whitespace `JARIBU_FILTER_TAG` at depth 0 stays with `mtp-node-identity.cs`.
+
+Review round 2 asked for the carrier wording. A carrier is a class or method whose own `[TestTag]`, or a tag inherited from its class, matches an exclude tag from `--exclude-tag` or `JARIBU_EXCLUDE_TAG`. Exclude skips that carrier after include. The three docs that use the word (`agent.md`, `skills/tw-jaribu/SKILL.md`, `tests/timewarp-jaribu/test-plan.md`) keep it. A filter tag in this repository is the include side: `--filter-tag`, `JARIBU_FILTER_TAG`, and `filterTag`.
 
 ## Checklist
 
@@ -76,6 +78,8 @@ This pass also closes the round-1 notes. `glossary.md` defines carrier as a clas
 - Review oracle round 1: general reviewer (claude, Claude Opus 5.5), session d060ac52-0680-44c3-9720-95ccacced8b2, effort 3, turn cap 200. 0 bugs, 2 suggestions, 3 nits, all open. Fix pass requested for M1–M5 — 2026-11-20
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session d060ac52-0680-44c3-9720-95ccacced8b2, max-turns 200, artifacts general.md, merged.md — 2026-11-19T23:17:23Z
 - Fix pass implement-fix-2: closed M1–M5. Carrier is defined in `glossary.md`. How to validate records `test-runner.tag-filtering.cs` and `mtp-validation-harness.cs`. The full `./bin/dev test` stays the CI gate. `ganda repo audit --fix --checks vscode-window-icon` wrote gitignored `.vscode/settings.json`.
+- Review oracle round 2: general reviewer (claude, Claude Opus 5.5), session 8fd87419-c75c-40e0-9571-5e64e91bca44, effort 2, turn cap 120. Re-verified M1–M5 as fixed. Opened M6 (nit): the glossary entry defines carrier against "a filter tag", which here means the include side. Fix pass requested for M6 — 2026-11-20
+- Fix pass implement-fix-3: closed M6. `glossary.md` defines a carrier as a class or method whose own `[TestTag]`, or a tag inherited from its class, matches an exclude tag from `--exclude-tag` or `JARIBU_EXCLUDE_TAG`. Exclude skips that carrier after include. Session 01a1f62a-5e61-72c2-bb1d-732bec599df7 — 2026-11-20
 
 ## Results
 
@@ -84,6 +88,8 @@ A runner can keep the ordinary tests and skip the ones a repository marks. Sever
 The branch was behind `origin/master` at claim and this walk did not merge it. Host merge may conflict with the duration edits in `test-runner.class-run.cs`.
 
 Fix pass for review round 1. `glossary.md` defines carrier. The skill filter `why:` line names task 073. The `--filter-tag` row in `documentation/architecture.md` has no trailing space. The environment probe asserts that the line after `Test: Untagged` and `Test: Keep` contains `PASSED`. The in-run blank loop is recorded as covered at depth 0 by `mtp-node-identity.cs`.
+
+Fix pass for review round 2. The Carrier row names an exclude tag from `--exclude-tag` or `JARIBU_EXCLUDE_TAG`. Exclude skips that carrier after include. The three docs keep the word. No production code and no test file changed on this pass.
 
 ### How to validate
 
@@ -101,15 +107,21 @@ Expect: 8 passed. Include `ci` and `smoke` runs those methods and the untagged m
 - `tests/timewarp-jaribu/single-file-tests/core/fixtures/tag-filter-probe.cs` — child of the environment test, not its own gate. It has `#if` omitted on purpose so the process entry calls `RunTests`.
 - `ganda repo audit` — exit 0 with one advisory, `vscode-window-icon` (`.vscode/settings.json` missing). `ganda repo audit --fix --checks vscode-window-icon` wrote the gitignored window title. The audit inside that fix passed 47, failed 0, skipped 1. Closing line: `Repository passes all audit checks.` Nothing from that fix is tracked.
 
+Fix pass for review round 2 (glossary wording only; no test file added or edited; production code unchanged, so no runfile gate):
+
+- `./bin/dev build` — pass
+- `ganda repo audit` — exit 0. Passed 47, failed 0, skipped 1. Closing line: `Repository passes all audit checks.`
+
 ### Review
 
 - Round 1 (effort 3, roster: general). Fix pass closed M1–M5. Open: none from this pass.
-- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md` (live ledger).
+- Round 2 (effort 2, roster: general). M1–M5 re-verified fixed. Fix pass closed M6 (nit, `glossary.md` carrier wording). Counts: suggestion 2 fixed; nit 4 fixed; bug 0. Open: none from this pass.
+- Paths: `review/review-framework.md`, `review/round-1/merged.md`, `review/round-2/general.md`, `review/round-2/merged.md` (live ledger).
 
 ## Review
 
-- Round 1: fix pass closed M1, M2, M3, M4, M5. Round 2 has not run.
-
+- Round 1: fix pass closed M1, M2, M3, M4, M5.
+- Round 2: fix pass closed M6. Round 3 has not run.
 ## Notes
 
 Steve 2026-11-18: "Exclude we want, that makes sense so we can mark problematic ones easily. I
