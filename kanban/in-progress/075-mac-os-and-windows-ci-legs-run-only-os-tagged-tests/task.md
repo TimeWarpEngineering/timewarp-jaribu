@@ -76,6 +76,7 @@ instruments the build and relaunches. Windows and Linux never run that branch.
 - Review round 1 (2026-11-20): effort 2, roster general, review oracle Claude Code (claude-opus-5-5) in headless `ganda task work`. Findings: 0 bug, 1 suggestion (M1, consumer docs miss the new empty-tag exit 1), 1 nit (M2, the allowEmpty wording does not cover the no-registration branch). All open, so a fix pass is needed. Ledger: `review/round-1/merged.md`. No misread: the restatement matches the task.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 120, artifacts general.md, merged.md — 2026-11-19T20:35:12Z
 - Fix pass for review round 1 (2026-11-20): M1 adds the standalone exit-1 sentence to the `--filter-tag` rows in the readme, architecture, and the Jaribu skill, and beside the skill's `JARIBU_FILTER_TAG=Lexer` example. M2 sends the empty-registration path through the same tag guard, so `allowEmpty` no longer returns 0 when a resolved tag executes nothing. Rewriting the silent-no-ops runfile dropped its executable bit; it is restored to `100755`.
+- Review round 2 (2026-11-20): effort 1, roster general, review oracle Claude Code (claude-opus-5-5) in headless `ganda task work`. Scope: fix delta `a66c221..HEAD`. M1 and M2 are fixed, with no new findings. Disposition: clean (`review/disposition.md`). No misread.
 
 ## Results
 
@@ -92,6 +93,8 @@ Coverage probes set `JARIBU_FILTER_TAG` to blank so a filtered parent does not f
 Baseline from the last green master run named in this task: ubuntu 11.0 min, windows 10.8 min, macos 14.0 min. The durations after this change wait on the first green master run after merge, so the durations checklist item stays open.
 
 Fix pass: the readme, architecture, and Jaribu skill `--filter-tag` rows, and the skill example, say a standalone tag filter that executes nothing exits 1 even with `allowEmpty`, and that MTP reports Skipped and does not apply that rule. `RunAllTests` applies that failure when nothing is registered.
+
+Review disposition: **clean** after 2 rounds. Round 1 ran at effort 2 and round 2 at effort 1, both with the general reviewer only. Final counts: bug 0; suggestion 1 fixed (M1); nit 1 fixed (M2); 0 open and 0 wontfix. Artifacts: `review/review-framework.md`, `review/round-2/merged.md`, `review/disposition.md`.
 
 ### How to validate
 
@@ -116,7 +119,7 @@ First implement pass:
 ## Review
 
 - Round 1: Blocked — open M1, M2
-
+- Round 2: Done
 ## Notes
 
 Steve 2026-11-18: "if they run in parallel, then it only costs us four minutes ... not sure
