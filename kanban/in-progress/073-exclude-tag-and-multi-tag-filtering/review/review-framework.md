@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 251
-- Effort: 2
+- Lines changed: 86
+- Effort: 1
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 120 (--max-turns; cursor uncapped)
+- Turn cap: 80 (--max-turns; cursor uncapped)
 
 ## Scope
 
@@ -25,6 +25,14 @@
 **Effort:** 2 (by-diff budget above); roster axis `general`, one reviewer pass
 **Reviewer roster:** general (review oracle, Claude Opus 5.5)
 **Session IDs:** review oracle round 2 8fd87419-c75c-40e0-9571-5e64e91bca44
+
+## Round 3 scope
+
+**Date:** 2026-11-20
+**Diff scope:** fix delta `4a40f06..d92909c` (round-2 `base.sha` to HEAD)
+**Effort:** 1 (by-diff budget above); roster axis `general`, one reviewer pass
+**Reviewer roster:** general (review oracle, Claude Opus 5.5)
+**Session IDs:** review oracle round 3 (headless Claude Code, Claude Opus 5.5)
 
 ## Ground rules
 
