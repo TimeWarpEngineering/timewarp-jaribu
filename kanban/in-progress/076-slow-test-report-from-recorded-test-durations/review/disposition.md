@@ -1,13 +1,15 @@
 # Disposition — task 076
 
 **Date:** 2026-11-20
-**Outcome:** clean
-**Rounds:** 2
-**Final open count:** 0
+**Outcome:** pending — round 3 has open findings
+**Rounds:** 3
+**Final open count:** 2 (M5 bug, M6 suggestion)
 
 ## Summary
 
-Round 1 (effort 3, general) raised four findings: M1 bug, the SigNoz rank was p95-first; M2 suggestion, the durations path was relative to the working directory and there was no suite record; M3 nit, the hook XML doc was trimmed; M4 nit, the failure rate inherited `--outcome`. The fix pass in 2e645ed addressed all four. Round 2 (effort 2, general) re-checked them against the fix delta and the recorded `## Results`, and raised no new findings. Every finding is `fixed`. The full `./bin/dev test` suite is left to CI, as the implementer's record says.
+Rounds 1 and 2 raised M1 to M4, and all four are fixed in 2e645ed. Round 3 re-checked them on the final tree. An independent read-only pass in round 3 then found M5, a bug: the durations class-depth counter races when a test runs nested runners concurrently, and this repo's suite does that. It also found M6, a suggestion: an empty durations file crashes `dev slow-tests`. Both are open in `review/round-3/merged.md`. A fix pass on this task id, then round 4, is needed before the disposition can be clean.
+
+Note: the round-3 oracle sent `Done` before the helper's report arrived. That answer was premature. This file and `round-3/merged.md` are the corrected record.
 
 ## Exception log (if accepted-exceptions)
 
@@ -17,4 +19,4 @@ None.
 
 - None.
 
-Final ledger: `review/round-2/merged.md`.
+Live ledger: `review/round-3/merged.md`.

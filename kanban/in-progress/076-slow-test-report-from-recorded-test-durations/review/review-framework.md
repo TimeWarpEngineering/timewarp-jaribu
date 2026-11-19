@@ -2,11 +2,11 @@
 
 ## Budget (by-diff)
 
-- Lines changed: 376
-- Effort: 2
+- Lines changed: 2492
+- Effort: 3
 - TCB hits: none
 - Roster axes: general
-- Turn cap: 120 (--max-turns; cursor uncapped)
+- Turn cap: 200 (--max-turns; cursor uncapped)
 
 ## Review framework — task 076
 
@@ -17,6 +17,12 @@
 **Effort:** 3 (by-diff budget); roster axes: general
 **Reviewer roster:** general (the review oracle read the diff itself)
 **Session IDs:** review oracle, Claude Code (claude-opus-5-5), ganda task work review node, 2026-11-20
+
+### Round 3 scope (2026-11-20)
+
+- Delta since round 2 (`2e645ed..HEAD`): kanban kitchen only (`4071290`, `67c8c9b`, `0d8a39c` and the land commits). No product file changed.
+- Because the by-diff budget is effort 3, round 3 also takes a fresh pass over the whole product diff `ef6d1df..HEAD` (excluding `kanban/` and the task 072 `skills/tw-jaribu/SKILL.md` change): the review oracle's own read plus one independent read-only helper given the code and the spec, not the earlier findings.
+- Re-checks M1 to M4 against the final tree.
 
 ### Ground rules
 

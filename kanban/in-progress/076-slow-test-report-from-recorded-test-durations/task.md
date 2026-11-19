@@ -93,6 +93,8 @@ The readme and `documentation/telemetry.md` say this report is what a PR-gate ta
 - Review oracle round 2 (2026-11-20): Claude Code, claude-opus-5-5, effort 2, roster general, turn cap 120. Scope: fix delta `d0c5054..2e645ed`. M1 through M4 are fixed, with no new findings. Files: `review/round-2/{general,merged}.md` and `review/disposition.md` (clean).
 - Implement pass after the empty pull-request body: product work was already complete and the review disposition was already clean. The `## Results` summary is the paragraph open-pr copies into the body. Dropped an unpushed merge of `origin/feature/test-tiers` so task 075 does not ride into this pull request. No product files changed, so the recorded gates still stand.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f59f-b961-70a1-b7aa-d1a2f8dfae00, max-turns 500, Done — 2026-11-19T21:12:56Z
+- Review oracle round 3 (2026-11-20): Claude Code, claude-opus-5-5, effort 3, roster general, turn cap 200. Scope: the kanban-only delta since round 2 plus a fresh pass over the product diff. M1 to M4 are still fixed. The oracle answered `Done` before its independent read-only helper reported. That answer was premature. The helper's report, verified against the code, opened M5 (bug) and M6 (suggestion). Files: `review/round-3/{general,helper,merged}.md`, `review/disposition.md` (pending, 2 open).
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5, response model claude-opus-5-5), session 7ea57655-5b16-43a7-a681-43f53619d1c1, max-turns 200, artifacts general.md, merged.md, disposition.md — 2026-11-19T21:17:49Z
 
 ## Results
 
@@ -111,9 +113,9 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 
 ### Review disposition
 
-- Disposition: **clean**. 2 rounds, roster general. Round 1 ran at effort 3 and round 2 at effort 2.
-- Final counts: bug 1 fixed, suggestion 1 fixed, nit 2 fixed. 0 open, 0 wontfix.
-- Paths: `review/review-framework.md`, `review/round-2/merged.md` (final ledger), `review/disposition.md`.
+- Disposition: **pending**. Round 3 has open findings M5 (bug) and M6 (suggestion). 3 rounds so far, roster general plus an independent helper in round 3. Round 1 ran at effort 3, round 2 at effort 2, and round 3 at effort 3.
+- Counts: bug 1 fixed and 1 open, suggestion 1 fixed and 1 open, nit 2 fixed. 0 wontfix.
+- Paths: `review/review-framework.md`, `review/round-3/merged.md` (live ledger), `review/round-3/helper.md`, `review/disposition.md`.
 
 ## Review
 
@@ -121,6 +123,8 @@ Expect: the writer exits 0 with 5 records for the multi-class probe, 4 records a
 - Round 1 fix: M1 ranks by p50, then p95, then identity, and the query orders by p50. M2 anchors both `dev test` legs with `JARIBU_DURATIONS_PATH` at the repository `artifacts/jaribu/` and states the cwd-relative default. M3 restores the hook outcome summary. M4 builds the failure-rate query without `--outcome` and blanks that column when `--outcome` is set.
 - Round 2 (fix delta `d0c5054..2e645ed`): M1, M2, M3, and M4 are fixed. No new findings. Disposition is clean.
 - Round 2: Done
+- Round 3 (kanban-only delta `2e645ed..HEAD` plus a fresh pass over the product diff `ef6d1df..HEAD`): M1 to M4 are still fixed on the final tree. The independent helper found M5 (bug: the durations `ClassDepth` races under concurrent nested runs, which `test-runner.session-fixture.concurrency.cs:182` does in both `dev test` legs, and nested-run isolation has no test) and M6 (suggestion: an empty durations file crashes `dev slow-tests`). Both are open. Fix pass needed, then round 4.
+- Round 3: Blocked — open M5, M6
 ## Learnings
 
 - Misread (review round 1): the task says SigNoz mode "ranks by p50 and p95 across runs, so a one-off stall does not look like a slow test". `## Goal (implementer restatement)` dropped the ranking and its reason and kept only "prints count, p50, p95, max, and failure rate". The code then ranked by p95 first, which is review finding M1. When a requirement gives a reason ("so that …"), restate the reason too, because it settles the sort order. why: review round 1, task 076, 2026-11-20
