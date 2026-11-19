@@ -393,11 +393,13 @@ dotnet run -- --filter "Name~Addition"
 
 # Jaribu selection / tag filters (M.T.P. adapter options)
 dotnet run -- --filter-tag Integration
+dotnet run -- --filter-tag ci --filter-tag smoke
+dotnet run -- --exclude-tag slow
 dotnet run -- --filter-class SpaSuite
 dotnet run -- --filter-method Login
 
-# Env fallback for tag (CLI --filter-tag wins when both set)
-JARIBU_FILTER_TAG=Integration dotnet test
+# Env fallback. A comma separates tags. CLI wins for each side it sets.
+JARIBU_FILTER_TAG=ci,smoke JARIBU_EXCLUDE_TAG=slow dotnet test
 
 # Run directly (also works)
 dotnet run
@@ -407,13 +409,16 @@ dotnet run
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Any of these tags (case-insensitive). Repeat the option or pass several arguments. `JARIBU_FILTER_TAG` is a comma list; CLI wins when set. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method (`No matching tag 'ci'`). A rejected attribute on that method is an **Error** node, and the run fails |
+| `--exclude-tag` | Any of these tags, after include. Same shapes as `--filter-tag`, including `JARIBU_EXCLUDE_TAG` | A class or method that carries one of them is one **Skipped** node (`excluded by tag "slow"`) |
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
 | `--strict-signatures` | Flag, no argument | Near-miss test signatures fail the run. The default prints a warning |
 | `--allow-empty` | Flag, no argument | A class with no discoverable tests succeeds. The default fails that class |
 
-Selection filters never emit Skipped nodes for omitted items. A tag miss, at class or method level, emits one Skipped node per method. Discovery lists that node and the run reports it as Skipped. A rejected attribute on the same method is an Error node instead, and the run fails. MTP uid and tree filters apply on both discovery and run.
+Tags are free-form. Jaribu does not define a vocabulary; each repository decides which tags it uses.
+
+Selection filters never emit Skipped nodes for omitted items. A tag miss, at class or method level, emits one Skipped node per method. An exclude does the same after include is applied, and the message names the tag that removed the test. Discovery lists that node and the run reports it as Skipped. A rejected attribute on the same method is an Error node instead, and the run fails. MTP uid and tree filters apply on both discovery and run. The skipped-node message is what `dotnet test` and the IDE show.
 
 ### IDE Integration
 

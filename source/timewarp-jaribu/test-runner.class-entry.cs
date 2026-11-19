@@ -14,8 +14,10 @@ public static partial class TestRunner
   /// <typeparam name="T">The test class containing test methods.</typeparam>
   /// <param name="sink">The sink to receive test execution events.</param>
   /// <param name="filterTag">
-  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
-  /// A blank value is not a filter. A class or method whose tags exist and none match
+  /// Optional single include tag (Skipped semantics). A comma in the value stays part of the tag.
+  /// Null on the outer run reads <c>JARIBU_FILTER_TAG</c> as a comma list. Null inside a run does not,
+  /// and it does not inherit the outer filter. A blank value is not a filter.
+  /// A class or method whose tags exist and none match
   /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
@@ -46,6 +48,20 @@ public static partial class TestRunner
   /// <param name="cancellationToken">
   /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
+  /// <param name="filterTags">
+  /// More include tags. A test matches when it carries any include tag, together with <paramref name="filterTag"/>.
+  /// Null with a null <paramref name="filterTag"/> reads <c>JARIBU_FILTER_TAG</c> on the outer run.
+  /// A non-null value does not read that variable. Each entry is one tag.
+  /// </param>
+  /// <param name="excludeTag">
+  /// One exclude tag. A test that carries it is Skipped after include is applied.
+  /// The skip message names this tag. A comma in the value stays part of the tag.
+  /// Null with a null <paramref name="excludeTags"/> reads <c>JARIBU_EXCLUDE_TAG</c> on the outer run.
+  /// </param>
+  /// <param name="excludeTags">
+  /// More exclude tags. Any match skips the test. Null with a null <paramref name="excludeTag"/>
+  /// reads <c>JARIBU_EXCLUDE_TAG</c> on the outer run. A non-null value does not read that variable.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync<T>(
     ITestResultSink sink,
@@ -56,6 +72,9 @@ public static partial class TestRunner
     bool strictSignatures = false,
     bool allowEmpty = false,
     TautologyOptions? tautology = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null,
     CancellationToken cancellationToken = default) where T : class
   {
     ArgumentNullException.ThrowIfNull(sink);
@@ -69,6 +88,9 @@ public static partial class TestRunner
       strictSignatures,
       allowEmpty,
       tautology,
+      filterTags,
+      excludeTag,
+      excludeTags,
       cancellationToken);
   }
 
@@ -78,8 +100,10 @@ public static partial class TestRunner
   /// <param name="testClass">The test class type.</param>
   /// <param name="sink">The sink to receive test execution events.</param>
   /// <param name="filterTag">
-  /// Optional tag filter (Skipped semantics). Null reads <c>JARIBU_FILTER_TAG</c>.
-  /// A blank value is not a filter. A class or method whose tags exist and none match
+  /// Optional single include tag (Skipped semantics). A comma in the value stays part of the tag.
+  /// Null on the outer run reads <c>JARIBU_FILTER_TAG</c> as a comma list. Null inside a run does not,
+  /// and it does not inherit the outer filter. A blank value is not a filter.
+  /// A class or method whose tags exist and none match
   /// emits one Skipped node per method. A rejected attribute on that method is an Error node instead.
   /// </param>
   /// <param name="methodNameContains">
@@ -110,6 +134,20 @@ public static partial class TestRunner
   /// <param name="cancellationToken">
   /// Stops the class run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// </param>
+  /// <param name="filterTags">
+  /// More include tags. A test matches when it carries any include tag, together with <paramref name="filterTag"/>.
+  /// Null with a null <paramref name="filterTag"/> reads <c>JARIBU_FILTER_TAG</c> on the outer run.
+  /// A non-null value does not read that variable. Each entry is one tag.
+  /// </param>
+  /// <param name="excludeTag">
+  /// One exclude tag. A test that carries it is Skipped after include is applied.
+  /// The skip message names this tag. A comma in the value stays part of the tag.
+  /// Null with a null <paramref name="excludeTags"/> reads <c>JARIBU_EXCLUDE_TAG</c> on the outer run.
+  /// </param>
+  /// <param name="excludeTags">
+  /// More exclude tags. Any match skips the test. Null with a null <paramref name="excludeTag"/>
+  /// reads <c>JARIBU_EXCLUDE_TAG</c> on the outer run. A non-null value does not read that variable.
+  /// </param>
   /// <returns>TestRunStats containing aggregated results.</returns>
   public static Task<TestRunStats> RunTestsAsync(
     Type testClass,
@@ -121,6 +159,9 @@ public static partial class TestRunner
     bool strictSignatures = false,
     bool allowEmpty = false,
     TautologyOptions? tautology = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null,
     CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(testClass);
@@ -135,6 +176,9 @@ public static partial class TestRunner
       strictSignatures,
       allowEmpty,
       tautology,
+      filterTags,
+      excludeTag,
+      excludeTags,
       cancellationToken);
   }
 }

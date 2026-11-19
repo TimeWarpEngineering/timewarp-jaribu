@@ -329,7 +329,7 @@ why: Steven 2026-11-18, timewarp-ganda task 666 ("You can run one file at a time
 
 ```bash
 # Filter by tag (standalone / env)
-JARIBU_FILTER_TAG=Lexer ./my-test.cs
+JARIBU_FILTER_TAG=ci,smoke JARIBU_EXCLUDE_TAG=slow ./my-test.cs
 
 # M.T.P. Mode (IDE integration, dotnet test)
 dotnet test
@@ -339,19 +339,24 @@ dotnet run -- --list-tests
 
 # Jaribu M.T.P. filters
 dotnet run -- --filter-tag Integration
+dotnet run -- --filter-tag ci --filter-tag smoke
+dotnet run -- --exclude-tag slow
 dotnet run -- --filter-class SpaSuite
 dotnet run -- --filter-method Login
 ```
 
+Tags are free-form. The repository decides its vocabulary.
+
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag; CLI wins over `JARIBU_FILTER_TAG`. A blank variable is ignored and a non-blank value is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Any listed tag; repeat the option. `JARIBU_FILTER_TAG` is a comma list and CLI wins when set. A blank variable is ignored and each entry is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--exclude-tag` | Any listed tag, after include. `JARIBU_EXCLUDE_TAG` is a comma list | A carrier is one **Skipped** node. The message names the tag (`excluded by tag "slow"`) |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |
 | `--strict-signatures` | Flag | Near-miss signatures fail the run. The default warns |
 | `--allow-empty` | Flag | A class with no discoverable tests succeeds |
 
-Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate)` — method-name and predicate filters are selection (omit). A tag miss at class or method level emits one Skipped node per method. A rejected attribute on that method is an Error node, and the run fails.
+Core API: `RunTestsAsync(..., filterTag, methodNameContains, methodPredicate, ..., filterTags, excludeTag, excludeTags)` — method-name and predicate filters are selection (omit). `filterTag` is one tag. `filterTags` and `excludeTags` add more, and a test matches include when it carries any of them. A tag miss or an exclude at class or method level emits one Skipped node per method. A null filter inside a run does not read the environment. A rejected attribute on that method is an Error node, and the run fails.
 why: task 043; task 053, a class tag miss does not hide a rejected attribute
 
 ## Sink-Based API

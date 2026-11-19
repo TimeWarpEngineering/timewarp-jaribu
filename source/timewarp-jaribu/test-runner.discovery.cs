@@ -35,7 +35,9 @@ public static partial class TestRunner
   /// </summary>
   /// <param name="testClass">The test class type to discover tests from.</param>
   /// <param name="filterTag">
-  /// Optional tag filter. Null reads <c>JARIBU_FILTER_TAG</c>. A blank value is not a filter.
+  /// One include tag. A comma stays part of the tag.
+  /// Null on the outer run reads <c>JARIBU_FILTER_TAG</c> as a comma list. Null inside a run does not.
+  /// A blank value is not a filter.
   /// A class or method whose own tags exist and none match contributes one node.
   /// </param>
   /// <param name="methodNameContains">
@@ -43,20 +45,32 @@ public static partial class TestRunner
   /// </param>
   /// <param name="methodPredicate">Optional additional selection predicate. Non-matches are omitted.</param>
   /// <param name="casePredicate">Optional per-node predicate. A node is omitted when it does not match.</param>
+  /// <param name="filterTags">More include tags. Each entry is one tag. See <paramref name="filterTag"/>.</param>
+  /// <param name="excludeTag">One exclude tag. A comma stays part of the tag.</param>
+  /// <param name="excludeTags">
+  /// More exclude tags. Null with a null <paramref name="excludeTag"/> reads <c>JARIBU_EXCLUDE_TAG</c>
+  /// on the outer run only.
+  /// </param>
   /// <returns>Reported cases in discovery order.</returns>
   public static IEnumerable<ReportedTestCase> DiscoverTestCases(
     Type testClass,
     string? filterTag = null,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null)
+    Func<ReportedTestCase, bool>? casePredicate = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null)
   {
     return TestCaseIdentity.DiscoverTestCases(
       testClass,
       filterTag,
       methodNameContains,
       methodPredicate,
-      casePredicate);
+      casePredicate,
+      filterTags,
+      excludeTag,
+      excludeTags);
   }
 
   /// <summary>

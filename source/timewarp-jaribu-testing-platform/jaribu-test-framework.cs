@@ -36,11 +36,15 @@ using Microsoft.Testing.Platform.Services;
 // The outermost close clears MethodSourceLocation caches after that attempt,
 // including when dispose fails, so a long-lived host drops PDB maps.
 // The adapter passes the raw --filter-tag argument, or null when that option
-// is unset, into DiscoverTestCases and RunTestsAsync. Those methods trim it
-// and read JARIBU_FILTER_TAG only when the argument is null. A class or
+// is unset, into DiscoverTestCases and RunTestsAsync as filterTags. --exclude-tag
+// is the same for excludeTags. A set list is explicit, so that side does not also
+// read the environment. An unset option passes null and the outer run reads
+// JARIBU_FILTER_TAG or JARIBU_EXCLUDE_TAG. Core trims each argument. A class or
 // method whose tags exist and none match is one method-level node.
 // Discovery lists that node. The run reports it as Skipped. Uid-list
 // equality stays in MtpTreeFilter. This assembly does not call core internals.
+// The skipped-node message is the property dotnet test and the IDE show.
+// TestTag on the tree-filter bag stays the property an IDE filter already matches.
 // A run request holds JaribuTelemetry.BeginRun across the class loop.
 // The scope disposes in the request finally, so the exporter flushes once.
 // --strict-signatures and --allow-empty are passed to RunTestsAsync.
@@ -204,7 +208,8 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
       MtpSink sink = new(this, context.MessageBus, context.Request.Session.SessionUid);
 
       ICommandLineOptions commandLine = ServiceProvider.GetCommandLineOptions();
-      string? filterTag = ResolveFilterTag(commandLine);
+      string[]? filterTags = GetOptionArguments(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
+      string[]? excludeTags = GetOptionArguments(commandLine, JaribuCommandLineOptionsProvider.ExcludeTagOption);
       string? filterClass = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterClassOption);
       string? filterMethod = GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterMethodOption);
       bool strictSignatures = commandLine.IsOptionSet(JaribuCommandLineOptionsProvider.StrictSignaturesOption);
@@ -256,9 +261,11 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
             : testCase => MtpTreeFilter.Matches(testClass, testCase, filter);
           foreach (ReportedTestCase testCase in TestRunner.DiscoverTestCases(
             testClass,
-            filterTag,
-            filterMethod,
-            casePredicate: discoveryPredicate))
+            filterTag: null,
+            methodNameContains: filterMethod,
+            casePredicate: discoveryPredicate,
+            filterTags: filterTags,
+            excludeTags: excludeTags))
           {
             if (cancellationToken.IsCancellationRequested)
             {
@@ -288,13 +295,15 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
           TestRunStats stats = await TestRunner.RunTestsAsync(
             testClass,
             sink,
-            filterTag,
+            filterTag: null,
             methodNameContains: filterMethod,
             casePredicate: casePredicate,
             strictSignatures: strictSignatures,
             allowEmpty: allowEmpty,
             cancellationToken: cancellationToken,
-            tautology: tautology
+            tautology: tautology,
+            filterTags: filterTags,
+            excludeTags: excludeTags
           ).ConfigureAwait(false);
           tautologyFindings.AddRange(stats.TautologyFindings);
           if (stats.SignatureWarnings.Count > 0 && (!selectionFilter || stats.TotalTests > 0))
@@ -362,12 +371,6 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
     }
   }
 
-  private static string? ResolveFilterTag(ICommandLineOptions commandLine)
-  {
-    // Validation rejects a blank argument. Core trims a set value and reads the environment only for null.
-    return GetOptionArgument(commandLine, JaribuCommandLineOptionsProvider.FilterTagOption);
-  }
-
   private static string? GetOptionArgument(ICommandLineOptions commandLine, string optionName)
   {
     if (!commandLine.IsOptionSet(optionName))
@@ -384,6 +387,27 @@ internal sealed class JaribuTestFramework : ITestFramework, IDataProducer, IOutp
 
     string value = args[0];
     return string.IsNullOrWhiteSpace(value) ? null : value;
+  }
+
+  /// <summary>
+  /// Every argument of a repeatable tag option, or null when the option is unset.
+  /// Core trims each entry. A set list suppresses that side's environment variable.
+  /// </summary>
+  private static string[]? GetOptionArguments(ICommandLineOptions commandLine, string optionName)
+  {
+    if (!commandLine.IsOptionSet(optionName))
+    {
+      return null;
+    }
+
+    if (!commandLine.TryGetOptionArgumentList(optionName, out string[]? args) ||
+        args is null ||
+        args.Length == 0)
+    {
+      return null;
+    }
+
+    return args;
   }
 
   private static string WarningDisplayName(string warning)

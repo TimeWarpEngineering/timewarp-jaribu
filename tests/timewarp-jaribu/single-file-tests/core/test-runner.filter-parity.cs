@@ -9,7 +9,7 @@
 // Fixtures stay unregistered. The matrix calls DiscoverTestCases and RunTestsAsync
 // with the same arguments, including a blank tag and a trimmed tag.
 // A class tag miss must be Skipped nodes, not an empty run, and must not run hooks.
-// JARIBU_FILTER_TAG is saved and restored. A blank value is not a filter.
+// JARIBU_FILTER_TAG is saved and restored. Inside this run a null filter does not read it.
 #endregion
 
 #if !JARIBU_MULTI
@@ -89,7 +89,7 @@ public class FilterParity_Given_
   }
 
   [Proves(typeof(TestCaseIdentity), nameof(TestCaseIdentity.EnumerateReportedCases))]
-  public static async Task EnvironmentTag_Should_IgnoreBlankTrimAndLoseToExplicit()
+  public static async Task EnvironmentTag_Should_StayOffInsideARunAndLoseToExplicit()
   {
     string? previous = Environment.GetEnvironmentVariable("JARIBU_FILTER_TAG");
     try
@@ -116,8 +116,9 @@ public class FilterParity_Given_
       MethodFilterParityFixture.Reset();
       FilterParitySink trimmed = new();
       TestRunStats trimmedStats = await TestRunner.RunTestsAsync<MethodFilterParityFixture>(trimmed);
-      trimmedStats.SkippedCount.ShouldBe(1);
-      trimmed.Results.Single(node => node.State == TestNodeState.Skipped).Message.ShouldBe("No matching tag 'Keep'");
+      trimmedStats.SkippedCount.ShouldBe(0);
+      trimmedStats.PassedCount.ShouldBe(5);
+      MethodFilterParityFixture.BodyRuns.ShouldBe(5);
 
       List<string> trimmedDiscovered =
       [

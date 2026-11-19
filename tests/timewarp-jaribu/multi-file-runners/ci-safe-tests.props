@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.tag-filtering.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.filter-parity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.tag-filter.cs" />
     <!-- Sibling partials are pulled in by #:include on these two files for file-based runners.
          The MTP csproj lists them itself because a normal project ignores #:include. -->
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.setup-once.cs" />
@@ -19,6 +20,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cleanup-outcome.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.runner-guards.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-node-identity.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-tag-filter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/testing-platform-props.transitive-consumer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/release-gate.decisions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.discovery.cs" />

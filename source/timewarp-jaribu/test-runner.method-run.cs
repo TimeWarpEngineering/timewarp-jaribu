@@ -30,7 +30,7 @@ public static partial class TestRunner
     Type testClass,
     MethodInfo method,
     ITestResultSink sink,
-    string? filterTag,
+    TagSelection tags,
     ClassOnceState onceState,
     Func<ReportedTestCase, bool>? casePredicate,
     MethodInfo? setupMethod,
@@ -49,16 +49,16 @@ public static partial class TestRunner
       return await ReportAttributeRejectionAsync(testClass, method, rejection, casePredicate, sink);
     }
 
-    if (TestFilter.TagSkipReason(testClass, method, filterTag) is string tagReason)
+    if (TestFilter.TagSkipReason(testClass, method, tags) is string tagReason)
     {
-      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
+      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, tags)[0];
       return await ReportSkippedAsync(testClass, skipCase, tagReason, casePredicate, sink);
     }
 
     SkipAttribute? skipAttr = GetMethodMetadata(method).Skip;
     if (skipAttr is not null)
     {
-      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag)[0];
+      ReportedTestCase skipCase = TestCaseIdentity.EnumerateReportedCases(testClass, method, tags)[0];
       return await ReportSkippedAsync(testClass, skipCase, skipAttr.Reason, casePredicate, sink);
     }
 
