@@ -94,6 +94,8 @@ The readme and `documentation/telemetry.md` say this report is what a PR-gate ta
 
 ## Results
 
+The runner writes one durations record per executed case to `artifacts/jaribu/durations-<utc>.json` (opt-out `JARIBU_DURATIONS=0`, path override `JARIBU_DURATIONS_PATH`). `dev slow-tests` ranks the newest file by duration with cumulative share and `--top`, `--file`, `--format markdown`, and `--outcome`. `dev slow-tests --signoz --since 7d` queries the `jaribu.test` spans of service `TimeWarp.Jaribu`, groups by class, method, and case index, and ranks by p50 then p95 with count, max, and failure rate. Tests cover the writer, the ranking, and the SigNoz mode against a recorded fixture. `documentation/telemetry.md` and the readme state that this report, not hand-tagging, decides what is slow.
+
 ### How to validate
 
 Smoke: `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.durations.cs` and `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/slow-tests.report.cs`.
