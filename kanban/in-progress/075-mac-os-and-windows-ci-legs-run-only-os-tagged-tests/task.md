@@ -75,7 +75,7 @@ instruments the build and relaunches. Windows and Linux never run that branch.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f564-6899-7713-92dd-05100b528bd7, max-turns 500, Done — 2026-11-19T20:31:52Z
 - Review round 1 (2026-11-20): effort 2, roster general, review oracle Claude Code (claude-opus-5-5) in headless `ganda task work`. Findings: 0 bug, 1 suggestion (M1, consumer docs miss the new empty-tag exit 1), 1 nit (M2, the allowEmpty wording does not cover the no-registration branch). All open, so a fix pass is needed. Ledger: `review/round-1/merged.md`. No misread: the restatement matches the task.
 - Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 120, artifacts general.md, merged.md — 2026-11-19T20:35:12Z
-- Fix pass for review round 1 (2026-11-20): M1 adds the standalone exit-1 sentence to the `--filter-tag` rows in the readme, architecture, and the Jaribu skill, and beside the skill's `JARIBU_FILTER_TAG=Lexer` example. M2 sends the empty-registration path through the same tag guard, so `allowEmpty` no longer returns 0 when a resolved tag executes nothing.
+- Fix pass for review round 1 (2026-11-20): M1 adds the standalone exit-1 sentence to the `--filter-tag` rows in the readme, architecture, and the Jaribu skill, and beside the skill's `JARIBU_FILTER_TAG=Lexer` example. M2 sends the empty-registration path through the same tag guard, so `allowEmpty` no longer returns 0 when a resolved tag executes nothing. Rewriting the silent-no-ops runfile dropped its executable bit; it is restored to `100755`.
 
 ## Results
 
@@ -103,7 +103,7 @@ Fix-pass gates:
 
 - `./bin/dev build` — passed.
 - `dotnet run --file tests/timewarp-jaribu/single-file-tests/core/test-runner.silent-no-ops.cs` — passed, 16/16, including the unregistered tag filter. Standalone runfile (`#if !JARIBU_MULTI`).
-- `ganda repo audit` — passed: 46 passed, 0 failed, 1 skipped.
+- `ganda repo audit` — passed: 46 passed, 0 failed, 1 skipped. The commit hook then failed `runfile-executable` because rewriting the silent-no-ops runfile dropped its executable bit. Restored `100755` and reran `ganda repo audit`: passed, 46 passed, 0 failed, 1 skipped.
 
 First implement pass:
 
