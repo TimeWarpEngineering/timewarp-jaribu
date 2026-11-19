@@ -86,7 +86,8 @@ namespace TimeWarp.Jaribu;
 // filter still reports them. A class with no discoverable tests fails unless
 // allowEmpty is set. A method-name or predicate filter that selects nothing does not.
 // A class or method tag miss emits Skipped nodes instead of dropping the class.
-// RunAllTests exits 1 when a tag filter executes no test. allowEmpty does not waive that.
+// RunAllTests exits 1 when a tag filter executes no test, including when no
+// classes are registered. allowEmpty does not waive that.
 // A method whose Jaribu attribute constructor throws is an Error node on either miss.
 // A method predicate or case predicate skips the empty-class NoTests and
 // HookSignature nodes, and those nodes do not bind a user method of the same

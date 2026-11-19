@@ -407,7 +407,7 @@ dotnet run
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method. A rejected attribute on that method is an **Error** node, and the run fails. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule |
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
 | `--strict-signatures` | Flag, no argument | Near-miss test signatures fail the run. The default prints a warning |

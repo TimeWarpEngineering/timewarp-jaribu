@@ -17,7 +17,8 @@ using TimeWarp.Terminal;
 // EnterRun wraps every class so the exporter flushes once when the run returns,
 // including when a class fails.
 // A resolved tag filter that executes no test exits 1 after the grand total.
-// allowEmpty does not waive that. A renamed CI tag cannot turn the leg into a pass.
+// That includes a run with no registered classes. allowEmpty does not waive it.
+// A renamed CI tag cannot turn the leg into a pass.
 #endregion
 
 public static partial class TestRunner
@@ -92,7 +93,8 @@ public static partial class TestRunner
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a run with no registered classes or no discoverable tests succeeds.
-  /// The default fails that run. A tag filter that executes no test still fails.
+  /// The default fails that run. A resolved tag filter that executes no test still fails,
+  /// including when no classes are registered.
   /// </param>
   /// <param name="terminal">
   /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
@@ -131,7 +133,8 @@ public static partial class TestRunner
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a run with no registered classes or no discoverable tests succeeds.
-  /// The default fails that run. A tag filter that executes no test still fails.
+  /// The default fails that run. A resolved tag filter that executes no test still fails,
+  /// including when no classes are registered.
   /// </param>
   /// <param name="terminal">
   /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
@@ -251,12 +254,11 @@ public static partial class TestRunner
         "⚠ No test classes registered. Use RegisterTests<T>() to register test classes. " +
         "An empty run fails unless allowEmpty is true.");
 #pragma warning restore CA1849
-      if (allowEmpty && !cancellationToken.IsCancellationRequested)
+      // A resolved tag still fails below. allowEmpty does not waive that.
+      if (!allowEmpty || cancellationToken.IsCancellationRequested)
       {
-        return 0;
+        return 1;
       }
-
-      return 1;
     }
 
     List<TestRunStats> allStats = [];

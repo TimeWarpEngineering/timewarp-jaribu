@@ -10,7 +10,8 @@
 // Fixtures are not ModuleInitializer-registered. The suite restores RegisteredTestClasses
 // after it mutates the list. Near-miss return types warn by default and fail when
 // strictSignatures is set. Ordinary void stays silent. allowEmpty opts out of the
-// empty-run failure only. A tag filter that executes no test still fails.
+// empty-run failure only when no tag filter is resolved. A tag filter that
+// executes no test still fails, including when no classes are registered.
 // why: task 044, task 075
 #endregion
 
@@ -231,7 +232,7 @@ namespace TestRunner_
       {
         TestRunner.ClearRegisteredTests();
         int emptyExit = await TestRunner.RunAllTests();
-        int allowedExit = await TestRunner.RunAllTests(allowEmpty: true);
+        int allowedExit = await TestRunner.RunAllTests(filterTag: "", allowEmpty: true);
         emptyExit.ShouldBe(1);
         allowedExit.ShouldBe(0);
 
@@ -254,6 +255,9 @@ namespace TestRunner_
       try
       {
         TestRunner.ClearRegisteredTests();
+        int unregistered = await TestRunner.RunAllTests(filterTag: "macos", allowEmpty: true);
+        unregistered.ShouldBe(1);
+
         TestRunner.RegisterTests<TagFilterMissMarker>();
         int missed = await TestRunner.RunAllTests(filterTag: "macos", allowEmpty: true);
         missed.ShouldBe(1);
