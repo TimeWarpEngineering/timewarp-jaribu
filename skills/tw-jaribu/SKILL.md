@@ -322,7 +322,12 @@ chmod +x my-test.cs
 
 # Or with dotnet
 dotnet run my-test.cs
+```
 
+While working, run only the test files you added or edited (or the files that cover the code you changed), one `dotnet run --file <file>` each; the full suite is the CI gate.
+why: Steven 2026-11-18, timewarp-ganda task 666 ("You can run one file at a time")
+
+```bash
 # Filter by tag (standalone / env)
 JARIBU_FILTER_TAG=Lexer ./my-test.cs
 
