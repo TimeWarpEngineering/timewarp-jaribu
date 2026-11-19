@@ -46,11 +46,24 @@ Expect: the paragraph is "While working, run only the test files you added or ed
 - No test file was added or edited, and no production type changed, so no `dotnet run --file` gate. CI runs the suite.
 - `ganda repo audit` — exit 0 with one advisory, `vscode-window-icon` (`.vscode/settings.json` missing). `ganda repo audit --fix` wrote the gitignored window title and its audit passed 46, failed 0, skipped 1.
 
+### Review disposition
+
+- Rounds: 1. Effort 1, roster: general.
+- Final counts: bug 0, suggestion 0, nit 0 (0 open, 0 fixed, 0 wontfix).
+- Disposition: **clean**. No findings were raised. No wontfix items and no escalations.
+- Paths: `review/review-framework.md`, `review/round-1/general.md`, `review/round-1/merged.md`, `review/disposition.md`.
+
 ## Session
 
 - Created: from timewarp-ganda task 666 implement oracle (2026-11-18)
 - Implementation: task-work implementer (2026-11-20). Added the one Running Tests line and its why-note. `ganda repo audit --fix` wrote the gitignored VS Code window title.
 - Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f4fe-789b-7740-a1b3-f11755510efb, max-turns 500, Done — 2026-11-19T18:13:47Z
+- Review oracle: claude (vendor anthropic, model claude-opus-5-5), headless print mode, max-turns 80, effort 1, roster general. Round 1 clean, disposition clean — 2026-11-20
+- Review oracle: review by reviewer-claude (claude, vendor anthropic, model claude-opus-5-5), session not reported, max-turns 80, artifacts general.md, merged.md, disposition.md — 2026-11-19T18:14:46Z
+
+## Review
+
+- Round 1: Done
 
 ## Notes
 
