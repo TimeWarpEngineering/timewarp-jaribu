@@ -70,6 +70,7 @@ instruments the build and relaunches. Windows and Linux never run that branch.
 
 - Created: 533fd3ed-9595-4328-8934-d2075db5b31f (2026-11-18)
 - Implemented the OS-leg filter, the empty-run guard, and the readme (2026-11-20). `ganda repo audit --fix` set the gitignored VS Code window title. The taskbar icon was not applied because Windows-side ganda was not found. The audit then passed.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f564-6899-7713-92dd-05100b528bd7, max-turns 500, Done — 2026-11-19T20:31:52Z
 
 ## Results
 
