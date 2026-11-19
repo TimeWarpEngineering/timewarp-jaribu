@@ -50,6 +50,7 @@ Expect: the paragraph is "While working, run only the test files you added or ed
 
 - Created: from timewarp-ganda task 666 implement oracle (2026-11-18)
 - Implementation: task-work implementer (2026-11-20). Added the one Running Tests line and its why-note. `ganda repo audit --fix` wrote the gitignored VS Code window title.
+- Implement oracle: implemented by implementer-grok (grok, vendor xai, model grok-4.7, response model grok-4.7-build), session 01a1f4fe-789b-7740-a1b3-f11755510efb, max-turns 500, Done — 2026-11-19T18:13:47Z
 
 ## Notes
 
