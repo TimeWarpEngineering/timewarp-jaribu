@@ -10,8 +10,9 @@
 // Fixtures are not ModuleInitializer-registered. The suite restores RegisteredTestClasses
 // after it mutates the list. Near-miss return types warn by default and fail when
 // strictSignatures is set. Ordinary void stays silent. allowEmpty opts out of the
-// empty-run failure only.
-// why: task 044
+// empty-run failure only when no tag filter is resolved. A tag filter that
+// executes no test still fails, including when no classes are registered.
+// why: task 044, task 075
 #endregion
 
 #if !JARIBU_MULTI
@@ -231,7 +232,7 @@ namespace TestRunner_
       {
         TestRunner.ClearRegisteredTests();
         int emptyExit = await TestRunner.RunAllTests();
-        int allowedExit = await TestRunner.RunAllTests(allowEmpty: true);
+        int allowedExit = await TestRunner.RunAllTests(filterTag: "", allowEmpty: true);
         emptyExit.ShouldBe(1);
         allowedExit.ShouldBe(0);
 
@@ -240,6 +241,31 @@ namespace TestRunner_
         int classAllowed = await TestRunner.RunAllTests(allowEmpty: true);
         classExit.ShouldBe(1);
         classAllowed.ShouldBe(0);
+      }
+      finally
+      {
+        RestoreRegistrations(saved);
+      }
+    }
+
+    [Proves(typeof(TestRunner), nameof(TestRunner.RunAllTests))]
+    public static async Task RunAllTests_Should_FailWhenATagFilterExecutesNothing()
+    {
+      Type[] saved = [.. TestRunner.RegisteredTestClasses];
+      try
+      {
+        TestRunner.ClearRegisteredTests();
+        int unregistered = await TestRunner.RunAllTests(filterTag: "macos", allowEmpty: true);
+        unregistered.ShouldBe(1);
+
+        TestRunner.RegisterTests<TagFilterMissMarker>();
+        int missed = await TestRunner.RunAllTests(filterTag: "macos", allowEmpty: true);
+        missed.ShouldBe(1);
+
+        TestRunner.ClearRegisteredTests();
+        TestRunner.RegisterTests<TagFilterHitMarker>();
+        int hit = await TestRunner.RunAllTests(filterTag: "macos", allowEmpty: true);
+        hit.ShouldBe(0);
       }
       finally
       {
@@ -429,5 +455,23 @@ namespace TestRunner_
 
   public class EmptyRegistrationMarker
   {
+  }
+
+  [TestTag("Jaribu")]
+  public class TagFilterMissMarker
+  {
+    public static async Task Only()
+    {
+      await Task.CompletedTask;
+    }
+  }
+
+  [TestTag("macos")]
+  public class TagFilterHitMarker
+  {
+    public static async Task Only()
+    {
+      await Task.CompletedTask;
+    }
   }
 }

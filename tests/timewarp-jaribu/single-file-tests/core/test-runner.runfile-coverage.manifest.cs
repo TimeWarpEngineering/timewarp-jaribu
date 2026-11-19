@@ -15,6 +15,9 @@ namespace TestRunner_;
 public partial class RunfileCoverage_Given_
 {
     [Timeout(ProbeTimeoutMilliseconds)]
+    [TestTag("Jaribu")]
+    [TestTag("macos")]
+    [TestTag("windows")]
     public static async Task RootManifestOutsideWorkingDirectory_Should_RelaunchFromTheManifestDirectory()
     {
       using ManifestWorkspace workspace = ManifestWorkspace.Create(configDirectory: false, listTool: true, isRoot: true);
@@ -25,6 +28,9 @@ public partial class RunfileCoverage_Given_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
+    [TestTag("Jaribu")]
+    [TestTag("macos")]
+    [TestTag("windows")]
     public static async Task ConfigDirectoryManifest_Should_RelaunchFromTheManifestDirectory()
     {
       using ManifestWorkspace workspace = ManifestWorkspace.Create(configDirectory: true, listTool: true, isRoot: true);
@@ -35,6 +41,9 @@ public partial class RunfileCoverage_Given_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
+    [TestTag("Jaribu")]
+    [TestTag("macos")]
+    [TestTag("windows")]
     public static async Task NestedManifest_Should_WalkToTheParentThatListsTheTool()
     {
       using ManifestWorkspace workspace = ManifestWorkspace.Create(
@@ -49,6 +58,9 @@ public partial class RunfileCoverage_Given_
     }
 
     [Timeout(ProbeTimeoutMilliseconds)]
+    [TestTag("Jaribu")]
+    [TestTag("macos")]
+    [TestTag("windows")]
     public static async Task RootManifestWithoutTheTool_Should_StopAndNameTheInstallCommand()
     {
       using ManifestWorkspace workspace = ManifestWorkspace.Create(
@@ -88,6 +100,7 @@ public partial class RunfileCoverage_Given_
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
         .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
         .WithEnvironmentVariable(RunfileCoverageOptions.StaticVariableName, "0")
+        .WithEnvironmentVariable(FilterTagVariable, string.Empty)
         .WithNoValidation()
         .WithTimeout(TimeSpan.FromMinutes(3))
         .CaptureAsync();

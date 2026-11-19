@@ -408,7 +408,7 @@ dotnet run
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Exact tag (case-insensitive); CLI over `JARIBU_FILTER_TAG`. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method. A rejected attribute on that method is an **Error** node, and the run fails. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule |
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
 | `--strict-signatures` | Flag, no argument | Near-miss test signatures fail the run. The default prints a warning |
@@ -671,6 +671,8 @@ See the [architecture overview](documentation/architecture.md) for how the runne
 1. Clone the repository.
 2. Run `dotnet build`.
 3. Run tests with `./bin/dev test`. That is the CI set: the CI-safe runfile at `tests/timewarp-jaribu/multi-file-runners/ci-runner/`, then `dotnet test` on `tests/timewarp-jaribu/multi-file-runners/mtp-runner/`. The MTP validation project is not a third pass/fail target. The harness inside the CI-safe suite runs it out of process and checks the expected node states.
+
+This repo's OS tags are `macos` and `windows`. A test carries one when its behavior branches on that OS. The ubuntu CI leg runs the full suite. The macOS leg sets `JARIBU_FILTER_TAG=macos` and the Windows leg sets `JARIBU_FILTER_TAG=windows`, so those legs run only tests tagged for that OS. A filtered leg that executes no test fails.
 
 ## Contributing
 
