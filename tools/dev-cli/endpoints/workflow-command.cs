@@ -18,6 +18,7 @@
 // runs first; the first candidate with a live Packages-* artifact is downloaded
 // into a cleared artifacts/packages.
 // Test runs ci-runner and the CI-safe MTP project on the PR/merge pipeline.
+// Both inherit JARIBU_FILTER_TAG. The workflow sets it per OS leg.
 // The root is RepoRoot.Find when that directory contains timewarp-jaribu.slnx.
 // Otherwise the binary-relative walk, then the working directory.
 // The release tag must be "v" plus the version `dotnet msbuild -getProperty:Version`

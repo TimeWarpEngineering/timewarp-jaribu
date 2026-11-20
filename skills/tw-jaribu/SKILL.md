@@ -88,8 +88,8 @@ Normal runs ignore `[Proves]`. Prove mode (`--prove`, `JARIBU_PROVE=1`) is a CI 
 - `Task<T>`, `ValueTask`, `ValueTask<T>`, `async void`, and open generic `Task` are near-misses: a warning by default, a failed run when `strictSignatures: true` or MTP `--strict-signatures` is set. `dotnet test` prints the warning. A host that drops output-device warnings reports the same text as a skipped node. Overloaded near-miss names each become an Error in strict mode. A method predicate or case predicate that selects nothing omits those Error nodes. A method-name filter still reports them
 why: task 044 review round 2; CI run 42452007606, SDK 10.0.403 drops the warning line
 - Ordinary `void` helpers are ignored
-- A class with no discoverable tests fails unless `allowEmpty: true` or MTP `--allow-empty` is set. The same flag opts out of the failure when `RunAllTests` has no registered classes. A method, method-predicate, or case filter skips that empty-class node
-why: task 044 review round 1
+- A class with no discoverable tests fails unless `allowEmpty: true` or MTP `--allow-empty` is set. The same flag opts out of the failure when `RunAllTests` has no registered classes, unless a tag filter is resolved. A method, method-predicate, or case filter skips that empty-class node
+why: task 044 review round 1; task 075 review round 1
 - The reported class name drops one trailing `Tests` when the name is longer than that suffix
 - Follow the naming convention below
 
@@ -330,7 +330,12 @@ why: Steven 2026-11-18, timewarp-ganda task 666 ("You can run one file at a time
 ```bash
 # Filter by tag (standalone / env)
 JARIBU_FILTER_TAG=ci,smoke JARIBU_EXCLUDE_TAG=slow ./my-test.cs
+```
 
+A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule.
+why: task 075 review round 1
+
+```bash
 # M.T.P. Mode (IDE integration, dotnet test)
 dotnet test
 
@@ -349,7 +354,7 @@ Tags are free-form. The repository decides its vocabulary.
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Any listed tag; repeat the option. `JARIBU_FILTER_TAG` is a comma list and CLI wins when set. A blank variable is ignored and each entry is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped. A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Any listed tag; repeat the option. `JARIBU_FILTER_TAG` is a comma list and CLI wins when set. A blank variable is ignored and each entry is trimmed | A class or method whose tags exist and none match is one **Skipped** node per method. Discovery lists it and the run reports Skipped. A rejected attribute on that method is an **Error** node, and the run fails. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule. |
 | `--exclude-tag` | Any listed tag, after include. `JARIBU_EXCLUDE_TAG` is a comma list | A carrier is one **Skipped** node. The message names the tag (`excluded by tag "slow"`) |
 | `--filter-class` | Class FullName substring | Non-match → **omitted** |
 | `--filter-method` | Method name substring | Non-match → **omitted** |

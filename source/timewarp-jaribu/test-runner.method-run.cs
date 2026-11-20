@@ -18,6 +18,7 @@ using System.Reflection;
 // Each case opens a jaribu.test span before the sink start event, so a listener
 // can attach a source file while the span is current. Skip and attribute
 // rejection open that span too. The body, Setup, and CleanUp run under it.
+// The same completion writes one durations record. A skip stores no duration.
 #endregion
 
 public static partial class TestRunner
@@ -124,6 +125,13 @@ public static partial class TestRunner
         tautology,
         cancellationToken);
       JaribuTelemetry.Complete(span, result.State, result.Exception);
+      JaribuDurations.Record(
+        testClass,
+        method,
+        testCase.InputOrdinal,
+        testCase.Parameters,
+        result.State,
+        result.Duration);
 
       await sink.OnTestCompletedAsync(result);
       results.Add(result);
@@ -158,6 +166,13 @@ public static partial class TestRunner
       skipCase.Parameters,
       skipCase.InputOrdinal);
     JaribuTelemetry.Complete(span, TestNodeState.Skipped, exception: null);
+    JaribuDurations.Record(
+      testClass,
+      skipCase.Method,
+      skipCase.InputOrdinal,
+      skipCase.Parameters,
+      TestNodeState.Skipped,
+      duration: null);
     await sink.OnTestStartedAsync(skipNode);
     await sink.OnTestCompletedAsync(skipNode);
     return [skipNode];
@@ -187,6 +202,13 @@ public static partial class TestRunner
       parameters: null,
       inputOrdinal: null);
     JaribuTelemetry.Complete(span, TestNodeState.Error, rejection.Exception);
+    JaribuDurations.Record(
+      testClass,
+      method,
+      caseIndex: null,
+      parameters: null,
+      TestNodeState.Error,
+      TimeSpan.Zero);
     await sink.OnTestStartedAsync(node);
     await sink.OnTestCompletedAsync(node);
     return [node];

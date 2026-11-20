@@ -37,6 +37,7 @@ using System.Reflection;
 // method as Error and does not open the hook-timeout scope.
 // The class span stays open for the whole run, including the tag-miss path
 // and session dispose, so method and hook spans parent to it.
+// This class run is one durations depth. Only the outermost class depth is recorded.
 #endregion
 
 public static partial class TestRunner
@@ -83,8 +84,11 @@ public static partial class TestRunner
     Activity? classSpan = null;
     List<TestNodeInfo> results = [];
     JaribuTelemetry.EnterRun();
+    bool enteredClass = false;
     try
     {
+      JaribuDurations.EnterClass();
+      enteredClass = true;
       TautologyDepth.Value++;
       countedDepth = true;
       DateTimeOffset startTime = DateTimeOffset.Now;
@@ -410,6 +414,11 @@ public static partial class TestRunner
       if (ownsSession)
       {
         await EndOwnedSessionWithoutMaskingAsync(runEpoch, sink, cancellationToken).ConfigureAwait(false);
+      }
+
+      if (enteredClass)
+      {
+        JaribuDurations.ExitClass();
       }
 
       hookTimeout?.Dispose();

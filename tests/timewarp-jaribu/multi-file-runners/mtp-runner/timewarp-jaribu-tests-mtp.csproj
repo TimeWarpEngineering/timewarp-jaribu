@@ -13,6 +13,8 @@
        #:include, and listing them there duplicates the Compile item. This project ignores #:include. -->
   <ItemGroup>
     <Compile Include="../../../../tools/dev-cli/endpoints/release-gate.cs" />
+    <Compile Include="../../../../tools/dev-cli/endpoints/slow-tests-report.cs" />
+    <Compile Include="../../../../tools/dev-cli/endpoints/slow-tests-signoz.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.tautology.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.cancellation.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.telemetry.fixtures.cs" />
@@ -26,6 +28,7 @@
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.fixtures.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.session-fixture.concurrency.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.launch.cs" />
+    <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.fake-dotnet.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.manifest.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.deterministic.cs" />
     <Compile Include="../../single-file-tests/core/test-runner.runfile-coverage.static.cs" />

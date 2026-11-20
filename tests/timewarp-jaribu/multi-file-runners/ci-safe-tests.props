@@ -32,6 +32,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.cancellation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.timeout-policy.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.telemetry.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.durations.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/slow-tests.report.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.exit-and-helpers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/core/test-runner.runfile-coverage.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../single-file-tests/mtp/mtp-validation-harness.cs" />

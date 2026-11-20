@@ -16,6 +16,8 @@ using System.Xml.Linq;
 public partial class RunfileCoverage_Given_
 {
   [Timeout(ProbeTimeoutMilliseconds)]
+  [TestTag("Jaribu")]
+  [TestTag("macos")]
   public static async Task StaticInstrumentation_Should_BuildAndRelaunchWithoutTheProfiler()
   {
     using ProbeRun run = ProbeRun.Create();
@@ -74,6 +76,8 @@ public partial class RunfileCoverage_Given_
 
   [Timeout(ProbeTimeoutMilliseconds)]
   [KnownTautology("child-process test")]
+  [TestTag("Jaribu")]
+  [TestTag("macos")]
   public static async Task StaticMuxerHost_Should_InstrumentACopyInsteadOfTheLoadedOutput()
   {
     using ProbeRun run = ProbeRun.Create();
@@ -136,6 +140,8 @@ public partial class RunfileCoverage_Given_
 
   [Timeout(300_000)]
   [KnownTautology("child-process test")]
+  [TestTag("Jaribu")]
+  [TestTag("macos")]
   public static async Task StaticMuxerHost_Should_CollectFromACopyWithTheRealTool()
   {
     using ProbeRun run = ProbeRun.Create();
@@ -159,6 +165,7 @@ public partial class RunfileCoverage_Given_
       .WithEnvironmentVariable("CORECLR_PROFILER_PATH_32", "0")
       .WithEnvironmentVariable("CORECLR_PROFILER_PATH_64", "0")
       .WithEnvironmentVariable("CORECLR_PROFILER_PATH_ARM64", "0")
+      .WithEnvironmentVariable(FilterTagVariable, string.Empty)
       .WithNoValidation()
       .WithTimeout(TimeSpan.FromMinutes(4))
       .CaptureAsync();

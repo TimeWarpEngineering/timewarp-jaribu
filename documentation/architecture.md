@@ -56,7 +56,7 @@ Options:
 
 | Option | Effect |
 |--------|--------|
-| `--filter-tag` | Any listed tag (repeat the option). A miss is one Skipped node per method, unless that method's attribute constructor throws. That rejection is an Error node and the run fails. `JARIBU_FILTER_TAG` is a comma list. A blank value is ignored. CLI wins when set. |
+| `--filter-tag` | Any listed tag (repeat the option). A miss is one Skipped node per method, unless that method's attribute constructor throws. That rejection is an Error node and the run fails. `JARIBU_FILTER_TAG` is a comma list. A blank value is ignored. CLI wins when set. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule. |
 | `--exclude-tag` | Any listed tag, after include. A hit is one Skipped node whose message names the tag. `JARIBU_EXCLUDE_TAG` is a comma list. CLI wins when set. |
 | `--filter-class` | Substring of the class full name. Non-matches are omitted. |
 | `--filter-method` | Substring of the method name. Non-matches are omitted. |

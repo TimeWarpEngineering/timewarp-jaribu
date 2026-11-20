@@ -18,6 +18,7 @@ using System.Reflection;
 // An invalid header is ignored and the span is a root.
 // Failed, timed out, error, and cancelled outcomes set status Error. Passed sets Ok.
 // Skipped stays unset. code.filepath is set by the MTP adapter when a PDB path exists.
+// Outcome and argument text are the same strings the durations file stores.
 #endregion
 
 /// <summary>
@@ -305,6 +306,16 @@ public static partial class JaribuTelemetry
       TestNodeState.Cancelled => OutcomeCancelled,
       _ => state.ToString().ToLowerInvariant()
     };
+  }
+
+  internal static string OutcomeFor(TestNodeState state)
+  {
+    return OutcomeName(state);
+  }
+
+  internal static string? FormatCaseArguments(IReadOnlyList<object?>? parameters)
+  {
+    return FormatArguments(parameters);
   }
 
   private static bool IsError(TestNodeState state)

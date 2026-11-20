@@ -16,6 +16,9 @@ using TimeWarp.Terminal;
 // The 1.0.0-beta.15 RunAllTests signature (no coverage argument) forwards here.
 // EnterRun wraps every class so the exporter flushes once when the run returns,
 // including when a class fails.
+// A resolved tag filter that executes no test exits 1 after the grand total.
+// That includes a run with no registered classes. allowEmpty does not waive it.
+// A renamed CI tag cannot turn the leg into a pass.
 #endregion
 
 public static partial class TestRunner
@@ -99,7 +102,8 @@ public static partial class TestRunner
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a run with no registered classes or no discoverable tests succeeds.
-  /// The default fails that run.
+  /// The default fails that run. A resolved tag filter that executes no test still fails,
+  /// including when no classes are registered.
   /// </param>
   /// <param name="terminal">
   /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
@@ -109,7 +113,7 @@ public static partial class TestRunner
   /// Stops the run.
   /// </param>
   /// <returns>
-  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, or the token fired.
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, a tag filter executed nothing, the coverage tool is missing, or the token fired.
   /// </returns>
   public static Task<int> RunAllTests(
     string? filterTag,
@@ -138,7 +142,8 @@ public static partial class TestRunner
   /// </param>
   /// <param name="allowEmpty">
   /// When true, a run with no registered classes or no discoverable tests succeeds.
-  /// The default fails that run.
+  /// The default fails that run. A resolved tag filter that executes no test still fails,
+  /// including when no classes are registered.
   /// </param>
   /// <param name="terminal">
   /// Terminal for every class, the empty-registration line, session-dispose failures, and the grand total.
@@ -161,7 +166,7 @@ public static partial class TestRunner
   /// <param name="excludeTag">One exclude tag. A test that carries it is skipped after include.</param>
   /// <param name="excludeTags">More exclude tags. Any match skips the test.</param>
   /// <returns>
-  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, the coverage tool is missing, the coverage report has no classes, or the token fired.
+  /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, a tag filter executed nothing, the coverage tool is missing, the coverage report has no classes, or the token fired.
   /// A coverage relaunch returns the child process exit code, or 1 when that child succeeds and the report has no classes.
   /// </returns>
   public static async Task<int> RunAllTests(
@@ -270,12 +275,11 @@ public static partial class TestRunner
         "⚠ No test classes registered. Use RegisterTests<T>() to register test classes. " +
         "An empty run fails unless allowEmpty is true.");
 #pragma warning restore CA1849
-      if (allowEmpty && !cancellationToken.IsCancellationRequested)
+      // A resolved tag still fails below. allowEmpty does not waive that.
+      if (!allowEmpty || cancellationToken.IsCancellationRequested)
       {
-        return 0;
+        return 1;
       }
-
-      return 1;
     }
 
     List<TestRunStats> allStats = [];
@@ -303,12 +307,13 @@ public static partial class TestRunner
       findings.AddRange(stats.TautologyFindings);
     }
 
+    int totalPassed = allStats.Sum(s => s.PassedCount);
+    int totalFailed = allStats.Sum(s => s.FailedCount);
+    int totalSkipped = allStats.Sum(s => s.SkippedCount);
+
     // Print grand total summary when multiple classes were run
     if (allStats.Count > 1)
     {
-      int totalPassed = allStats.Sum(s => s.PassedCount);
-      int totalFailed = allStats.Sum(s => s.FailedCount);
-      int totalSkipped = allStats.Sum(s => s.SkippedCount);
       int totalTests = totalPassed + totalFailed + totalSkipped;
 
 #pragma warning disable CA1849
@@ -354,6 +359,18 @@ public static partial class TestRunner
         terminal.WriteLine($"{"Skipped:".Yellow()} {totalSkipped.ToString(CultureInfo.InvariantCulture)}");
       }
 #pragma warning restore CA1849
+    }
+
+    TagSelection selection = TestFilter.Resolve(filterTag, filterTags, excludeTag, excludeTags, TautologyDepth.Value);
+    string? resolvedTag = selection.IncludeLabel;
+    if (resolvedTag is not null &&
+        totalPassed + totalFailed == 0 &&
+        !cancellationToken.IsCancellationRequested)
+    {
+      await terminal.WriteLineAsync(
+        $"No tests executed for tag '{resolvedTag}'. A tag filter that selects nothing fails the run.")
+        .ConfigureAwait(false);
+      return 1;
     }
 
     TautologyReport.Write(terminal, findings);

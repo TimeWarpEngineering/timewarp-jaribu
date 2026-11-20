@@ -18,6 +18,7 @@ Jaribu (Swahili: test/trial) provides a convention-based TestRunner pattern that
 - **Tag Filtering**: Run specific test groups.
 - **Small dependency set**: Shouldly for assertions, TimeWarp.Terminal for console output, and TimeWarp.Amuru on the package graph for runfiles that shell out.
 - **Per-test traces**: One span per class and per test case, exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. See [documentation/telemetry.md](documentation/telemetry.md).
+- **Slow-test report**: Every run writes `artifacts/jaribu/durations-<utc>.json` relative to the process working directory. `dev slow-tests` ranks the newest file under the repository root. The report is the input to deciding a PR-gate tag. Hand-tagging a test `slow` without this report is not the convention.
 - **Visual Studio Test Explorer integration** (M.T.P. Mode)
 - **VS Code Test Explorer integration** (M.T.P. Mode)
 - **`dotnet test` support** (M.T.P. Mode)
@@ -409,7 +410,7 @@ dotnet run
 
 | Option | Match | Semantics |
 |--------|-------|-----------|
-| `--filter-tag` | Any of these tags (case-insensitive). Repeat the option or pass several arguments. `JARIBU_FILTER_TAG` is a comma list; CLI wins when set. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method (`No matching tag 'ci'`). A rejected attribute on that method is an **Error** node, and the run fails |
+| `--filter-tag` | Any of these tags (case-insensitive). Repeat the option or pass several arguments. `JARIBU_FILTER_TAG` is a comma list; CLI wins when set. A blank variable is ignored | A class or method whose tags exist and none match is one **Skipped** node per method (`No matching tag 'ci'`). A rejected attribute on that method is an **Error** node, and the run fails. A standalone run whose tag filter executes no test exits 1 even with `allowEmpty`. MTP reports Skipped and does not apply that rule. |
 | `--exclude-tag` | Any of these tags, after include. Same shapes as `--filter-tag`, including `JARIBU_EXCLUDE_TAG` | A class or method that carries one of them is one **Skipped** node (`excluded by tag "slow"`) |
 | `--filter-class` | Substring of class `FullName` (ordinal ignore-case) | Non-matching classes **omitted** (selection) |
 | `--filter-method` | Substring of method name (ordinal ignore-case) | Non-matching methods **omitted** (selection) |
@@ -650,6 +651,22 @@ public static async Task CleanUpOnce()
 - Classes that never call `GetAsync` never create the fixture.
 - Prefer class `SetupOnce`/`CleanUpOnce` when the fixture is per-class only; use session fixtures only when sharing across classes pays off.
 
+## Slow-test report
+
+A run writes one JSON file, `artifacts/jaribu/durations-<utc-timestamp>.json`, with one record per executed case: class, method, case index, the argument text stored on the span, outcome, duration in milliseconds, and `[TestTag]` tags. A skipped case is `skipped` and has no duration. `JARIBU_DURATIONS=0` writes nothing. The default path is relative to the process working directory. `JARIBU_DURATIONS_PATH` replaces the file. When that value is an existing directory, or ends with a directory separator, the timestamped file is written inside it. This repository's `dev test` sets it to `artifacts/jaribu/` under the repository root, so the CI runfile and the MTP `dotnet test` both write `<repo>/artifacts/jaribu/durations-<utc>.json`. `dev slow-tests` reads the newest file in that directory. Pass `--file` when a run used another working directory and did not set the variable. Single-file and multi-file runs both write the file. A runner call from inside a test, including calls that run at the same time, stays out of that file.
+
+```bash
+dev slow-tests
+dev slow-tests --top 10 --file artifacts/jaribu/durations-20261120T010203004Z.json
+dev slow-tests --outcome passed --format markdown
+```
+
+The table is slowest first. Each row shows the cumulative percentage of the timed cases, and the first line shows the share the top N holds. The default N is 20. The command exits 0, including when the durations file is empty: that prints one line. It is a report, not a gate. `--format markdown` is the table to paste into a task or pull request.
+
+Across runs, when spans are exported, `dev slow-tests --signoz` ranks `jaribu.test` for service `TimeWarp.Jaribu` by p50, then p95, so a one-off stall does not outrank a test that is slow on every run. `--outcome` limits those groups. The failure-rate column is blank when `--outcome` is set. See [documentation/telemetry.md](documentation/telemetry.md).
+
+The report is the input to deciding a PR-gate tag. Hand-tagging a test `slow` without this report is not the convention. The report does not change which tests run.
+
 ## Documentation
 
 See the [architecture overview](documentation/architecture.md) for how the runner, sinks, and Microsoft.Testing.Platform adapter fit together.
@@ -659,6 +676,8 @@ See the [architecture overview](documentation/architecture.md) for how the runne
 1. Clone the repository.
 2. Run `dotnet build`.
 3. Run tests with `./bin/dev test`. That is the CI set: the CI-safe runfile at `tests/timewarp-jaribu/multi-file-runners/ci-runner/`, then `dotnet test` on `tests/timewarp-jaribu/multi-file-runners/mtp-runner/`. The MTP validation project is not a third pass/fail target. The harness inside the CI-safe suite runs it out of process and checks the expected node states.
+
+This repo's OS tags are `macos` and `windows`. A test carries one when its behavior branches on that OS. The ubuntu CI leg runs the full suite. The macOS leg sets `JARIBU_FILTER_TAG=macos` and the Windows leg sets `JARIBU_FILTER_TAG=windows`, so those legs run only tests tagged for that OS. A filtered leg that executes no test fails.
 
 ## Contributing
 
