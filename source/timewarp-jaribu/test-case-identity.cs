@@ -18,7 +18,8 @@ using System.Text;
 // [Input(null)] is one null argument. [Skip] and a tag miss stay one method-level
 // node. EnumerateReportedCases is that list for discovery, those short-circuits,
 // and bad once-hook fan-out. ExpandInputs is only the rows that execute.
-// DiscoverTestCases reads JARIBU_FILTER_TAG when filterTag is null.
+// DiscoverTestCases reads JARIBU_FILTER_TAG and JARIBU_EXCLUDE_TAG when the
+// matching arguments are null and the run depth is 0. Inside a run, null stays off.
 // A method whose Jaribu attribute constructor throws is one method-level case.
 // The run reports that case as Error, including when the class tag misses.
 #endregion
@@ -150,6 +151,17 @@ public static class TestCaseIdentity
     MethodInfo method,
     string? filterTag)
   {
+    return EnumerateReportedCases(testClass, method, TestFilter.IncludeOnly(filterTag));
+  }
+
+  /// <summary>
+  /// Returns the nodes a discovery listing and a normal run both emit for an already resolved selection.
+  /// </summary>
+  internal static IReadOnlyList<ReportedTestCase> EnumerateReportedCases(
+    Type testClass,
+    MethodInfo method,
+    TagSelection selection)
+  {
     ArgumentNullException.ThrowIfNull(testClass);
     ArgumentNullException.ThrowIfNull(method);
 
@@ -158,7 +170,7 @@ public static class TestCaseIdentity
       return [MethodCase(testClass, method)];
     }
 
-    if (TestFilter.TagSkipReason(testClass, method, filterTag) is not null ||
+    if (TestFilter.TagSkipReason(testClass, method, selection) is not null ||
         TestRunner.GetMethodMetadata(method).Skip is not null)
     {
       return [MethodCase(testClass, method)];
@@ -172,7 +184,9 @@ public static class TestCaseIdentity
   /// </summary>
   /// <param name="testClass">The test class type to discover tests from.</param>
   /// <param name="filterTag">
-  /// Tag filter. Null reads <c>JARIBU_FILTER_TAG</c>. A blank value is not a filter.
+  /// One include tag. A comma stays part of the tag.
+  /// Null on the outer run reads <c>JARIBU_FILTER_TAG</c> as a comma list. Null inside a run does not.
+  /// A blank value is not a filter.
   /// A class or method whose tags exist and none match contributes one method-level node.
   /// </param>
   /// <param name="methodNameContains">
@@ -182,17 +196,32 @@ public static class TestCaseIdentity
   /// <param name="casePredicate">
   /// Optional per-node predicate. A node is omitted when it does not match.
   /// </param>
+  /// <param name="filterTags">More include tags. Each entry is one tag. See <paramref name="filterTag"/>.</param>
+  /// <param name="excludeTag">One exclude tag. A comma stays part of the tag.</param>
+  /// <param name="excludeTags">
+  /// More exclude tags. Null with a null <paramref name="excludeTag"/> reads <c>JARIBU_EXCLUDE_TAG</c>
+  /// on the outer run only.
+  /// </param>
   public static IEnumerable<ReportedTestCase> DiscoverTestCases(
     Type testClass,
     string? filterTag = null,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
-    Func<ReportedTestCase, bool>? casePredicate = null)
+    Func<ReportedTestCase, bool>? casePredicate = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
+    TagSelection selection = TestFilter.Resolve(
+      filterTag,
+      filterTags,
+      excludeTag,
+      excludeTags,
+      TestRunner.ActiveRunDepth);
     return TestFilter.SelectReportedCases(
       testClass,
-      TestFilter.ResolveTag(filterTag),
+      selection,
       methodNameContains,
       methodPredicate,
       casePredicate);

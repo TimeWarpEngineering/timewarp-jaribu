@@ -7,17 +7,28 @@ using System.Reflection;
 #endregion
 
 #region Design
-// A blank tag is not a filter. JARIBU_FILTER_TAG is read only when the caller
-// passes null, and a whitespace value is ignored. A non-blank value is trimmed.
-// Tag comparison is ordinal ignore-case and includes inherited attributes.
-// A member with no tags matches any tag filter. A member with tags matches
-// when any tag equals the filter.
-// A class tag miss and a method tag miss both contribute one method-level
-// Skipped node, with the same message. They do not expand [Input] rows.
+// Include and exclude are resolved once per class run. A null argument on a
+// side reads that side's environment only when the run depth is 0, the same
+// moment tautology options decide. Inside a run, null stays off and does not
+// inherit the outer filter. A non-null argument suppresses that side's
+// environment read. filterTag and excludeTag are each one tag, including a
+// value that contains a comma. filterTags and excludeTags add more tags, and
+// each entry is one tag. JARIBU_FILTER_TAG and JARIBU_EXCLUDE_TAG are comma
+// lists: split, trim, drop blanks, and keep the first spelling of a repeat.
+// A blank explicit value adds nothing. Comparison is ordinal ignore-case
+// through Normalize, and tags include inherited attributes.
+// A member with no tags matches any include filter. A member with tags
+// matches include when any of its tags equals any include tag. Exclude is
+// applied after include. A class or method that carries any exclude tag is
+// skipped. The message names the first matching exclude tag in filter order,
+// and a class match is named before a method match.
+// A class include miss and a class exclude both contribute one method-level
+// Skipped node and do not expand [Input] rows. The include message is
+// No matching tag 'ci' or No matching tag 'ci', 'smoke'. The exclude message
+// is excluded by tag "slow".
 // Method-name filters and a caller's case predicate omit non-matches and do
 // not emit Skipped nodes. The MTP adapter does not call this type. It passes
-// a raw tag or null into the public discovery and run methods, and it
-// compares uid lists itself.
+// the raw tag lists, or null, into the public discovery and run methods.
 // [Skip] stays a Skipped node. Its reason is the attribute text.
 // SkippedNode is the factory for those short-circuit nodes.
 // A class or method whose Jaribu attribute constructor throws is one
@@ -29,12 +40,15 @@ using System.Reflection;
 #endregion
 
 /// <summary>
-/// Selects reported cases and builds the Skipped node for a tag miss or <see cref="SkipAttribute"/>.
+/// Selects reported cases and builds the Skipped node for a tag miss, an excluded tag, or <see cref="SkipAttribute"/>.
 /// </summary>
 internal static class TestFilter
 {
-  /// <summary>Environment variable that supplies the tag filter when the caller passes null.</summary>
+  /// <summary>Environment variable that supplies include tags when the caller passes null.</summary>
   internal const string EnvironmentVariableName = "JARIBU_FILTER_TAG";
+
+  /// <summary>Environment variable that supplies exclude tags when the caller passes null.</summary>
+  internal const string ExcludeEnvironmentVariableName = "JARIBU_EXCLUDE_TAG";
 
   /// <summary>
   /// Returns null when <paramref name="value"/> is null or whitespace. Otherwise returns the trimmed value.
@@ -50,53 +64,79 @@ internal static class TestFilter
   }
 
   /// <summary>
-  /// Uses <paramref name="explicitTag"/> when the caller passed one, including a blank that means no filter.
-  /// A null argument reads <see cref="EnvironmentVariableName"/>.
+  /// Resolves include and exclude for this run. <paramref name="depth"/> is the tautology depth
+  /// before the run increments it. A depth above zero does not read the environment.
   /// </summary>
-  public static string? ResolveTag(string? explicitTag)
+  public static TagSelection Resolve(
+    string? filterTag,
+    IEnumerable<string>? filterTags,
+    string? excludeTag,
+    IEnumerable<string>? excludeTags,
+    int depth)
   {
-    if (explicitTag is not null)
-    {
-      return Normalize(explicitTag);
-    }
-
-    return ReadEnvironmentTag();
+    IReadOnlyList<string> include = ResolveSide(filterTag, filterTags, EnvironmentVariableName, depth);
+    IReadOnlyList<string> exclude = ResolveSide(excludeTag, excludeTags, ExcludeEnvironmentVariableName, depth);
+    return new TagSelection(include, exclude);
   }
 
   /// <summary>
-  /// Reads <see cref="EnvironmentVariableName"/> and applies <see cref="Normalize"/>.
+  /// One include tag and no exclude, without reading the environment.
+  /// A null or blank value is no filter. A comma stays part of the tag.
   /// </summary>
-  public static string? ReadEnvironmentTag()
+  public static TagSelection IncludeOnly(string? filterTag)
   {
-    return Normalize(Environment.GetEnvironmentVariable(EnvironmentVariableName));
-  }
-
-  /// <summary>
-  /// Returns whether the class passes <paramref name="filterTag"/>.
-  /// No tags, or a null filter, passes. Tags that exist must include the filter.
-  /// </summary>
-  public static bool ClassTagMatches(Type testClass, string? filterTag)
-  {
-    ArgumentNullException.ThrowIfNull(testClass);
-    return TagMatches(testClass, Normalize(filterTag));
-  }
-
-  /// <summary>
-  /// Returns the shared tag-miss message, or null when the class and the method both pass.
-  /// </summary>
-  public static string? TagSkipReason(Type testClass, MethodInfo method, string? filterTag)
-  {
-    ArgumentNullException.ThrowIfNull(testClass);
-    ArgumentNullException.ThrowIfNull(method);
     string? tag = Normalize(filterTag);
     if (tag is null)
     {
-      return null;
+      return TagSelection.None;
     }
 
-    if (!TagMatches(testClass, tag) || !TagMatches(method, tag))
+    return new TagSelection([tag], []);
+  }
+
+  /// <summary>
+  /// Returns the class skip reason, or null when methods are checked individually.
+  /// Include is applied before exclude.
+  /// </summary>
+  public static string? ClassSkipReason(Type testClass, TagSelection selection)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+    if (!IncludeMatches(testClass, selection))
     {
-      return TagMissMessage(tag);
+      return TagMissMessage(selection.Include);
+    }
+
+    string? excluded = FirstExclude(testClass, selection);
+    if (excluded is not null)
+    {
+      return ExcludeMessage(excluded);
+    }
+
+    return null;
+  }
+
+  /// <summary>
+  /// Returns the shared tag-miss or exclude message, or null when the class and the method both pass.
+  /// </summary>
+  public static string? TagSkipReason(Type testClass, MethodInfo method, TagSelection selection)
+  {
+    ArgumentNullException.ThrowIfNull(testClass);
+    ArgumentNullException.ThrowIfNull(method);
+    if (!IncludeMatches(testClass, selection) || !IncludeMatches(method, selection))
+    {
+      return TagMissMessage(selection.Include);
+    }
+
+    string? classExclude = FirstExclude(testClass, selection);
+    if (classExclude is not null)
+    {
+      return ExcludeMessage(classExclude);
+    }
+
+    string? methodExclude = FirstExclude(method, selection);
+    if (methodExclude is not null)
+    {
+      return ExcludeMessage(methodExclude);
     }
 
     return null;
@@ -106,7 +146,26 @@ internal static class TestFilter
   public static string TagMissMessage(string filterTag)
   {
     ArgumentException.ThrowIfNullOrEmpty(filterTag);
-    return $"No matching tag '{filterTag}'";
+    return TagMissMessage((IReadOnlyList<string>)[filterTag]);
+  }
+
+  /// <summary>Message stamped on a class or method tag miss for one or more include tags.</summary>
+  public static string TagMissMessage(IReadOnlyList<string> filterTags)
+  {
+    ArgumentNullException.ThrowIfNull(filterTags);
+    if (filterTags.Count == 0)
+    {
+      throw new ArgumentException("An include miss names at least one tag.", nameof(filterTags));
+    }
+
+    return $"No matching tag '{string.Join("', '", filterTags)}'";
+  }
+
+  /// <summary>Message stamped when an exclude tag removes the test.</summary>
+  public static string ExcludeMessage(string filterTag)
+  {
+    ArgumentException.ThrowIfNullOrEmpty(filterTag);
+    return $"excluded by tag \"{filterTag}\"";
   }
 
   /// <summary>
@@ -126,17 +185,16 @@ internal static class TestFilter
 
   /// <summary>
   /// Lists the cases discovery and a normal run both report.
-  /// <paramref name="filterTag"/> is already resolved: this method does not read the environment.
+  /// <paramref name="selection"/> is already resolved: this method does not read the environment.
   /// </summary>
   public static IEnumerable<ReportedTestCase> SelectReportedCases(
     Type testClass,
-    string? filterTag,
+    TagSelection selection,
     string? methodNameContains = null,
     Func<MethodInfo, bool>? methodPredicate = null,
     Func<ReportedTestCase, bool>? casePredicate = null)
   {
     ArgumentNullException.ThrowIfNull(testClass);
-    filterTag = Normalize(filterTag);
 
     if (JaribuAttributeRead.TryRejectClass(testClass, out _))
     {
@@ -188,7 +246,7 @@ internal static class TestFilter
         continue;
       }
 
-      foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag))
+      foreach (ReportedTestCase testCase in TestCaseIdentity.EnumerateReportedCases(testClass, method, selection))
       {
         if (casePredicate is not null && !casePredicate(testCase))
         {
@@ -201,7 +259,7 @@ internal static class TestFilter
   }
 
   /// <summary>
-  /// Builds the Skipped node for a tag miss or <see cref="SkipAttribute"/>.
+  /// Builds the Skipped node for a tag miss, an excluded tag, or <see cref="SkipAttribute"/>.
   /// The node is the method, not an <see cref="InputAttribute"/> row.
   /// </summary>
   public static TestNodeInfo SkippedNode(ReportedTestCase testCase, string? message)
@@ -220,29 +278,163 @@ internal static class TestFilter
       EndTime: stamp);
   }
 
-  private static bool TagMatches(MemberInfo member, string? filterTag)
+  private static List<string> ResolveSide(
+    string? single,
+    IEnumerable<string>? many,
+    string environmentVariable,
+    int depth)
   {
-    if (filterTag is null)
+    if (single is null && many is null)
+    {
+      if (depth > 0)
+      {
+        return [];
+      }
+
+      return ReadEnvironmentList(environmentVariable);
+    }
+
+    List<string> tags = [];
+    AddTag(tags, single);
+    if (many is not null)
+    {
+      foreach (string tag in many)
+      {
+        AddTag(tags, tag);
+      }
+    }
+
+    return tags;
+  }
+
+  private static List<string> ReadEnvironmentList(string variableName)
+  {
+    string? raw = Environment.GetEnvironmentVariable(variableName);
+    if (string.IsNullOrWhiteSpace(raw))
+    {
+      return [];
+    }
+
+    List<string> tags = [];
+    foreach (string part in raw.Split(','))
+    {
+      AddTag(tags, part);
+    }
+
+    return tags;
+  }
+
+  private static void AddTag(List<string> tags, string? value)
+  {
+    string? normalized = Normalize(value);
+    if (normalized is null)
+    {
+      return;
+    }
+
+    foreach (string existing in tags)
+    {
+      if (existing.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+      {
+        return;
+      }
+    }
+
+    tags.Add(normalized);
+  }
+
+  private static bool IncludeMatches(MemberInfo member, TagSelection selection)
+  {
+    if (selection.Include.Count == 0)
     {
       return true;
     }
 
-    bool any = false;
-    string[] tags = member switch
+    string[] tags = MemberTags(member);
+    if (tags.Length == 0)
+    {
+      return true;
+    }
+
+    foreach (string tag in tags)
+    {
+      foreach (string filter in selection.Include)
+      {
+        if (tag.Equals(filter, StringComparison.OrdinalIgnoreCase))
+        {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private static string? FirstExclude(MemberInfo member, TagSelection selection)
+  {
+    if (selection.Exclude.Count == 0)
+    {
+      return null;
+    }
+
+    string[] tags = MemberTags(member);
+    foreach (string filter in selection.Exclude)
+    {
+      foreach (string tag in tags)
+      {
+        if (tag.Equals(filter, StringComparison.OrdinalIgnoreCase))
+        {
+          return filter;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private static string[] MemberTags(MemberInfo member)
+  {
+    return member switch
     {
       Type type => TestRunner.GetClassMetadata(type).Tags(),
       MethodInfo method => TestRunner.GetMethodMetadata(method).Tags(),
       _ => throw new ArgumentException("Tag filters apply to classes and methods.", nameof(member))
     };
-    foreach (string tag in tags)
-    {
-      any = true;
-      if (tag.Equals(filterTag, StringComparison.OrdinalIgnoreCase))
-      {
-        return true;
-      }
-    }
-
-    return !any;
   }
+}
+
+/// <summary>
+/// Include and exclude tags for one class run. Empty lists are not filters.
+/// </summary>
+internal readonly struct TagSelection
+{
+  /// <summary>No include filter and no exclude filter.</summary>
+  public static TagSelection None { get; } = new([], []);
+
+  /// <summary>Creates a resolved selection. The lists are already normalized.</summary>
+  public TagSelection(IReadOnlyList<string> include, IReadOnlyList<string> exclude)
+  {
+    ArgumentNullException.ThrowIfNull(include);
+    ArgumentNullException.ThrowIfNull(exclude);
+    Include = include;
+    Exclude = exclude;
+  }
+
+  /// <summary>Include tags in caller order. Empty means every member passes include.</summary>
+  public IReadOnlyList<string> Include { get; }
+
+  /// <summary>Exclude tags in caller order. Empty means exclude removes nothing.</summary>
+  public IReadOnlyList<string> Exclude { get; }
+
+  /// <summary>
+  /// Banner text for the include filter. One tag is unchanged. Several tags are comma-joined.
+  /// Null when there is no include filter, including an exclude-only run.
+  /// </summary>
+  public string? IncludeLabel =>
+    Include.Count switch
+    {
+      0 => null,
+      1 => Include[0],
+      _ => string.Join(", ", Include)
+    };
 }

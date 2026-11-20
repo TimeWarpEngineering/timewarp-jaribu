@@ -46,6 +46,9 @@ public static partial class TestRunner
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// Named use keeps a new optional parameter from shifting this token.
   /// </param>
+  /// <param name="filterTags">More include tags. Each entry is one tag.</param>
+  /// <param name="excludeTag">One exclude tag. A test that carries it is skipped after include.</param>
+  /// <param name="excludeTags">More exclude tags. Any match skips the test.</param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, or the token fired.
   /// Strict tautology failures count as test failures.
@@ -56,6 +59,9 @@ public static partial class TestRunner
     bool allowEmpty = false,
     ITerminal? terminal = null,
     TautologyOptions? tautology = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null,
     CancellationToken cancellationToken = default) where T : class
   {
     bool ownsTerminal = terminal is null;
@@ -69,7 +75,10 @@ public static partial class TestRunner
         cancellationToken: cancellationToken,
         strictSignatures: strictSignatures,
         allowEmpty: allowEmpty,
-        tautology: tautology).ConfigureAwait(false);
+        tautology: tautology,
+        filterTags: filterTags,
+        excludeTag: excludeTag,
+        excludeTags: excludeTags).ConfigureAwait(false);
       TautologyReport.Write(output, stats.TautologyFindings);
       return ExitCodeFor(stats, cancellationToken);
     }
@@ -153,6 +162,9 @@ public static partial class TestRunner
   /// Stops the run. Defaults to <see cref="CancellationToken.None"/> so existing callers stay source compatible.
   /// The 1.0.0-beta.15 overload keeps a positional token on that signature.
   /// </param>
+  /// <param name="filterTags">More include tags. Each entry is one tag.</param>
+  /// <param name="excludeTag">One exclude tag. A test that carries it is skipped after include.</param>
+  /// <param name="excludeTags">More exclude tags. Any match skips the test.</param>
   /// <returns>
   /// Exit code: 0 when the run succeeded, 1 when a test failed, no tests executed, a tag filter executed nothing, the coverage tool is missing, the coverage report has no classes, or the token fired.
   /// A coverage relaunch returns the child process exit code, or 1 when that child succeeds and the report has no classes.
@@ -164,6 +176,9 @@ public static partial class TestRunner
     ITerminal? terminal = null,
     RunfileCoverageOptions? coverage = null,
     TautologyOptions? tautology = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null,
     CancellationToken cancellationToken = default)
   {
     int? relaunched = await RunfileCoverage.TryRelaunchAsync(
@@ -192,6 +207,9 @@ public static partial class TestRunner
           allowEmpty,
           output,
           tautology,
+          filterTags,
+          excludeTag,
+          excludeTags,
           cancellationToken);
       }
       finally
@@ -243,6 +261,9 @@ public static partial class TestRunner
     bool allowEmpty,
     ITerminal terminal,
     TautologyOptions? tautology,
+    IEnumerable<string>? filterTags,
+    string? excludeTag,
+    IEnumerable<string>? excludeTags,
     CancellationToken cancellationToken)
   {
     // Snapshot so RegisterTests / ClearRegisteredTests during a class cannot tear the list.
@@ -278,6 +299,9 @@ public static partial class TestRunner
         allowEmpty,
         terminal,
         tautology,
+        filterTags,
+        excludeTag,
+        excludeTags,
         cancellationToken).ConfigureAwait(false);
       allStats.Add(stats);
       findings.AddRange(stats.TautologyFindings);
@@ -337,7 +361,8 @@ public static partial class TestRunner
 #pragma warning restore CA1849
     }
 
-    string? resolvedTag = TestFilter.ResolveTag(filterTag);
+    TagSelection selection = TestFilter.Resolve(filterTag, filterTags, excludeTag, excludeTags, TautologyDepth.Value);
+    string? resolvedTag = selection.IncludeLabel;
     if (resolvedTag is not null &&
         totalPassed + totalFailed == 0 &&
         !cancellationToken.IsCancellationRequested)
@@ -363,6 +388,9 @@ public static partial class TestRunner
     bool allowEmpty,
     ITerminal terminal,
     TautologyOptions? tautology,
+    IEnumerable<string>? filterTags,
+    string? excludeTag,
+    IEnumerable<string>? excludeTags,
     CancellationToken cancellationToken)
   {
     using TerminalSink sink = new(terminal);
@@ -373,6 +401,9 @@ public static partial class TestRunner
       cancellationToken: cancellationToken,
       strictSignatures: strictSignatures,
       allowEmpty: allowEmpty,
-      tautology: tautology).ConfigureAwait(false);
+      tautology: tautology,
+      filterTags: filterTags,
+      excludeTag: excludeTag,
+      excludeTags: excludeTags).ConfigureAwait(false);
   }
 }

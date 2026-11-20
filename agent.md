@@ -61,7 +61,7 @@ TestRunner.RunTestsAsync(sink)
 - An empty class, and `RunAllTests` with no registered classes, fails unless `allowEmpty` or `--allow-empty` is set. A method, method-predicate, or case filter skips that empty-class node
 - Sink-based API: `RunTestsAsync<T>(sink)` and `RunTestsAsync(type, sink)`
 - Backward-compatible API: `RunTests<T>()` and `RunAllTests()` use TerminalSink internally. They do not clear the runfile cache
-- Filters tests by [Skip], [TestTag], and environment variable `JARIBU_FILTER_TAG`. A blank variable is ignored. A class or method whose tags exist and none match is one Skipped node per method. A rejected attribute on that method is an Error node, and the run fails
+- Filters tests by [Skip], [TestTag], `JARIBU_FILTER_TAG`, and `JARIBU_EXCLUDE_TAG`. Tags are free-form. An include matches any listed tag. An exclude skips a carrier after include, and the message names that tag. A blank variable is ignored. A null filter inside a run does not read the environment. A class or method whose tags exist and none match is one Skipped node per method. A rejected attribute on that method is an Error node, and the run fails
 - Supports parameterized tests via [Input] attributes
 - Resolves Setup/CleanUp once per class with the same signature rule as SetupOnce/CleanUpOnce. A near-miss hook fails the class
 - Reports pass/fail counts and exit code (0 = all passed, 1 = any failed, none executed, or cancelled)

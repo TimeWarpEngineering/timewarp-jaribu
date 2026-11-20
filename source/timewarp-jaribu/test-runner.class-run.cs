@@ -27,8 +27,9 @@ using System.Reflection;
 // nothing does not invent a node. A class tag miss emits one Skipped node
 // per method and does not run hooks or signature diagnostics. A method
 // whose Jaribu attribute constructor throws is an Error node on that path
-// too, and the run fails. A method tag miss is Skipped unless that
-// constructor throws.
+// too, and the run fails. A class exclude does the same after include, and
+// the skip message names that tag. A method tag miss or method exclude is
+// Skipped unless that constructor throws.
 // Near-miss tests warn unless strictSignatures is set. A method predicate
 // or case predicate that selects no nodes omits those strict Error nodes.
 // A method-name filter still reports them.
@@ -44,6 +45,12 @@ public static partial class TestRunner
   private static readonly AsyncLocal<int> TautologyDepth = new();
 
   /// <summary>
+  /// Run depth before the current class run increments it. Zero is the outer run.
+  /// Discovery uses this so a nested call does not read tag environment variables.
+  /// </summary>
+  internal static int ActiveRunDepth => TautologyDepth.Value;
+
+  /// <summary>
   /// Core implementation for running tests with a sink.
   /// Owns a session-of-one when no outer session is active.
   /// </summary>
@@ -57,9 +64,13 @@ public static partial class TestRunner
     bool strictSignatures = false,
     bool allowEmpty = false,
     TautologyOptions? tautology = null,
+    IEnumerable<string>? filterTags = null,
+    string? excludeTag = null,
+    IEnumerable<string>? excludeTags = null,
     CancellationToken cancellationToken = default)
   {
-    TautologyOptions tautologyOptions = TautologyOptions.ForRun(tautology, TautologyDepth.Value);
+    int filterDepth = TautologyDepth.Value;
+    TautologyOptions tautologyOptions = TautologyOptions.ForRun(tautology, filterDepth);
     using CancellationScope scope = new(cancellationToken);
     bool classAttributeRejected = JaribuAttributeRead.TryRejectClass(
       testClass,
@@ -107,8 +118,13 @@ public static partial class TestRunner
         }
       }
 
-      // Null reads JARIBU_FILTER_TAG. A blank explicit value does not.
-      filterTag = TestFilter.ResolveTag(filterTag);
+      // Null on the outer run reads the tag environment. Inside a run, null stays off.
+      TagSelection tags = TestFilter.Resolve(
+        filterTag,
+        filterTags,
+        excludeTag,
+        excludeTags,
+        filterDepth);
 
       string className = ReportedClassName(testClass);
       classSpan = JaribuTelemetry.StartClass(testClass);
@@ -116,14 +132,12 @@ public static partial class TestRunner
       // Class tag miss: same nodes discovery lists. No hooks, no signature diagnostics.
       // A rejected method stays an Error node, the same as a method tag miss.
       if (!classAttributeRejected &&
-          filterTag is not null &&
-          !TestFilter.ClassTagMatches(testClass, filterTag))
+          TestFilter.ClassSkipReason(testClass, tags) is string classReason)
       {
-        await sink.OnRunStartedAsync(className, filterTag);
-        string reason = TestFilter.TagMissMessage(filterTag);
+        await sink.OnRunStartedAsync(className, tags.IncludeLabel);
         foreach (ReportedTestCase testCase in TestFilter.SelectReportedCases(
           testClass,
-          filterTag,
+          tags,
           methodNameContains,
           methodPredicate,
           casePredicate))
@@ -150,7 +164,7 @@ public static partial class TestRunner
           results.AddRange(await ReportSkippedAsync(
             testClass,
             testCase,
-            reason,
+            classReason,
             casePredicate: null,
             sink));
         }
@@ -172,7 +186,7 @@ public static partial class TestRunner
       }
 
       // Notify sink that run is starting
-      await sink.OnRunStartedAsync(className, filterTag);
+      await sink.OnRunStartedAsync(className, tags.IncludeLabel);
 
       List<NearMiss> nearMisses = DescribeNearMissTests(testClass);
       List<MethodInfo> testMethods = DiscoverTests(testClass).ToList();
@@ -249,7 +263,7 @@ public static partial class TestRunner
           }
 
           List<ReportedTestCase> cases = SelectCases(
-            TestCaseIdentity.EnumerateReportedCases(testClass, method, filterTag),
+            TestCaseIdentity.EnumerateReportedCases(testClass, method, tags),
             casePredicate);
           if (cases.Count == 0)
           {
@@ -302,7 +316,7 @@ public static partial class TestRunner
               testClass,
               method,
               sink,
-              filterTag,
+              tags,
               onceState,
               casePredicate,
               setupResolve.Method,

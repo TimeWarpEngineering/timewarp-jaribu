@@ -5,16 +5,20 @@ using Microsoft.Testing.Platform.Extensions.CommandLine;
 
 #region Purpose
 // MTP command-line options for Jaribu selection filters and run policy:
-// --filter-tag, --filter-class, --filter-method, --strict-signatures, --allow-empty,
+// --filter-tag, --exclude-tag, --filter-class, --filter-method, --strict-signatures, --allow-empty,
 // --per-test-coverage, --prove, --strict-tautology, --require-claims.
 #endregion
 
 #region Design
 // Implements ICommandLineOptionsProvider (extends IExtension) with its own uid.
 // The framework extension keeps TimeWarp.Jaribu. Sharing that uid trips MTP's
-// duplicate-extension check. Filter options use ArgumentArity.ExactlyOne.
+// duplicate-extension check. --filter-class and --filter-method use
+// ArgumentArity.ExactlyOne. --filter-tag and --exclude-tag use
+// ArgumentArity.OneOrMore, so a repeated flag or several arguments are one list.
+// A comma inside one argument stays part of that tag. Comma lists are the
+// environment shape, not the CLI shape.
 // The two policy flags use ArgumentArity.Zero. None are hidden.
-// ValidateOptionArgumentsAsync rejects an empty filter argument and rejects
+// ValidateOptionArgumentsAsync rejects an empty tag argument and rejects
 // an argument on a flag. Read at execute time via
 // ServiceProviderExtensions.GetCommandLineOptions.
 #endregion
@@ -26,6 +30,9 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
 {
   /// <summary>Option name: filter tests by <see cref="TestTagAttribute"/> tag.</summary>
   public const string FilterTagOption = "filter-tag";
+
+  /// <summary>Option name: skip tests that carry <see cref="TestTagAttribute"/>.</summary>
+  public const string ExcludeTagOption = "exclude-tag";
 
   /// <summary>Option name: substring match on test class FullName.</summary>
   public const string FilterClassOption = "filter-class";
@@ -64,8 +71,13 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
     [
       new CommandLineOption(
         FilterTagOption,
-        "Run tests with this Jaribu TestTag (case-insensitive). A class or method whose tags exist and none match is Skipped. CLI wins over JARIBU_FILTER_TAG. A blank variable is ignored.",
-        ArgumentArity.ExactlyOne,
+        "Run tests that carry any of these Jaribu tags (case-insensitive). Repeat the option or pass several arguments. A class or method whose tags exist and none match is Skipped. CLI wins over JARIBU_FILTER_TAG. A blank variable is ignored.",
+        ArgumentArity.OneOrMore,
+        isHidden: false),
+      new CommandLineOption(
+        ExcludeTagOption,
+        "Skip tests that carry any of these Jaribu tags (case-insensitive), after --filter-tag. Repeat the option or pass several arguments. CLI wins over JARIBU_EXCLUDE_TAG. A blank variable is ignored.",
+        ArgumentArity.OneOrMore,
         isHidden: false),
       new CommandLineOption(
         FilterClassOption,
@@ -131,7 +143,7 @@ internal sealed class JaribuCommandLineOptionsProvider : ICommandLineOptionsProv
         $"Option '--{commandOption.Name}' does not take an argument.");
     }
 
-    if (arguments.Length == 0 || string.IsNullOrWhiteSpace(arguments[0]))
+    if (arguments.Length == 0 || Array.Exists(arguments, string.IsNullOrWhiteSpace))
     {
       return ValidationResult.InvalidTask(
         $"Option '--{commandOption.Name}' requires a non-empty argument.");
